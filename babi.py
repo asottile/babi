@@ -50,12 +50,15 @@ def _init_colors(stdscr: '_curses._CursesWindow') -> None:
 
 
 def _color_test(stdscr: '_curses._CursesWindow') -> None:
-    maxy, maxx = stdscr.getmaxyx()
-    if maxy < 16 or maxx < 64:
-        raise SystemExit('--color-test needs a window of at least 64 x 16')
+    _write_header(stdscr, '<<color test>>', modified=False)
 
-    x = y = 0
+    maxy, maxx = stdscr.getmaxyx()
+    if maxy < 19 or maxx < 68:
+        raise SystemExit('--color-test needs a window of at least 68 x 19')
+
+    y = 1
     for fg in range(-1, 16):
+        x = 0
         for bg in range(-1, 16):
             if bg > fg:
                 s = f'*{COLORS[bg, fg]:3}'
@@ -64,7 +67,6 @@ def _color_test(stdscr: '_curses._CursesWindow') -> None:
             stdscr.addstr(y, x, s, _color(fg, bg))
             x += 4
         y += 1
-        x = 0
     stdscr.get_wch()
 
 

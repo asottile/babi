@@ -2,6 +2,7 @@ import contextlib
 import shlex
 import sys
 
+import pytest
 from hecate import Runner
 
 import babi
@@ -26,6 +27,13 @@ def await_text_missing(h, text):
         if text not in munged:  # pragma: no branch
             return
     raise AssertionError(f'Timeout while waiting for text {text!r} to appear')
+
+
+@pytest.mark.parametrize('color', (True, False))
+def test_color_test(color):
+    with run('--color-test', color=color) as h:
+        h.await_text('*  1*  2')
+        h.press('C-x')
 
 
 def test_can_start_without_color():
