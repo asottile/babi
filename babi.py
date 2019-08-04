@@ -119,7 +119,9 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
         key = wch if isinstance(wch, int) else ord(wch)
         keyname = curses.keyname(key)
 
-        if key == curses.KEY_DOWN:
+        if key == curses.KEY_RESIZE:
+            curses.update_lines_cols()
+        elif key == curses.KEY_DOWN:
             position_y = min(position_y + 1, curses.LINES - 2)
         elif key == curses.KEY_UP:
             position_y = max(position_y - 1, 0)
