@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+export \
+    PYTHONBREAKPOINT=remote_pdb.set_trace \
+    REMOTE_PDB_HOST=127.0.0.1 \
+    REMOTE_PDB_PORT=4444 \
+    REMOTE_PDB_QUIET=1
+exec babi "$@"
