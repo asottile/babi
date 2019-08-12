@@ -4,8 +4,20 @@ import sys
 
 import pytest
 from hecate import Runner
+from hecate.hecate import AbnormalExit
 
 import babi
+
+
+class PrintsErrorRunner(Runner):
+    def await_exit(self, *args, **kwargs):
+        try:
+            return super().await_exit(*args, **kwargs)
+        except AbnormalExit:  # pragma: no cover
+            print('=' * 79, flush=True)
+            print(self.screenshot(), end='', flush=True)
+            print('=' * 79, flush=True)
+            raise
 
 
 @contextlib.contextmanager
@@ -14,7 +26,7 @@ def run(*args, color=True, **kwargs):
     quoted = ' '.join(shlex.quote(p) for p in cmd)
     term = 'screen-256color' if color else 'screen'
     cmd = ('bash', '-c', f'export TERM={term}; exec {quoted}')
-    with Runner(*cmd, **kwargs) as h:
+    with PrintsErrorRunner(*cmd, **kwargs) as h:
         h.await_text(babi.VERSION_STR)
         yield h
 
@@ -86,6 +98,7 @@ def test_window_bounds(tmpdir):
     f.write(f'{"x" * 40}\n' * 40)
 
     with run(str(f), width=30, height=30) as h, and_exit(h):
+        h.await_text('x' * 30)
         # make sure we don't go off the top left of the screen
         h.press('LEFT')
         h.press('UP')

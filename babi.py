@@ -2,6 +2,7 @@ import _curses
 import argparse
 import curses
 from typing import Dict
+from typing import List
 from typing import Tuple
 
 VERSION_STR = 'babi v0'
@@ -92,6 +93,15 @@ def _write_status(stdscr: '_curses._CursesWindow', status: str) -> None:
         stdscr.addstr(curses.LINES - 1, offset, status, curses.A_REVERSE)
 
 
+def _write_lines(stdscr: '_curses._CursesWindow', lines: List[str]) -> None:
+    lines_to_display = min(len(lines), curses.LINES - 2)
+    for i in range(lines_to_display):
+        stdscr.addstr(i + 1, 0, lines[i][:curses.COLS])
+    blankline = ' ' * curses.COLS
+    for i in range(lines_to_display, curses.LINES - 2):
+        stdscr.addstr(i + 1, 0, blankline)
+
+
 def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
     _init_colors(stdscr)
 
@@ -102,6 +112,12 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
     status = ''
     status_action_counter = -1
     position_y, position_x = 0, 0
+
+    if args.filename is not None:
+        with open(args.filename) as f:
+            lines = list(f)
+    else:
+        lines = []
 
     def _set_status(s: str) -> None:
         nonlocal status, status_action_counter
@@ -115,6 +131,7 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
 
         _write_header(stdscr, filename, modified=False)
         _write_status(stdscr, status)
+        _write_lines(stdscr, lines)
         stdscr.move(position_y + 1, position_x)
 
         wch = stdscr.get_wch()
