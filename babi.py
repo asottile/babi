@@ -85,21 +85,35 @@ def _write_header(
     stdscr.addstr(0, 0, s, curses.A_REVERSE)
 
 
-def _write_status(stdscr: '_curses._CursesWindow', status: str) -> None:
-    stdscr.addstr(curses.LINES - 1, 0, ' ' * (curses.COLS - 1))
-    if status:
-        status = f' {status} '
-        offset = (curses.COLS - len(status)) // 2
-        stdscr.addstr(curses.LINES - 1, offset, status, curses.A_REVERSE)
-
-
 def _write_lines(stdscr: '_curses._CursesWindow', lines: List[str]) -> None:
-    lines_to_display = min(len(lines), curses.LINES - 2)
+    if curses.LINES == 1:
+        header, footer = 0, 0
+    elif curses.LINES == 2:
+        header, footer = 0, 1
+    else:
+        header, footer = 1, 1
+
+    max_lines = curses.LINES - header - footer
+    lines_to_display = min(len(lines), max_lines)
     for i in range(lines_to_display):
-        stdscr.addstr(i + 1, 0, lines[i][:curses.COLS])
+        line = lines[i][:curses.COLS].rstrip('\r\n').ljust(curses.COLS)
+        stdscr.insstr(i + header, 0, line)
     blankline = ' ' * curses.COLS
-    for i in range(lines_to_display, curses.LINES - 2):
-        stdscr.addstr(i + 1, 0, blankline)
+    for i in range(lines_to_display, max_lines):
+        stdscr.insstr(i + header, 0, blankline)
+
+
+def _write_status(stdscr: '_curses._CursesWindow', status: str) -> None:
+    if curses.LINES > 1 or status:
+        stdscr.insstr(curses.LINES - 1, 0, ' ' * curses.COLS)
+        if status:
+            status = f' {status} '
+            offset = (curses.COLS - len(status)) // 2
+            stdscr.addstr(curses.LINES - 1, offset, status, curses.A_REVERSE)
+
+
+def _move(stdscr: '_curses._CursesWindow', x: int, y: int) -> None:
+    stdscr.move(y + (curses.LINES > 2), x)
 
 
 def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
@@ -122,17 +136,22 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
     def _set_status(s: str) -> None:
         nonlocal status, status_action_counter
         status = s
-        status_action_counter = 25
+        # if the window is only 1-tall, clear status quicker
+        if curses.LINES == 1:
+            status_action_counter = 1
+        else:
+            status_action_counter = 25
 
     while True:
         if status_action_counter == 0:
             status = ''
         status_action_counter -= 1
 
-        _write_header(stdscr, filename, modified=False)
-        _write_status(stdscr, status)
+        if curses.LINES > 2:
+            _write_header(stdscr, filename, modified=False)
         _write_lines(stdscr, lines)
-        stdscr.move(position_y + 1, position_x)
+        _write_status(stdscr, status)
+        _move(stdscr, x=position_x, y=position_y)
 
         wch = stdscr.get_wch()
         key = wch if isinstance(wch, int) else ord(wch)

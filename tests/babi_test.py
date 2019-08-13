@@ -33,21 +33,20 @@ def run(*args, color=True, **kwargs):
 
 @contextlib.contextmanager
 def and_exit(h):
-    try:
-        yield
-    finally:
-        h.press('C-x')
-        h.await_exit()
+    yield
+    # only try and exit in non-exceptional cases
+    h.press('C-x')
+    h.await_exit()
 
 
-def await_text_missing(h, text):
+def await_text_missing(h, s):
     """largely based on await_text"""
     for _ in h.poll_until_timeout():
         screen = h.screenshot()
         munged = screen.replace('\n', '')
-        if text not in munged:  # pragma: no branch
+        if s not in munged:  # pragma: no branch
             return
-    raise AssertionError(f'Timeout while waiting for text {text!r} to appear')
+    raise AssertionError(f'Timeout while waiting for text {s!r} to disappear')
 
 
 def get_size(h):
@@ -63,7 +62,7 @@ def resize(h, width, height):
     panes = 0
 
     hsplit_w = current_w - width - 1
-    if hsplit_w > 0:  # pragma: no branch  # TODO
+    if hsplit_w > 0:
         cmd = ('split-window', '-ht0', '-l', hsplit_w, 'sleep', 'infinity')
         h.tmux.execute_command(*cmd)
         panes += 1
@@ -106,6 +105,43 @@ def test_window_bounds(tmpdir):
         for i in range(32):
             h.press('RIGHT')
             h.press('DOWN')
+
+
+def test_window_height_2(tmpdir):
+    # 2 tall:
+    # - header is hidden, otherwise behaviour is normal
+    f = tmpdir.join('f.txt')
+    f.write('hello world')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('hello world')
+
+        with resize(h, 80, 2):
+            await_text_missing(h, babi.VERSION_STR)
+            assert h.screenshot() == 'hello world\n\n'
+            h.press('C-j')
+            h.await_text('unknown key')
+
+        h.await_text(babi.VERSION_STR)
+
+
+def test_window_height_1(tmpdir):
+    # 1 tall:
+    # - only file contents as body
+    # - status takes precedence over body, but cleared after single action
+    f = tmpdir.join('f.txt')
+    f.write('hello world')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('hello world')
+
+        with resize(h, 80, 1):
+            await_text_missing(h, babi.VERSION_STR)
+            assert h.screenshot() == 'hello world\n'
+            h.press('C-j')
+            h.await_text('unknown key')
+            h.press('Right')
+            await_text_missing(h, 'unknown key')
 
 
 def test_status_clearing_behaviour():
