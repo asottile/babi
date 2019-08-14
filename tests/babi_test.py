@@ -1,23 +1,87 @@
 import contextlib
 import shlex
 import sys
+from typing import List
 
 import pytest
 from hecate import Runner
-from hecate.hecate import AbnormalExit
 
 import babi
 
 
 class PrintsErrorRunner(Runner):
-    def await_exit(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs):
+        self._screenshots: List[str] = []
+        super().__init__(*args, **kwargs)
+
+    def screenshot(self, *args, **kwargs):
+        ret = super().screenshot(*args, **kwargs)
+        if not self._screenshots or self._screenshots[-1] != ret:
+            self._screenshots.append(ret)
+        return ret
+
+    @contextlib.contextmanager
+    def _onerror(self):
         try:
-            return super().await_exit(*args, **kwargs)
-        except AbnormalExit:  # pragma: no cover
+            yield
+        except Exception:  # pragma: no cover
+            # take a screenshot of the final state
+            self.screenshot()
             print('=' * 79, flush=True)
-            print(self.screenshot(), end='', flush=True)
-            print('=' * 79, flush=True)
+            for screenshot in self._screenshots:
+                print(screenshot, end='', flush=True)
+                print('=' * 79, flush=True)
             raise
+
+    def await_exit(self, *args, **kwargs):
+        with self._onerror():
+            return super().await_exit(*args, **kwargs)
+
+    def await_text(self, *args, **kwargs):
+        with self._onerror():
+            return super().await_text(*args, **kwargs)
+
+    def await_text_missing(self, s):
+        """largely based on await_text"""
+        with self._onerror():
+            for _ in self.poll_until_timeout():
+                screen = self.screenshot()
+                munged = screen.replace('\n', '')
+                if s not in munged:  # pragma: no branch
+                    return
+            raise AssertionError(
+                f'Timeout while waiting for text {s!r} to disappear',
+            )
+
+    def get_pane_size(self):
+        cmd = ('display', '-t0', '-p', '#{pane_width}\t#{pane_height}')
+        w, h = self.tmux.execute_command(*cmd).split()
+        return int(w), int(h)
+
+    @contextlib.contextmanager
+    def resize(self, width, height):
+        current_w, current_h = self.get_pane_size()
+
+        panes = 0
+
+        hsplit_w = current_w - width - 1
+        if hsplit_w > 0:
+            cmd = ('split-window', '-ht0', '-l', hsplit_w, 'sleep', 'infinity')
+            self.tmux.execute_command(*cmd)
+            panes += 1
+
+        vsplit_h = current_h - height - 1
+        if vsplit_h > 0:  # pragma: no branch  # TODO
+            cmd = ('split-window', '-vt0', '-l', vsplit_h, 'sleep', 'infinity')
+            self.tmux.execute_command(*cmd)
+            panes += 1
+
+        assert self.get_pane_size() == (width, height)
+        try:
+            yield
+        finally:
+            for _ in range(panes):
+                self.tmux.execute_command('kill-pane', '-t1')
 
 
 @contextlib.contextmanager
@@ -37,48 +101,6 @@ def and_exit(h):
     # only try and exit in non-exceptional cases
     h.press('C-x')
     h.await_exit()
-
-
-def await_text_missing(h, s):
-    """largely based on await_text"""
-    for _ in h.poll_until_timeout():
-        screen = h.screenshot()
-        munged = screen.replace('\n', '')
-        if s not in munged:  # pragma: no branch
-            return
-    raise AssertionError(f'Timeout while waiting for text {s!r} to disappear')
-
-
-def get_size(h):
-    cmd = ('display', '-t0', '-p', '#{pane_width}\t#{pane_height}')
-    w, h = h.tmux.execute_command(*cmd).split()
-    return int(w), int(h)
-
-
-@contextlib.contextmanager
-def resize(h, width, height):
-    current_w, current_h = get_size(h)
-
-    panes = 0
-
-    hsplit_w = current_w - width - 1
-    if hsplit_w > 0:
-        cmd = ('split-window', '-ht0', '-l', hsplit_w, 'sleep', 'infinity')
-        h.tmux.execute_command(*cmd)
-        panes += 1
-
-    vsplit_h = current_h - height - 1
-    if vsplit_h > 0:  # pragma: no branch  # TODO
-        cmd = ('split-window', '-vt0', '-l', vsplit_h, 'sleep', 'infinity')
-        h.tmux.execute_command(*cmd)
-        panes += 1
-
-    assert get_size(h) == (width, height)
-    try:
-        yield
-    finally:
-        for _ in range(panes):
-            h.tmux.execute_command('kill-pane', '-t1')
 
 
 @pytest.mark.parametrize('color', (True, False))
@@ -116,8 +138,8 @@ def test_window_height_2(tmpdir):
     with run(str(f)) as h, and_exit(h):
         h.await_text('hello world')
 
-        with resize(h, 80, 2):
-            await_text_missing(h, babi.VERSION_STR)
+        with h.resize(80, 2):
+            h.await_text_missing(babi.VERSION_STR)
             assert h.screenshot() == 'hello world\n\n'
             h.press('C-j')
             h.await_text('unknown key')
@@ -135,13 +157,13 @@ def test_window_height_1(tmpdir):
     with run(str(f)) as h, and_exit(h):
         h.await_text('hello world')
 
-        with resize(h, 80, 1):
-            await_text_missing(h, babi.VERSION_STR)
+        with h.resize(80, 1):
+            h.await_text_missing(babi.VERSION_STR)
             assert h.screenshot() == 'hello world\n'
             h.press('C-j')
             h.await_text('unknown key')
             h.press('Right')
-            await_text_missing(h, 'unknown key')
+            h.await_text_missing('unknown key')
 
 
 def test_status_clearing_behaviour():
@@ -152,12 +174,12 @@ def test_status_clearing_behaviour():
             h.press('LEFT')
         h.await_text('unknown key')
         h.press('LEFT')
-        await_text_missing(h, 'unknown key')
+        h.await_text_missing('unknown key')
 
 
 def test_reacts_to_resize():
     with run() as h, and_exit(h):
         first_line = h.screenshot().splitlines()[0]
-        with resize(h, 40, 20):
+        with h.resize(40, 20):
             # the first line should be different after resize
-            await_text_missing(h, first_line)
+            h.await_text_missing(first_line)
