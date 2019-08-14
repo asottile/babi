@@ -1,11 +1,110 @@
 import _curses
 import argparse
+import collections
 import curses
+import io
 from typing import Dict
+from typing import IO
 from typing import List
+from typing import NamedTuple
 from typing import Tuple
 
 VERSION_STR = 'babi v0'
+
+
+class Margin(NamedTuple):
+    header: bool
+    footer: bool
+
+    @property
+    def body_lines(self) -> int:
+        return curses.LINES - self.header - self.footer
+
+    @classmethod
+    def from_screen(cls, screen: '_curses._CursesWindow') -> 'Margin':
+        if curses.LINES == 1:
+            return cls(header=False, footer=False)
+        elif curses.LINES == 2:
+            return cls(header=False, footer=True)
+        else:
+            return cls(header=True, footer=True)
+
+
+class Position:
+    def __init__(
+            self,
+            file_line: int = 0,
+            cursor_line: int = 0,
+            x: int = 0,
+            cursor_x_hint: int = 0,
+    ) -> None:
+        self.file_line = file_line
+        self.cursor_line = cursor_line
+        self.x = x
+        self.cursor_x_hint = 0
+
+    def __repr__(self) -> str:
+        attrs = ', '.join(f'{k}={v}' for k, v in self.__dict__.items())
+        return f'{type(self).__name__}({attrs})'
+
+    def _scroll_amount(self) -> int:
+        return int(curses.LINES / 2 + .5)
+
+    def _set_x_after_vertical_movement(self, lines: List[str]) -> None:
+        self.x = min(len(lines[self.cursor_line]), self.cursor_x_hint)
+
+    def maybe_scroll_down(self, margin: Margin) -> None:
+        if self.cursor_line >= self.file_line + margin.body_lines:
+            self.file_line += self._scroll_amount()
+
+    def down(self, margin: Margin, lines: List[str]) -> None:
+        if self.cursor_line < len(lines) - 1:
+            self.cursor_line += 1
+            self.maybe_scroll_down(margin)
+            self._set_x_after_vertical_movement(lines)
+
+    def maybe_scroll_up(self, margin: Margin) -> None:
+        if self.cursor_line < self.file_line:
+            self.file_line -= self._scroll_amount()
+
+    def up(self, margin: Margin, lines: List[str]) -> None:
+        if self.cursor_line > 0:
+            self.cursor_line -= 1
+            self.maybe_scroll_up(margin)
+            self._set_x_after_vertical_movement(lines)
+
+    def right(self, margin: Margin, lines: List[str]) -> None:
+        if self.x >= len(lines[self.cursor_line]):
+            if self.cursor_line < len(lines) - 1:
+                self.x = 0
+                self.cursor_line += 1
+                self.maybe_scroll_down(margin)
+        else:
+            self.x += 1
+        self.cursor_x_hint = self.x
+
+    def left(self, margin: Margin, lines: List[str]) -> None:
+        if self.x == 0:
+            if self.cursor_line > 0:
+                self.cursor_line -= 1
+                self.x = len(lines[self.cursor_line])
+                self.maybe_scroll_up(margin)
+        else:
+            self.x -= 1
+        self.cursor_x_hint = self.x
+
+    DISPATCH = {
+        curses.KEY_DOWN: down,
+        curses.KEY_UP: up,
+        curses.KEY_LEFT: left,
+        curses.KEY_RIGHT: right,
+    }
+
+    def dispatch(self, key: int, margin: Margin, lines: List[str]) -> None:
+        return self.DISPATCH[key](self, margin, lines)
+
+    def cursor_y(self, margin: Margin) -> int:
+        return self.cursor_line - self.file_line + margin.header
 
 
 def _get_color_pair_mapping() -> Dict[Tuple[int, int], int]:
@@ -85,26 +184,27 @@ def _write_header(
     stdscr.addstr(0, 0, s, curses.A_REVERSE)
 
 
-def _write_lines(stdscr: '_curses._CursesWindow', lines: List[str]) -> None:
-    if curses.LINES == 1:
-        header, footer = 0, 0
-    elif curses.LINES == 2:
-        header, footer = 0, 1
-    else:
-        header, footer = 1, 1
-
-    max_lines = curses.LINES - header - footer
-    lines_to_display = min(len(lines), max_lines)
+def _write_lines(
+        stdscr: '_curses._CursesWindow',
+        position: Position,
+        margin: Margin,
+        lines: List[str],
+) -> None:
+    lines_to_display = min(len(lines) - position.file_line, margin.body_lines)
     for i in range(lines_to_display):
-        line = lines[i][:curses.COLS].rstrip('\r\n').ljust(curses.COLS)
-        stdscr.insstr(i + header, 0, line)
+        line = lines[position.file_line + i][:curses.COLS].ljust(curses.COLS)
+        stdscr.insstr(i + margin.header, 0, line)
     blankline = ' ' * curses.COLS
-    for i in range(lines_to_display, max_lines):
-        stdscr.insstr(i + header, 0, blankline)
+    for i in range(lines_to_display, margin.body_lines):
+        stdscr.insstr(i + margin.header, 0, blankline)
 
 
-def _write_status(stdscr: '_curses._CursesWindow', status: str) -> None:
-    if curses.LINES > 1 or status:
+def _write_status(
+        stdscr: '_curses._CursesWindow',
+        margin: Margin,
+        status: str,
+) -> None:
+    if margin.footer or status:
         stdscr.insstr(curses.LINES - 1, 0, ' ' * curses.COLS)
         if status:
             status = f' {status} '
@@ -112,8 +212,30 @@ def _write_status(stdscr: '_curses._CursesWindow', status: str) -> None:
             stdscr.addstr(curses.LINES - 1, offset, status, curses.A_REVERSE)
 
 
-def _move(stdscr: '_curses._CursesWindow', x: int, y: int) -> None:
-    stdscr.move(y + (curses.LINES > 2), x)
+def _move_cursor(
+        stdscr: '_curses._CursesWindow',
+        position: Position,
+        margin: Margin,
+) -> None:
+    # TODO: need to handle line wrapping here
+    stdscr.move(position.cursor_y(margin), position.x)
+
+
+def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
+    lines = []
+    newlines = collections.Counter({'\n': 0})  # default to `\n`
+    for line in sio:
+        for ending in ('\r\n', '\n'):
+            if line.endswith(ending):
+                lines.append(line[:-1 * len(ending)])
+                newlines[ending] += 1
+                break
+        else:
+            lines.append(line)
+    lines.append('')  # we use this as a padding line for display
+    (nl, _), = newlines.most_common(1)
+    mixed = len({k for k, v in newlines.items() if v}) > 1
+    return lines, nl, mixed
 
 
 def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
@@ -122,16 +244,12 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
     if args.color_test:
         return _color_test(stdscr)
 
+    modified = False
     filename = args.filename
     status = ''
     status_action_counter = -1
-    position_y, position_x = 0, 0
-
-    if args.filename is not None:
-        with open(args.filename) as f:
-            lines = list(f)
-    else:
-        lines = []
+    position = Position()
+    margin = Margin.from_screen(stdscr)
 
     def _set_status(s: str) -> None:
         nonlocal status, status_action_counter
@@ -142,16 +260,25 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
         else:
             status_action_counter = 25
 
+    if args.filename is not None:
+        with open(args.filename, newline='') as f:
+            lines, nl, mixed = _get_lines(f)
+    else:
+        lines, nl, mixed = _get_lines(io.StringIO(''))
+    if mixed:
+        _set_status(f'mixed newlines will be converted to {nl!r}')
+        modified = True
+
     while True:
         if status_action_counter == 0:
             status = ''
         status_action_counter -= 1
 
         if curses.LINES > 2:
-            _write_header(stdscr, filename, modified=False)
-        _write_lines(stdscr, lines)
-        _write_status(stdscr, status)
-        _move(stdscr, x=position_x, y=position_y)
+            _write_header(stdscr, filename, modified=modified)
+        _write_lines(stdscr, position, margin, lines)
+        _write_status(stdscr, margin, status)
+        _move_cursor(stdscr, position, margin)
 
         wch = stdscr.get_wch()
         key = wch if isinstance(wch, int) else ord(wch)
@@ -159,14 +286,10 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
 
         if key == curses.KEY_RESIZE:
             curses.update_lines_cols()
-        elif key == curses.KEY_DOWN:
-            position_y = min(position_y + 1, curses.LINES - 2)
-        elif key == curses.KEY_UP:
-            position_y = max(position_y - 1, 0)
-        elif key == curses.KEY_RIGHT:
-            position_x = min(position_x + 1, curses.COLS - 1)
-        elif key == curses.KEY_LEFT:
-            position_x = max(position_x - 1, 0)
+            margin = Margin.from_screen(stdscr)
+            position.maybe_scroll_down(margin)
+        elif key in Position.DISPATCH:
+            position.dispatch(key, margin, lines)
         elif keyname == b'^X':
             return
         else:

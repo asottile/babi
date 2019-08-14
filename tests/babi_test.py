@@ -1,4 +1,5 @@
 import contextlib
+import io
 import shlex
 import sys
 from typing import List
@@ -7,6 +8,26 @@ import pytest
 from hecate import Runner
 
 import babi
+
+
+def test_position_repr():
+    ret = repr(babi.Position())
+    assert ret == 'Position(file_line=0, cursor_line=0, x=0, cursor_x_hint=0)'
+
+
+@pytest.mark.parametrize(
+    ('s', 'lines', 'nl', 'mixed'),
+    (
+        pytest.param('', [''], '\n', False, id='trivial'),
+        pytest.param('1\n2\n', ['1', '2', ''], '\n', False, id='lf'),
+        pytest.param('1\r\n2\r\n', ['1', '2', ''], '\r\n', False, id='crlf'),
+        pytest.param('1\r\n2\n', ['1', '2', ''], '\n', True, id='mixed'),
+        pytest.param('1\n2', ['1', '2', ''], '\n', False, id='noeol'),
+    ),
+)
+def test_get_lines(s, lines, nl, mixed):
+    ret = babi._get_lines(io.StringIO(s))
+    assert ret == (lines, nl, mixed)
 
 
 class PrintsErrorRunner(Runner):
@@ -58,21 +79,31 @@ class PrintsErrorRunner(Runner):
         w, h = self.tmux.execute_command(*cmd).split()
         return int(w), int(h)
 
+    def get_cursor_position(self):
+        cmd = ('display', '-t0', '-p', '#{cursor_x}\t#{cursor_y}')
+        x, y = self.tmux.execute_command(*cmd).split()
+        return int(x), int(y)
+
     @contextlib.contextmanager
     def resize(self, width, height):
         current_w, current_h = self.get_pane_size()
+        sleep_cmd = (
+            'bash', '-c',
+            f'echo {"*" * (current_w * current_h)} && '
+            f'exec sleep infinity',
+        )
 
         panes = 0
 
         hsplit_w = current_w - width - 1
         if hsplit_w > 0:
-            cmd = ('split-window', '-ht0', '-l', hsplit_w, 'sleep', 'infinity')
+            cmd = ('split-window', '-ht0', '-l', hsplit_w, *sleep_cmd)
             self.tmux.execute_command(*cmd)
             panes += 1
 
         vsplit_h = current_h - height - 1
         if vsplit_h > 0:  # pragma: no branch  # TODO
-            cmd = ('split-window', '-vt0', '-l', vsplit_h, 'sleep', 'infinity')
+            cmd = ('split-window', '-vt0', '-l', vsplit_h, *sleep_cmd)
             self.tmux.execute_command(*cmd)
             panes += 1
 
@@ -114,21 +145,6 @@ def test_can_start_without_color():
         pass
 
 
-def test_window_bounds(tmpdir):
-    f = tmpdir.join('f.txt')
-    f.write(f'{"x" * 40}\n' * 40)
-
-    with run(str(f), width=30, height=30) as h, and_exit(h):
-        h.await_text('x' * 30)
-        # make sure we don't go off the top left of the screen
-        h.press('LEFT')
-        h.press('UP')
-        # make sure we don't go off the bottom of the screen
-        for i in range(32):
-            h.press('RIGHT')
-            h.press('DOWN')
-
-
 def test_window_height_2(tmpdir):
     # 2 tall:
     # - header is hidden, otherwise behaviour is normal
@@ -164,6 +180,7 @@ def test_window_height_1(tmpdir):
             h.await_text('unknown key')
             h.press('Right')
             h.await_text_missing('unknown key')
+            h.press('Down')
 
 
 def test_status_clearing_behaviour():
@@ -183,3 +200,118 @@ def test_reacts_to_resize():
         with h.resize(40, 20):
             # the first line should be different after resize
             h.await_text_missing(first_line)
+
+
+def test_mixed_newlines(tmpdir):
+    f = tmpdir.join('f')
+    f.write_binary(b'foo\nbar\r\n')
+    with run(str(f)) as h, and_exit(h):
+        # should start as modified
+        h.await_text('f *')
+        h.await_text(r"mixed newlines will be converted to '\n'")
+
+
+def test_arrow_key_movement(tmpdir):
+    f = tmpdir.join('f')
+    f.write(
+        'short\n'
+        '\n'
+        'long long long long\n',
+    )
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('short')
+        assert h.get_cursor_position() == (0, 1)
+        # should not go off the beginning of the file
+        h.press('Left')
+        assert h.get_cursor_position() == (0, 1)
+        h.press('Up')
+        assert h.get_cursor_position() == (0, 1)
+        # left and right should work
+        h.press('Right')
+        h.press('Right')
+        assert h.get_cursor_position() == (2, 1)
+        h.press('Left')
+        assert h.get_cursor_position() == (1, 1)
+        # up should still be a noop on line 1
+        h.press('Up')
+        assert h.get_cursor_position() == (1, 1)
+        # down once should put it on the beginning of the second line
+        h.press('Down')
+        assert h.get_cursor_position() == (0, 2)
+        # down again should restore the x positon on the next line
+        h.press('Down')
+        assert h.get_cursor_position() == (1, 3)
+        # down once more should put it on the special end-of-file line
+        h.press('Down')
+        assert h.get_cursor_position() == (0, 4)
+        # should not go off the end of the file
+        h.press('Down')
+        assert h.get_cursor_position() == (0, 4)
+        h.press('Right')
+        assert h.get_cursor_position() == (0, 4)
+        # left should put it at the end of the line
+        h.press('Left')
+        assert h.get_cursor_position() == (19, 3)
+        # right should put it to the next line
+        h.press('Right')
+        assert h.get_cursor_position() == (0, 4)
+        # if the hint-x is too high it should not go past the end of line
+        h.press('Left')
+        h.press('Up')
+        h.press('Up')
+        assert h.get_cursor_position() == (5, 1)
+        # and moving back down should still retain the hint-x
+        h.press('Down')
+        h.press('Down')
+        assert h.get_cursor_position() == (19, 3)
+
+
+def test_scrolling_arrow_key_movement(tmpdir):
+    f = tmpdir.join('f')
+    f.write('\n'.join(f'line_{i}' for i in range(10)))
+
+    with run(str(f), height=10) as h, and_exit(h):
+        h.await_text('line_7')
+        # we should not have scrolled after 7 presses
+        for _ in range(7):
+            h.press('Down')
+        h.await_text('line_0')
+        assert h.get_cursor_position() == (0, 8)
+        # but this should scroll down
+        h.press('Down')
+        h.await_text('line_8')
+        assert h.get_cursor_position() == (0, 4)
+        assert h.screenshot().splitlines()[4] == 'line_8'
+        # we should not have scrolled after 3 up presses
+        for _ in range(3):
+            h.press('Up')
+        h.await_text('line_9')
+        # but this should scroll up
+        h.press('Up')
+        h.await_text('line_0')
+
+
+def test_resize_scrolls_up(tmpdir):
+    f = tmpdir.join('f')
+    f.write('\n'.join(f'line_{i}' for i in range(10)))
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('line_9')
+
+        for _ in range(7):
+            h.press('Down')
+        assert h.get_cursor_position() == (0, 8)
+
+        # a resize to a height of 10 should not scroll
+        with h.resize(80, 10):
+            h.await_text_missing('line_8')
+            assert h.get_cursor_position() == (0, 8)
+
+        h.await_text('line_8')
+
+        # but a resize to smaller should
+        with h.resize(80, 9):
+            h.await_text_missing('line_0')
+            assert h.get_cursor_position() == (0, 3)
+            # make sure we're still on the same line
+            assert h.screenshot().splitlines()[3] == 'line_7'
