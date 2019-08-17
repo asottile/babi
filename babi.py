@@ -246,7 +246,7 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
         nonlocal status, status_action_counter
         status = s
         # if the window is only 1-tall, clear status quicker
-        if curses.LINES == 1:
+        if not margin.footer:
             status_action_counter = 1
         else:
             status_action_counter = 25
@@ -265,7 +265,7 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
             status = ''
         status_action_counter -= 1
 
-        if curses.LINES > 2:
+        if margin.header:
             _write_header(stdscr, filename, modified=modified)
         _write_lines(stdscr, position, margin, lines)
         _write_status(stdscr, margin, status)
