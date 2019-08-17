@@ -31,17 +31,8 @@ class Margin(NamedTuple):
 
 
 class Position:
-    def __init__(
-            self,
-            file_line: int = 0,
-            cursor_line: int = 0,
-            x: int = 0,
-            cursor_x_hint: int = 0,
-    ) -> None:
-        self.file_line = file_line
-        self.cursor_line = cursor_line
-        self.x = x
-        self.cursor_x_hint = 0
+    def __init__(self) -> None:
+        self.file_line = self.cursor_line = self.x = self.cursor_x_hint = 0
 
     def __repr__(self) -> str:
         attrs = ', '.join(f'{k}={v}' for k, v in self.__dict__.items())
