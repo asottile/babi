@@ -24,12 +24,16 @@ eventually.  it uses a little trick to invert foreground and background to
 get all of the color combinations.  there's one additional color not in this
 grid which is the "inverted default"
 
-![](https://i.fluffy.cc/39TZ47QlzlQb7QT7zf3wffpRJpndfrPm.png)
+![](https://i.fluffy.cc/rwdVdMsmZGDZrsT2qVlZHL5Z0XGj9v5v.png)
 
 ### file view
 
-this opens the file but doesn't yet display it.  movement is currently enabled
-through the arrow keys and some key combinations are detected.  unknown keys
-are displayed as errors in the status bar
+this opens the file and displays it but it isn't editable yet.  movement is
+currently enabled through the arrow keys and some key combinations are
+detected.  unknown keys are displayed as errors in the status bar.  babi will
+scroll if the cursor goes off screen either from resize events or from
+movement.
 
-![](https://i.fluffy.cc/Z50MBBQCVHB5SCVd1mgmN7x2pws5ZhVm.png)
+![](https://i.fluffy.cc/14Xc4hZg87CBnRBPGgFTKWbQFXFDmmwx.png)
+
+![](https://i.fluffy.cc/wLvTm86lbLnjBgF0WtVQpsxW90QbJwz5.png)
