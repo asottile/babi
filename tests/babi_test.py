@@ -315,3 +315,83 @@ def test_resize_scrolls_up(tmpdir):
             assert h.get_cursor_position() == (0, 3)
             # make sure we're still on the same line
             assert h.screenshot().splitlines()[3] == 'line_7'
+
+
+def test_very_narrow_window_status():
+    with run(height=50) as h, and_exit(h):
+        with h.resize(5, 50):
+            h.press('C-j')
+            h.await_text('unkno')
+
+
+def test_horizontal_scrolling(tmpdir):
+    f = tmpdir.join('f')
+    lots_of_text = ''.join(
+        ''.join(str(i) * 10 for i in range(10))
+        for _ in range(10)
+    )
+    f.write(f'line1\n{lots_of_text}\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('6777777777»')
+        h.press('Down')
+        for _ in range(78):
+            h.press('Right')
+        h.await_text('6777777777»')
+        h.press('Right')
+        h.await_text('«77777778')
+        h.await_text('344444444445»')
+        assert h.get_cursor_position() == (7, 2)
+        for _ in range(71):
+            h.press('Right')
+        h.await_text('«77777778')
+        h.await_text('344444444445»')
+        h.press('Right')
+        h.await_text('«444445')
+        h.await_text('1222»')
+
+
+def test_horizontal_scrolling_exact_width(tmpdir):
+    f = tmpdir.join('f')
+    f.write('0' * 80)
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('000')
+        for _ in range(78):
+            h.press('Right')
+        h.await_text_missing('»')
+        assert h.get_cursor_position() == (78, 1)
+        h.press('Right')
+        h.await_text('«0000000')
+        assert h.get_cursor_position() == (7, 1)
+
+
+def test_horizontal_scrolling_narrow_window(tmpdir):
+    f = tmpdir.join('f')
+    f.write(''.join(str(i) * 10 for i in range(10)))
+
+    with run(str(f)) as h, and_exit(h):
+        with h.resize(5, 24):
+            h.await_text('0000»')
+            for _ in range(3):
+                h.press('Right')
+            h.await_text('0000»')
+            h.press('Right')
+            assert h.get_cursor_position() == (3, 1)
+            h.await_text('«000»')
+            for _ in range(6):
+                h.press('Right')
+            h.await_text('«001»')
+
+
+def test_window_width_1(tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello')
+
+    with run(str(f)) as h, and_exit(h):
+        with h.resize(1, 24):
+            h.await_text('»')
+            for _ in range(3):
+                h.press('Right')
+        h.await_text('hello')
+        assert h.get_cursor_position() == (3, 1)

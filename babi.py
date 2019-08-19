@@ -97,6 +97,23 @@ class Position:
     def cursor_y(self, margin: Margin) -> int:
         return self.cursor_line - self.file_line + margin.header
 
+    def line_x(self) -> int:
+        margin = min(curses.COLS - 3, 6)
+        if self.x + 1 < curses.COLS:
+            return 0
+        elif curses.COLS == 1:
+            return self.x
+        else:
+            return (
+                curses.COLS - margin - 2 +
+                (self.x + 1 - curses.COLS) //
+                (curses.COLS - margin - 2) *
+                (curses.COLS - margin - 2)
+            )
+
+    def cursor_x(self) -> int:
+        return self.x - self.line_x()
+
 
 def _get_color_pair_mapping() -> Dict[Tuple[int, int], int]:
     ret = {}
@@ -172,7 +189,7 @@ def _write_header(
         filename += ' *'
     centered_filename = filename.center(curses.COLS)[len(VERSION_STR) + 2:]
     s = f' {VERSION_STR} {centered_filename}'
-    stdscr.addstr(0, 0, s, curses.A_REVERSE)
+    stdscr.insstr(0, 0, s, curses.A_REVERSE)
 
 
 def _write_lines(
@@ -183,7 +200,19 @@ def _write_lines(
 ) -> None:
     lines_to_display = min(len(lines) - position.file_line, margin.body_lines)
     for i in range(lines_to_display):
-        line = lines[position.file_line + i][:curses.COLS].ljust(curses.COLS)
+        line_idx = position.file_line + i
+        line = lines[line_idx]
+        line_x = position.line_x()
+        if line_idx == position.cursor_line and line_x:
+            line = f'«{line[line_x + 1:]}'
+            if len(line) > curses.COLS:
+                line = f'{line[:curses.COLS - 1]}»'
+            else:
+                line = line.ljust(curses.COLS)
+        elif len(line) > curses.COLS:
+            line = f'{line[:curses.COLS - 1]}»'
+        else:
+            line = line.ljust(curses.COLS)
         stdscr.insstr(i + margin.header, 0, line)
     blankline = ' ' * curses.COLS
     for i in range(lines_to_display, margin.body_lines):
@@ -200,7 +229,10 @@ def _write_status(
         if status:
             status = f' {status} '
             offset = (curses.COLS - len(status)) // 2
-            stdscr.addstr(curses.LINES - 1, offset, status, curses.A_REVERSE)
+            if offset < 0:
+                offset = 0
+                status = status.strip()
+            stdscr.insstr(curses.LINES - 1, offset, status, curses.A_REVERSE)
 
 
 def _move_cursor(
@@ -208,8 +240,7 @@ def _move_cursor(
         position: Position,
         margin: Margin,
 ) -> None:
-    # TODO: need to handle line wrapping here
-    stdscr.move(position.cursor_y(margin), position.x)
+    stdscr.move(position.cursor_y(margin), position.cursor_x())
 
 
 def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
