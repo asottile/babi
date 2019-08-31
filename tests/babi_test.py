@@ -463,3 +463,30 @@ def test_backspace_deletes_text(tmpdir):
         h.await_text('ohi')
         h.await_text('f *')
         assert h.get_cursor_position() == (2, 1)
+
+
+def test_press_enter_beginning_of_file(tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello world')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('hello world')
+        h.press('Enter')
+        h.await_text('\n\nhello world')
+        assert h.get_cursor_position() == (0, 2)
+        h.await_text('f *')
+
+
+def test_press_enter_mid_line(tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello world')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('hello world')
+        for _ in range(5):
+            h.press('Right')
+        h.press('Enter')
+        h.await_text('hello\n world')
+        assert h.get_cursor_position() == (0, 2)
+        h.press('Up')
+        assert h.get_cursor_position() == (0, 1)

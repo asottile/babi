@@ -345,6 +345,13 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
                 )
                 position.left(margin, lines)
                 modified = True
+        elif wch == '\n':
+            s = lines[position.cursor_line]
+            lines[position.cursor_line] = s[:position.x]
+            lines.insert(position.cursor_line + 1, s[position.x:])
+            position.down(margin, lines)
+            position.x = position.cursor_x_hint = 0
+            modified = True
         elif isinstance(wch, str) and wch.isprintable():
             s = lines[position.cursor_line]
             lines[position.cursor_line] = s[:position.x] + wch + s[position.x:]
