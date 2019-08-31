@@ -298,20 +298,22 @@ def test_scrolling_arrow_key_movement(tmpdir):
         h.await_text('line_0')
 
 
-def test_end_key(tmpdir):
+@pytest.mark.parametrize('k', ('End', 'C-e'))
+def test_end_key(tmpdir, k):
     f = tmpdir.join('f')
     f.write('hello world\nhello world\n')
 
     with run(str(f)) as h, and_exit(h):
         h.await_text('hello world')
         assert h.get_cursor_position() == (0, 1)
-        h.press('End')
+        h.press(k)
         assert h.get_cursor_position() == (11, 1)
         h.press('Down')
         assert h.get_cursor_position() == (11, 2)
 
 
-def test_home_key(tmpdir):
+@pytest.mark.parametrize('k', ('Home', 'C-a'))
+def test_home_key(tmpdir, k):
     f = tmpdir.join('f')
     f.write('hello world\nhello world\n')
 
@@ -320,7 +322,7 @@ def test_home_key(tmpdir):
         h.press('Down')
         h.press('Left')
         assert h.get_cursor_position() == (11, 1)
-        h.press('Home')
+        h.press(k)
         assert h.get_cursor_position() == (0, 1)
         h.press('Down')
         assert h.get_cursor_position() == (0, 2)

@@ -329,6 +329,10 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
             position.maybe_scroll_down(margin)
         elif key in Position.DISPATCH:
             position.dispatch(key, margin, lines)
+        elif keyname == b'^A':
+            position.home(margin, lines)
+        elif keyname == b'^E':
+            position.end(margin, lines)
         elif keyname == b'^X':
             return
         elif key == curses.KEY_BACKSPACE:
