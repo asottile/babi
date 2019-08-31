@@ -58,9 +58,16 @@ class PrintsErrorRunner(Runner):
         with self._onerror():
             return super().await_exit(*args, **kwargs)
 
-    def await_text(self, *args, **kwargs):
+    def await_text(self, text, timeout=None):
+        """copied from the base implementation but doesn't munge newlines"""
         with self._onerror():
-            return super().await_text(*args, **kwargs)
+            for _ in self.poll_until_timeout(timeout):
+                screen = self.screenshot()
+                if text in screen:
+                    return
+            raise AssertionError(
+                f'Timeout while waiting for text {text!r} to appear',
+            )
 
     def await_text_missing(self, s):
         """largely based on await_text"""
@@ -395,3 +402,64 @@ def test_window_width_1(tmpdir):
                 h.press('Right')
         h.await_text('hello')
         assert h.get_cursor_position() == (3, 1)
+
+
+def test_basic_text_editing(tmpdir):
+    with run() as h, and_exit(h):
+        h.press('hello world')
+        h.await_text('hello world')
+        h.press('Down')
+        h.press('bye!')
+        h.await_text('bye!')
+        assert h.screenshot().strip().endswith('world\nbye!')
+
+
+def test_backspace_at_beginning_of_file():
+    with run() as h, and_exit(h):
+        h.press('Bspace')
+        h.await_text_missing('unknown key')
+        assert h.screenshot().strip().splitlines()[1:] == []
+        assert '*' not in h.screenshot()
+
+
+def test_backspace_joins_lines(tmpdir):
+    f = tmpdir.join('f')
+    f.write('foo\nbar\nbaz\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('foo')
+        h.press('Down')
+        h.press('Bspace')
+        h.await_text('foobar')
+        h.await_text('f *')
+        assert h.get_cursor_position() == (3, 1)
+        # pressing down should retain the X position
+        h.press('Down')
+        assert h.get_cursor_position() == (3, 2)
+
+
+def test_backspace_at_end_of_file_still_allows_scrolling_down(tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello world')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('hello world')
+        h.press('Down')
+        h.press('Bspace')
+        h.press('Down')
+        assert h.get_cursor_position() == (0, 2)
+        assert '*' not in h.screenshot()
+
+
+def test_backspace_deletes_text(tmpdir):
+    f = tmpdir.join('f')
+    f.write('ohai there')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('ohai there')
+        for _ in range(3):
+            h.press('Right')
+        h.press('Bspace')
+        h.await_text('ohi')
+        h.await_text('f *')
+        assert h.get_cursor_position() == (2, 1)

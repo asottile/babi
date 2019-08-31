@@ -161,7 +161,7 @@ def _color_test(stdscr: '_curses._CursesWindow') -> None:
     _write_header(stdscr, '<<color test>>', modified=False)
 
     maxy, maxx = stdscr.getmaxyx()
-    if maxy < 19 or maxx < 68:
+    if maxy < 19 or maxx < 68:  # pragma: no cover (will be deleted)
         raise SystemExit('--color-test needs a window of at least 68 x 19')
 
     y = 1
@@ -243,6 +243,15 @@ def _move_cursor(
     stdscr.move(position.cursor_y(margin), position.cursor_x())
 
 
+def _restore_lines_eof_invariant(lines: List[str]) -> None:
+    """The file lines will always contain a blank empty string at the end to
+    simplify rendering.  This should be called whenever the end of the file
+    might change.
+    """
+    if not lines or lines[-1] != '':
+        lines.append('')
+
+
 def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
     lines = []
     newlines = collections.Counter({'\n': 0})  # default to `\n`
@@ -254,7 +263,7 @@ def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
                 break
         else:
             lines.append(line)
-    lines.append('')  # we use this as a padding line for display
+    _restore_lines_eof_invariant(lines)
     (nl, _), = newlines.most_common(1)
     mixed = len({k for k, v in newlines.items() if v}) > 1
     return lines, nl, mixed
@@ -314,6 +323,34 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
             position.dispatch(key, margin, lines)
         elif keyname == b'^X':
             return
+        elif key == curses.KEY_BACKSPACE:
+            # backspace at the beginning of the file does nothing
+            if position.cursor_line == 0 and position.x == 0:
+                pass
+            # at the beginning of the line, we join the current line and
+            # the previous line
+            elif position.x == 0:
+                victim = lines.pop(position.cursor_line)
+                new_x = len(lines[position.cursor_line - 1])
+                lines[position.cursor_line - 1] += victim
+                position.up(margin, lines)
+                position.x = position.cursor_x_hint = new_x
+                # deleting the fake end-of-file doesn't cause modification
+                modified |= position.cursor_line < len(lines) - 1
+                _restore_lines_eof_invariant(lines)
+            else:
+                s = lines[position.cursor_line]
+                lines[position.cursor_line] = (
+                    s[:position.x - 1] + s[position.x:]
+                )
+                position.left(margin, lines)
+                modified = True
+        elif isinstance(wch, str) and wch.isprintable():
+            s = lines[position.cursor_line]
+            lines[position.cursor_line] = s[:position.x] + wch + s[position.x:]
+            position.right(margin, lines)
+            modified = True
+            _restore_lines_eof_invariant(lines)
         else:
             _set_status(f'unknown key: {keyname} ({key})')
 
