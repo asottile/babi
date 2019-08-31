@@ -345,6 +345,21 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
                 )
                 position.left(margin, lines)
                 modified = True
+        elif key == curses.KEY_DC:
+            # noop at end of the file
+            if position.cursor_line == len(lines) - 1:
+                pass
+            # if we're at the end of the line, collapse the line afterwards
+            elif position.x == len(lines[position.cursor_line]):
+                lines[position.cursor_line] += lines[position.cursor_line + 1]
+                lines.pop(position.cursor_line + 1)
+                modified = True
+            else:
+                s = lines[position.cursor_line]
+                lines[position.cursor_line] = (
+                    s[:position.x] + s[position.x + 1:]
+                )
+                modified = True
         elif wch == '\n':
             s = lines[position.cursor_line]
             lines[position.cursor_line] = s[:position.x]

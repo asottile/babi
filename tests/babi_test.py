@@ -465,6 +465,38 @@ def test_backspace_deletes_text(tmpdir):
         assert h.get_cursor_position() == (2, 1)
 
 
+def test_delete_at_end_of_file(tmpdir):
+    with run() as h, and_exit(h):
+        h.press('DC')
+        h.await_text_missing('unknown key')
+        h.await_text_missing('*')
+
+
+def test_delete_removes_character_afterwards(tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello world')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('hello world')
+        h.press('Right')
+        h.press('DC')
+        h.await_text('hllo world')
+        h.await_text('f *')
+
+
+def test_delete_at_end_of_line(tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello\nworld\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('hello')
+        h.press('Down')
+        h.press('Left')
+        h.press('DC')
+        h.await_text('helloworld')
+        h.await_text('f *')
+
+
 def test_press_enter_beginning_of_file(tmpdir):
     f = tmpdir.join('f')
     f.write('hello world')
