@@ -84,11 +84,19 @@ class Position:
             self.x -= 1
         self.cursor_x_hint = self.x
 
+    def home(self, margin: Margin, lines: List[str]) -> None:
+        self.x = self.cursor_x_hint = 0
+
+    def end(self, margin: Margin, lines: List[str]) -> None:
+        self.x = self.cursor_x_hint = len(lines[self.cursor_line])
+
     DISPATCH = {
         curses.KEY_DOWN: down,
         curses.KEY_UP: up,
         curses.KEY_LEFT: left,
         curses.KEY_RIGHT: right,
+        curses.KEY_HOME: home,
+        curses.KEY_END: end,
     }
 
     def dispatch(self, key: int, margin: Margin, lines: List[str]) -> None:

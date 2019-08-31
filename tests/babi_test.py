@@ -298,6 +298,34 @@ def test_scrolling_arrow_key_movement(tmpdir):
         h.await_text('line_0')
 
 
+def test_end_key(tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello world\nhello world\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('hello world')
+        assert h.get_cursor_position() == (0, 1)
+        h.press('End')
+        assert h.get_cursor_position() == (11, 1)
+        h.press('Down')
+        assert h.get_cursor_position() == (11, 2)
+
+
+def test_home_key(tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello world\nhello world\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('hello world')
+        h.press('Down')
+        h.press('Left')
+        assert h.get_cursor_position() == (11, 1)
+        h.press('Home')
+        assert h.get_cursor_position() == (0, 1)
+        h.press('Down')
+        assert h.get_cursor_position() == (0, 2)
+
+
 def test_resize_scrolls_up(tmpdir):
     f = tmpdir.join('f')
     f.write('\n'.join(f'line_{i}' for i in range(10)))
