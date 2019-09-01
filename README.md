@@ -28,12 +28,14 @@ grid which is the "inverted default"
 
 ### file view
 
-this opens the file and displays it but it isn't editable yet.  movement is
-currently enabled through the arrow keys and some key combinations are
-detected.  unknown keys are displayed as errors in the status bar.  babi will
-scroll if the cursor goes off screen either from resize events or from
-movement.
+this opens the file, displays it, and can be edited in some ways (but it is not
+saveable yet).  movement is currently enabled through the arrow keys,
+home + `^A`, end + `^E`, and some key combinations are detected.  unknown keys
+are displayed as errors in the status bar.  babi will scroll if the cursor
+goes off screen either from resize events or from movement.
 
 ![](https://i.fluffy.cc/14Xc4hZg87CBnRBPGgFTKWbQFXFDmmwx.png)
 
 ![](https://i.fluffy.cc/wLvTm86lbLnjBgF0WtVQpsxW90QbJwz5.png)
+
+![](https://i.fluffy.cc/RhVmwb8MQkZZbC399GtV99RSH3SB6FTZ.png)

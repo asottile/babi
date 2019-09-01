@@ -23,3 +23,11 @@ see the progress of babi over time
 ![](https://i.fluffy.cc/rwdVdMsmZGDZrsT2qVlZHL5Z0XGj9v5v.png)
 ![](https://i.fluffy.cc/14Xc4hZg87CBnRBPGgFTKWbQFXFDmmwx.png)
 ![](https://i.fluffy.cc/wLvTm86lbLnjBgF0WtVQpsxW90QbJwz5.png)
+
+### 2019-08-31
+
+- babi can now scroll horizontally
+- text can now be entered, deleted, and backspaced
+- navigation via home (`^A`) + end (`^E`) is enabled
+
+![](https://i.fluffy.cc/RhVmwb8MQkZZbC399GtV99RSH3SB6FTZ.png)
