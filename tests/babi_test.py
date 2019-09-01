@@ -164,7 +164,7 @@ def test_window_height_2(tmpdir):
         with h.resize(80, 2):
             h.await_text_missing(babi.VERSION_STR)
             assert h.screenshot() == 'hello world\n\n'
-            h.press('C-r')
+            h.press('C-j')
             h.await_text('unknown key')
 
         h.await_text(babi.VERSION_STR)
@@ -183,7 +183,7 @@ def test_window_height_1(tmpdir):
         with h.resize(80, 1):
             h.await_text_missing(babi.VERSION_STR)
             assert h.screenshot() == 'hello world\n'
-            h.press('C-r')
+            h.press('C-j')
             h.await_text('unknown key')
             h.press('Right')
             h.await_text_missing('unknown key')
@@ -192,7 +192,7 @@ def test_window_height_1(tmpdir):
 
 def test_status_clearing_behaviour():
     with run() as h, and_exit(h):
-        h.press('C-r')
+        h.press('C-j')
         h.await_text('unknown key')
         for i in range(24):
             h.press('LEFT')
@@ -357,7 +357,7 @@ def test_resize_scrolls_up(tmpdir):
 def test_very_narrow_window_status():
     with run(height=50) as h, and_exit(h):
         with h.resize(5, 50):
-            h.press('C-r')
+            h.press('C-j')
             h.await_text('unkno')
 
 
