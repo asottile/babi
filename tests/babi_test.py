@@ -91,7 +91,7 @@ class PrintsErrorRunner(Runner):
         x, y = self.tmux.execute_command(*cmd).split()
         return int(x), int(y)
 
-    def await_cursor_position(self, x, y):
+    def await_cursor_position(self, *, x, y):
         with self._onerror():
             for _ in self.poll_until_timeout():
                 pos = self._get_cursor_position()
@@ -239,50 +239,50 @@ def test_arrow_key_movement(tmpdir):
     )
     with run(str(f)) as h, and_exit(h):
         h.await_text('short')
-        h.await_cursor_position(0, 1)
+        h.await_cursor_position(x=0, y=1)
         # should not go off the beginning of the file
         h.press('Left')
-        h.await_cursor_position(0, 1)
+        h.await_cursor_position(x=0, y=1)
         h.press('Up')
-        h.await_cursor_position(0, 1)
+        h.await_cursor_position(x=0, y=1)
         # left and right should work
         h.press('Right')
         h.press('Right')
-        h.await_cursor_position(2, 1)
+        h.await_cursor_position(x=2, y=1)
         h.press('Left')
-        h.await_cursor_position(1, 1)
+        h.await_cursor_position(x=1, y=1)
         # up should still be a noop on line 1
         h.press('Up')
-        h.await_cursor_position(1, 1)
+        h.await_cursor_position(x=1, y=1)
         # down once should put it on the beginning of the second line
         h.press('Down')
-        h.await_cursor_position(0, 2)
+        h.await_cursor_position(x=0, y=2)
         # down again should restore the x positon on the next line
         h.press('Down')
-        h.await_cursor_position(1, 3)
+        h.await_cursor_position(x=1, y=3)
         # down once more should put it on the special end-of-file line
         h.press('Down')
-        h.await_cursor_position(0, 4)
+        h.await_cursor_position(x=0, y=4)
         # should not go off the end of the file
         h.press('Down')
-        h.await_cursor_position(0, 4)
+        h.await_cursor_position(x=0, y=4)
         h.press('Right')
-        h.await_cursor_position(0, 4)
+        h.await_cursor_position(x=0, y=4)
         # left should put it at the end of the line
         h.press('Left')
-        h.await_cursor_position(19, 3)
+        h.await_cursor_position(x=19, y=3)
         # right should put it to the next line
         h.press('Right')
-        h.await_cursor_position(0, 4)
+        h.await_cursor_position(x=0, y=4)
         # if the hint-x is too high it should not go past the end of line
         h.press('Left')
         h.press('Up')
         h.press('Up')
-        h.await_cursor_position(5, 1)
+        h.await_cursor_position(x=5, y=1)
         # and moving back down should still retain the hint-x
         h.press('Down')
         h.press('Down')
-        h.await_cursor_position(19, 3)
+        h.await_cursor_position(x=19, y=3)
 
 
 def test_scrolling_arrow_key_movement(tmpdir):
@@ -295,11 +295,11 @@ def test_scrolling_arrow_key_movement(tmpdir):
         for _ in range(7):
             h.press('Down')
         h.await_text('line_0')
-        h.await_cursor_position(0, 8)
+        h.await_cursor_position(x=0, y=8)
         # but this should scroll down
         h.press('Down')
         h.await_text('line_8')
-        h.await_cursor_position(0, 4)
+        h.await_cursor_position(x=0, y=4)
         assert h.screenshot().splitlines()[4] == 'line_8'
         # we should not have scrolled after 3 up presses
         for _ in range(3):
@@ -317,11 +317,11 @@ def test_end_key(tmpdir, k):
 
     with run(str(f)) as h, and_exit(h):
         h.await_text('hello world')
-        h.await_cursor_position(0, 1)
+        h.await_cursor_position(x=0, y=1)
         h.press(k)
-        h.await_cursor_position(11, 1)
+        h.await_cursor_position(x=11, y=1)
         h.press('Down')
-        h.await_cursor_position(11, 2)
+        h.await_cursor_position(x=11, y=2)
 
 
 @pytest.mark.parametrize('k', ('Home', 'C-a'))
@@ -333,11 +333,11 @@ def test_home_key(tmpdir, k):
         h.await_text('hello world')
         h.press('Down')
         h.press('Left')
-        h.await_cursor_position(11, 1)
+        h.await_cursor_position(x=11, y=1)
         h.press(k)
-        h.await_cursor_position(0, 1)
+        h.await_cursor_position(x=0, y=1)
         h.press('Down')
-        h.await_cursor_position(0, 2)
+        h.await_cursor_position(x=0, y=2)
 
 
 def test_resize_scrolls_up(tmpdir):
@@ -349,19 +349,19 @@ def test_resize_scrolls_up(tmpdir):
 
         for _ in range(7):
             h.press('Down')
-        h.await_cursor_position(0, 8)
+        h.await_cursor_position(x=0, y=8)
 
         # a resize to a height of 10 should not scroll
         with h.resize(80, 10):
             h.await_text_missing('line_8')
-            h.await_cursor_position(0, 8)
+            h.await_cursor_position(x=0, y=8)
 
         h.await_text('line_8')
 
         # but a resize to smaller should
         with h.resize(80, 9):
             h.await_text_missing('line_0')
-            h.await_cursor_position(0, 3)
+            h.await_cursor_position(x=0, y=3)
             # make sure we're still on the same line
             assert h.screenshot().splitlines()[3] == 'line_7'
 
@@ -390,7 +390,7 @@ def test_horizontal_scrolling(tmpdir):
         h.press('Right')
         h.await_text('«77777778')
         h.await_text('344444444445»')
-        h.await_cursor_position(7, 2)
+        h.await_cursor_position(x=7, y=2)
         for _ in range(71):
             h.press('Right')
         h.await_text('«77777778')
@@ -409,10 +409,10 @@ def test_horizontal_scrolling_exact_width(tmpdir):
         for _ in range(78):
             h.press('Right')
         h.await_text_missing('»')
-        h.await_cursor_position(78, 1)
+        h.await_cursor_position(x=78, y=1)
         h.press('Right')
         h.await_text('«0000000')
-        h.await_cursor_position(7, 1)
+        h.await_cursor_position(x=7, y=1)
 
 
 def test_horizontal_scrolling_narrow_window(tmpdir):
@@ -426,7 +426,7 @@ def test_horizontal_scrolling_narrow_window(tmpdir):
                 h.press('Right')
             h.await_text('0000»')
             h.press('Right')
-            h.await_cursor_position(3, 1)
+            h.await_cursor_position(x=3, y=1)
             h.await_text('«000»')
             for _ in range(6):
                 h.press('Right')
@@ -443,7 +443,7 @@ def test_window_width_1(tmpdir):
             for _ in range(3):
                 h.press('Right')
         h.await_text('hello')
-        h.await_cursor_position(3, 1)
+        h.await_cursor_position(x=3, y=1)
 
 
 def test_basic_text_editing(tmpdir):
@@ -474,10 +474,10 @@ def test_backspace_joins_lines(tmpdir):
         h.press('Bspace')
         h.await_text('foobar')
         h.await_text('f *')
-        h.await_cursor_position(3, 1)
+        h.await_cursor_position(x=3, y=1)
         # pressing down should retain the X position
         h.press('Down')
-        h.await_cursor_position(3, 2)
+        h.await_cursor_position(x=3, y=2)
 
 
 def test_backspace_at_end_of_file_still_allows_scrolling_down(tmpdir):
@@ -489,7 +489,7 @@ def test_backspace_at_end_of_file_still_allows_scrolling_down(tmpdir):
         h.press('Down')
         h.press('Bspace')
         h.press('Down')
-        h.await_cursor_position(0, 2)
+        h.await_cursor_position(x=0, y=2)
         assert '*' not in h.screenshot()
 
 
@@ -504,7 +504,7 @@ def test_backspace_deletes_text(tmpdir):
         h.press('Bspace')
         h.await_text('ohi')
         h.await_text('f *')
-        h.await_cursor_position(2, 1)
+        h.await_cursor_position(x=2, y=1)
 
 
 def test_delete_at_end_of_file(tmpdir):
@@ -547,7 +547,7 @@ def test_press_enter_beginning_of_file(tmpdir):
         h.await_text('hello world')
         h.press('Enter')
         h.await_text('\n\nhello world')
-        h.await_cursor_position(0, 2)
+        h.await_cursor_position(x=0, y=2)
         h.await_text('f *')
 
 
@@ -561,6 +561,6 @@ def test_press_enter_mid_line(tmpdir):
             h.press('Right')
         h.press('Enter')
         h.await_text('hello\n world')
-        h.await_cursor_position(0, 2)
+        h.await_cursor_position(x=0, y=2)
         h.press('Up')
-        h.await_cursor_position(0, 1)
+        h.await_cursor_position(x=0, y=1)
