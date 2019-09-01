@@ -279,6 +279,8 @@ def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
 
 def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
     _init_colors(stdscr)
+    # <enter> is not transformed into '\n' so it can be differentiated from ^J
+    curses.nonl()
 
     if args.color_test:
         return _color_test(stdscr)
@@ -372,7 +374,7 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
                     s[:position.x] + s[position.x + 1:]
                 )
                 modified = True
-        elif wch == '\n':
+        elif wch == '\r':
             s = lines[position.cursor_line]
             lines[position.cursor_line] = s[:position.x]
             lines.insert(position.cursor_line + 1, s[position.x:])
