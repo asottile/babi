@@ -14,7 +14,35 @@ resources:
 
 jobs:
 - template: job--pre-commit.yml@asottile
-- template: job--python-tox.yml@asottile
-  parameters:
-    toxenvs: [py36, py37]
-    os: linux
+# TODO: use templates: https://github.com/microsoft/azure-pipelines-image-generation/issues/1207
+- job: tox_linux
+  pool:
+    vmImage: ubuntu-16.04
+  strategy:
+    matrix:
+      py36:
+        TOXENV: py36
+        python: python3.6
+      py37:
+        TOXENV: py37
+        python: python3.7
+  steps:
+  - bash: |
+      sudo add-apt-repository ppa:deadsnakes
+      sudo apt-get update
+      sudo apt-get install -y --no-install-recommends $(python)
+    displayName: install deadsnakes python
+  - bash: |
+      curl https://asottile.github.io/get-virtualenv.py | $(python) - /tmp/venv
+      /tmp/venv/bin/pip install tox
+      echo '##vso[task.prependpath]/tmp/venv/bin'
+    displayName: install tox
+  - script: tox
+    displayName: run tox
+  - bash: .tox/$(TOXENV)/bin/coverage xml -o coverage.xml
+    displayName: generate coverage xml
+  - task: PublishCodeCoverageResults@1
+    inputs:
+      codeCoverageTool: cobertura
+      summaryFileLocation: coverage.xml
+    displayName: publish coverage artifact
