@@ -1,4 +1,5 @@
 import contextlib
+import functools
 import io
 import shlex
 import sys
@@ -30,10 +31,24 @@ def test_get_lines(s, lines, nl, mixed):
     assert ret == (lines, nl, mixed)
 
 
+@functools.lru_cache(maxsize=1)
+def _tmux_height_off_by_one():
+    with Runner(sys.executable, '-c', 'input(">")', height=24) as h:
+        h.await_text('>')
+        cmd = ('display', '-t0', '-p', '#{pane_height}')
+        height = int(h.tmux.execute_command(*cmd))
+        h.press('Enter')
+        h.await_exit()
+    assert height in (23, 24)
+    return height == 23
+
+
 class PrintsErrorRunner(Runner):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, height=24, **kwargs):
         self._screenshots: List[str] = []
-        super().__init__(*args, **kwargs)
+        if _tmux_height_off_by_one():  # pragma: no cover (tmux 2.1)
+            height += 1
+        super().__init__(*args, height=height, **kwargs)
 
     def screenshot(self, *args, **kwargs):
         ret = super().screenshot(*args, **kwargs)
