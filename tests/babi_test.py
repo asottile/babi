@@ -12,7 +12,7 @@ import babi
 
 def test_position_repr():
     ret = repr(babi.Position())
-    assert ret == 'Position(file_line=0, cursor_line=0, x=0, cursor_x_hint=0)'
+    assert ret == 'Position(file_line=0, cursor_line=0, x=0, x_hint=0)'
 
 
 @pytest.mark.parametrize(

@@ -32,7 +32,7 @@ class Margin(NamedTuple):
 
 class Position:
     def __init__(self) -> None:
-        self.file_line = self.cursor_line = self.x = self.cursor_x_hint = 0
+        self.file_line = self.cursor_line = self.x = self.x_hint = 0
 
     def __repr__(self) -> str:
         attrs = ', '.join(f'{k}={v}' for k, v in self.__dict__.items())
@@ -42,7 +42,7 @@ class Position:
         return int(curses.LINES / 2 + .5)
 
     def _set_x_after_vertical_movement(self, lines: List[str]) -> None:
-        self.x = min(len(lines[self.cursor_line]), self.cursor_x_hint)
+        self.x = min(len(lines[self.cursor_line]), self.x_hint)
 
     def maybe_scroll_down(self, margin: Margin) -> None:
         if self.cursor_line >= self.file_line + margin.body_lines:
@@ -72,7 +72,7 @@ class Position:
                 self.maybe_scroll_down(margin)
         else:
             self.x += 1
-        self.cursor_x_hint = self.x
+        self.x_hint = self.x
 
     def left(self, margin: Margin, lines: List[str]) -> None:
         if self.x == 0:
@@ -82,13 +82,13 @@ class Position:
                 self.maybe_scroll_up(margin)
         else:
             self.x -= 1
-        self.cursor_x_hint = self.x
+        self.x_hint = self.x
 
     def home(self, margin: Margin, lines: List[str]) -> None:
-        self.x = self.cursor_x_hint = 0
+        self.x = self.x_hint = 0
 
     def end(self, margin: Margin, lines: List[str]) -> None:
-        self.x = self.cursor_x_hint = len(lines[self.cursor_line])
+        self.x = self.x_hint = len(lines[self.cursor_line])
 
     DISPATCH = {
         curses.KEY_DOWN: down,
@@ -202,16 +202,16 @@ def _write_header(
 
 def _write_lines(
         stdscr: '_curses._CursesWindow',
-        position: Position,
+        pos: Position,
         margin: Margin,
         lines: List[str],
 ) -> None:
-    lines_to_display = min(len(lines) - position.file_line, margin.body_lines)
+    lines_to_display = min(len(lines) - pos.file_line, margin.body_lines)
     for i in range(lines_to_display):
-        line_idx = position.file_line + i
+        line_idx = pos.file_line + i
         line = lines[line_idx]
-        line_x = position.line_x()
-        if line_idx == position.cursor_line and line_x:
+        line_x = pos.line_x()
+        if line_idx == pos.cursor_line and line_x:
             line = f'«{line[line_x + 1:]}'
             if len(line) > curses.COLS:
                 line = f'{line[:curses.COLS - 1]}»'
@@ -245,10 +245,10 @@ def _write_status(
 
 def _move_cursor(
         stdscr: '_curses._CursesWindow',
-        position: Position,
+        pos: Position,
         margin: Margin,
 ) -> None:
-    stdscr.move(position.cursor_y(margin), position.cursor_x())
+    stdscr.move(pos.cursor_y(margin), pos.cursor_x())
 
 
 def _restore_lines_eof_invariant(lines: List[str]) -> None:
@@ -289,7 +289,7 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
     filename = args.filename
     status = ''
     status_action_counter = -1
-    position = Position()
+    pos = Position()
     margin = Margin.from_screen(stdscr)
 
     def _set_status(s: str) -> None:
@@ -317,9 +317,9 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
 
         if margin.header:
             _write_header(stdscr, filename, modified=modified)
-        _write_lines(stdscr, position, margin, lines)
+        _write_lines(stdscr, pos, margin, lines)
         _write_status(stdscr, margin, status)
-        _move_cursor(stdscr, position, margin)
+        _move_cursor(stdscr, pos, margin)
 
         wch = stdscr.get_wch()
         key = wch if isinstance(wch, int) else ord(wch)
@@ -328,63 +328,59 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
         if key == curses.KEY_RESIZE:
             curses.update_lines_cols()
             margin = Margin.from_screen(stdscr)
-            position.maybe_scroll_down(margin)
+            pos.maybe_scroll_down(margin)
         elif key in Position.DISPATCH:
-            position.dispatch(key, margin, lines)
+            pos.dispatch(key, margin, lines)
         elif keyname == b'^A':
-            position.home(margin, lines)
+            pos.home(margin, lines)
         elif keyname == b'^E':
-            position.end(margin, lines)
+            pos.end(margin, lines)
         elif keyname == b'^X':
             return
         elif key == curses.KEY_BACKSPACE:
             # backspace at the beginning of the file does nothing
-            if position.cursor_line == 0 and position.x == 0:
+            if pos.cursor_line == 0 and pos.x == 0:
                 pass
             # at the beginning of the line, we join the current line and
             # the previous line
-            elif position.x == 0:
-                victim = lines.pop(position.cursor_line)
-                new_x = len(lines[position.cursor_line - 1])
-                lines[position.cursor_line - 1] += victim
-                position.up(margin, lines)
-                position.x = position.cursor_x_hint = new_x
+            elif pos.x == 0:
+                victim = lines.pop(pos.cursor_line)
+                new_x = len(lines[pos.cursor_line - 1])
+                lines[pos.cursor_line - 1] += victim
+                pos.up(margin, lines)
+                pos.x = pos.x_hint = new_x
                 # deleting the fake end-of-file doesn't cause modification
-                modified |= position.cursor_line < len(lines) - 1
+                modified |= pos.cursor_line < len(lines) - 1
                 _restore_lines_eof_invariant(lines)
             else:
-                s = lines[position.cursor_line]
-                lines[position.cursor_line] = (
-                    s[:position.x - 1] + s[position.x:]
-                )
-                position.left(margin, lines)
+                s = lines[pos.cursor_line]
+                lines[pos.cursor_line] = s[:pos.x - 1] + s[pos.x:]
+                pos.left(margin, lines)
                 modified = True
         elif key == curses.KEY_DC:
             # noop at end of the file
-            if position.cursor_line == len(lines) - 1:
+            if pos.cursor_line == len(lines) - 1:
                 pass
             # if we're at the end of the line, collapse the line afterwards
-            elif position.x == len(lines[position.cursor_line]):
-                lines[position.cursor_line] += lines[position.cursor_line + 1]
-                lines.pop(position.cursor_line + 1)
+            elif pos.x == len(lines[pos.cursor_line]):
+                lines[pos.cursor_line] += lines[pos.cursor_line + 1]
+                lines.pop(pos.cursor_line + 1)
                 modified = True
             else:
-                s = lines[position.cursor_line]
-                lines[position.cursor_line] = (
-                    s[:position.x] + s[position.x + 1:]
-                )
+                s = lines[pos.cursor_line]
+                lines[pos.cursor_line] = s[:pos.x] + s[pos.x + 1:]
                 modified = True
         elif wch == '\r':
-            s = lines[position.cursor_line]
-            lines[position.cursor_line] = s[:position.x]
-            lines.insert(position.cursor_line + 1, s[position.x:])
-            position.down(margin, lines)
-            position.x = position.cursor_x_hint = 0
+            s = lines[pos.cursor_line]
+            lines[pos.cursor_line] = s[:pos.x]
+            lines.insert(pos.cursor_line + 1, s[pos.x:])
+            pos.down(margin, lines)
+            pos.x = pos.x_hint = 0
             modified = True
         elif isinstance(wch, str) and wch.isprintable():
-            s = lines[position.cursor_line]
-            lines[position.cursor_line] = s[:position.x] + wch + s[position.x:]
-            position.right(margin, lines)
+            s = lines[pos.cursor_line]
+            lines[pos.cursor_line] = s[:pos.x] + wch + s[pos.x:]
+            pos.right(margin, lines)
             modified = True
             _restore_lines_eof_invariant(lines)
         else:
