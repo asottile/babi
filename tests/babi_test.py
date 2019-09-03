@@ -148,6 +148,10 @@ class PrintsErrorRunner(Runner):
             for _ in range(panes):
                 self.tmux.execute_command('kill-pane', '-t1')
 
+    def press_and_enter(self, s):
+        self.press(s)
+        self.press('Enter')
+
 
 @contextlib.contextmanager
 def run(*args, color=True, **kwargs):
@@ -579,3 +583,24 @@ def test_press_enter_mid_line(tmpdir):
         h.await_cursor_position(x=0, y=2)
         h.press('Up')
         h.await_cursor_position(x=0, y=1)
+
+
+def test_suspend(tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello')
+
+    with PrintsErrorRunner('env', 'PS1=$ ', 'bash') as h:
+        cmd = (sys.executable, '-mcoverage', 'run', '-m', 'babi', str(f))
+        h.press_and_enter(' '.join(shlex.quote(part) for part in cmd))
+        h.await_text(babi.VERSION_STR)
+        h.await_text('hello')
+
+        h.press('C-z')
+        h.await_text_missing('hello')
+
+        h.press_and_enter('fg')
+        h.await_text('hello')
+
+        h.press('C-x')
+        h.press_and_enter('exit')
+        h.await_exit()

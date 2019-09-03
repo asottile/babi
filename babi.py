@@ -1,9 +1,13 @@
 import _curses
 import argparse
 import collections
+import contextlib
 import curses
 import io
+import os
+import signal
 from typing import Dict
+from typing import Generator
 from typing import IO
 from typing import List
 from typing import NamedTuple
@@ -278,10 +282,6 @@ def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
 
 
 def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
-    _init_colors(stdscr)
-    # <enter> is not transformed into '\n' so it can be differentiated from ^J
-    curses.nonl()
-
     if args.color_test:
         return _color_test(stdscr)
 
@@ -337,6 +337,10 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
             pos.end(margin, lines)
         elif keyname == b'^X':
             return
+        elif keyname == b'^Z':
+            curses.endwin()
+            os.kill(os.getpid(), signal.SIGSTOP)
+            stdscr = _init_screen()
         elif key == curses.KEY_BACKSPACE:
             # backspace at the beginning of the file does nothing
             if pos.cursor_line == 0 and pos.x == 0:
@@ -387,12 +391,38 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
             _set_status(f'unknown key: {keyname} ({key})')
 
 
+def _init_screen() -> '_curses._CursesWindow':
+    stdscr = curses.initscr()
+    curses.noecho()
+    curses.cbreak()
+    # <enter> is not transformed into '\n' so it can be differentiated from ^J
+    curses.nonl()
+    # ^S / ^Q / ^Z / ^\ are passed through
+    curses.raw()
+    stdscr.keypad(True)
+    with contextlib.suppress(curses.error):
+        curses.start_color()
+    _init_colors(stdscr)
+    return stdscr
+
+
+@contextlib.contextmanager
+def make_stdscr() -> Generator['_curses._CursesWindow', None, None]:
+    """essentially `curses.wrapper` but split out to implement ^Z"""
+    stdscr = _init_screen()
+    try:
+        yield stdscr
+    finally:
+        curses.endwin()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--color-test', action='store_true')
     parser.add_argument('filename', nargs='?')
     args = parser.parse_args()
-    curses.wrapper(c_main, args)
+    with make_stdscr() as stdscr:
+        c_main(stdscr, args)
     return 0
 
 
