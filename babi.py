@@ -61,6 +61,7 @@ class Position:
     def maybe_scroll_up(self, margin: Margin) -> None:
         if self.cursor_line < self.file_line:
             self.file_line -= self._scroll_amount()
+            self.file_line = max(self.file_line, 0)
 
     def up(self, margin: Margin, lines: List[str]) -> None:
         if self.cursor_line > 0:

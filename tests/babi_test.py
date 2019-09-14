@@ -385,6 +385,25 @@ def test_resize_scrolls_up(tmpdir):
             assert h.screenshot().splitlines()[3] == 'line_7'
 
 
+def test_resize_scroll_does_not_go_negative(tmpdir):
+    f = tmpdir.join('f')
+    f.write('\n'.join(f'line_{i}' for i in range(10)))
+
+    with run(str(f)) as h, and_exit(h):
+        for _ in range(5):
+            h.press('Down')
+        h.await_cursor_position(x=0, y=6)
+
+        with h.resize(80, 7):
+            h.await_text_missing('line_9')
+        h.await_text('line_9')
+
+        for _ in range(2):
+            h.press('Up')
+
+        assert h.screenshot().splitlines()[1] == 'line_0'
+
+
 def test_very_narrow_window_status():
     with run(height=50) as h, and_exit(h):
         with h.resize(5, 50):
