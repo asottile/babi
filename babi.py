@@ -126,6 +126,13 @@ class Position:
     def cursor_x(self) -> int:
         return self.x - self.line_x()
 
+    def move_cursor(
+            self,
+            stdscr: '_curses._CursesWindow',
+            margin: Margin,
+    ) -> None:
+        stdscr.move(self.cursor_y(margin), self.cursor_x())
+
 
 def _get_color_pair_mapping() -> Dict[Tuple[int, int], int]:
     ret = {}
@@ -169,8 +176,60 @@ def _init_colors(stdscr: '_curses._CursesWindow') -> None:
         curses.init_pair(pair, fg, bg)
 
 
+class Header:
+    def __init__(self, filename: str) -> None:
+        self._filename = filename
+        self._modified = False
+
+    @property
+    def modified(self) -> bool:
+        return self._modified
+
+    @modified.setter
+    def modified(self, modified: bool) -> None:
+        self._modified = modified
+
+    def draw(self, stdscr: '_curses._CursesWindow') -> None:
+        filename = self._filename
+        if self._modified:
+            filename += ' *'
+        centered = filename.center(curses.COLS)[len(VERSION_STR) + 2:]
+        s = f' {VERSION_STR} {centered}'
+        stdscr.insstr(0, 0, s, curses.A_REVERSE)
+
+
+class Status:
+    def __init__(self) -> None:
+        self._status = ''
+        self._action_counter = -1
+
+    def update(self, status: str, margin: Margin) -> None:
+        self._status = status
+        # when the window is only 1-tall, hide the status quicker
+        if margin.footer:
+            self._action_counter = 25
+        else:
+            self._action_counter = 1
+
+    def draw(self, stdscr: '_curses._CursesWindow', margin: Margin) -> None:
+        if margin.footer or self._status:
+            stdscr.insstr(curses.LINES - 1, 0, ' ' * curses.COLS)
+            if self._status:
+                status = f' {self._status} '
+                x = (curses.COLS - len(status)) // 2
+                if x < 0:
+                    x = 0
+                    status = status.strip()
+                stdscr.insstr(curses.LINES - 1, x, status, curses.A_REVERSE)
+
+    def tick(self) -> None:
+        self._action_counter -= 1
+        if self._action_counter < 0:
+            self._status = ''
+
+
 def _color_test(stdscr: '_curses._CursesWindow') -> None:
-    _write_header(stdscr, '<<color test>>', modified=False)
+    Header('<<color test>>').draw(stdscr)
 
     maxy, maxx = stdscr.getmaxyx()
     if maxy < 19 or maxx < 68:  # pragma: no cover (will be deleted)
@@ -188,20 +247,6 @@ def _color_test(stdscr: '_curses._CursesWindow') -> None:
             x += 4
         y += 1
     stdscr.get_wch()
-
-
-def _write_header(
-        stdscr: '_curses._CursesWindow',
-        filename: str,
-        *,
-        modified: bool,
-) -> None:
-    filename = filename or '<<new file>>'
-    if modified:
-        filename += ' *'
-    centered_filename = filename.center(curses.COLS)[len(VERSION_STR) + 2:]
-    s = f' {VERSION_STR} {centered_filename}'
-    stdscr.insstr(0, 0, s, curses.A_REVERSE)
 
 
 def _write_lines(
@@ -229,30 +274,6 @@ def _write_lines(
     blankline = ' ' * curses.COLS
     for i in range(lines_to_display, margin.body_lines):
         stdscr.insstr(i + margin.header, 0, blankline)
-
-
-def _write_status(
-        stdscr: '_curses._CursesWindow',
-        margin: Margin,
-        status: str,
-) -> None:
-    if margin.footer or status:
-        stdscr.insstr(curses.LINES - 1, 0, ' ' * curses.COLS)
-        if status:
-            status = f' {status} '
-            offset = (curses.COLS - len(status)) // 2
-            if offset < 0:
-                offset = 0
-                status = status.strip()
-            stdscr.insstr(curses.LINES - 1, offset, status, curses.A_REVERSE)
-
-
-def _move_cursor(
-        stdscr: '_curses._CursesWindow',
-        pos: Position,
-        margin: Margin,
-) -> None:
-    stdscr.move(pos.cursor_y(margin), pos.cursor_x())
 
 
 def _restore_lines_eof_invariant(lines: List[str]) -> None:
@@ -285,21 +306,11 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
     if args.color_test:
         return _color_test(stdscr)
 
-    modified = False
     filename = args.filename
-    status = ''
-    status_action_counter = -1
     pos = Position()
     margin = Margin.from_screen(stdscr)
-
-    def _set_status(s: str) -> None:
-        nonlocal status, status_action_counter
-        status = s
-        # if the window is only 1-tall, clear status quicker
-        if not margin.footer:
-            status_action_counter = 1
-        else:
-            status_action_counter = 25
+    header = Header(filename or '<<new file>>')
+    status = Status()
 
     if args.filename is not None:
         with open(args.filename, newline='') as f:
@@ -307,19 +318,17 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
     else:
         lines, nl, mixed = _get_lines(io.StringIO(''))
     if mixed:
-        _set_status(f'mixed newlines will be converted to {nl!r}')
-        modified = True
+        status.update(f'mixed newlines will be converted to {nl!r}', margin)
+        header.modified = True
 
     while True:
-        if status_action_counter == 0:
-            status = ''
-        status_action_counter -= 1
+        status.tick()
 
         if margin.header:
-            _write_header(stdscr, filename, modified=modified)
+            header.draw(stdscr)
         _write_lines(stdscr, pos, margin, lines)
-        _write_status(stdscr, margin, status)
-        _move_cursor(stdscr, pos, margin)
+        status.draw(stdscr, margin)
+        pos.move_cursor(stdscr, margin)
 
         wch = stdscr.get_wch()
         key = wch if isinstance(wch, int) else ord(wch)
@@ -354,13 +363,13 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
                 pos.up(margin, lines)
                 pos.x = pos.x_hint = new_x
                 # deleting the fake end-of-file doesn't cause modification
-                modified |= pos.cursor_line < len(lines) - 1
+                header.modified |= pos.cursor_line < len(lines) - 1
                 _restore_lines_eof_invariant(lines)
             else:
                 s = lines[pos.cursor_line]
                 lines[pos.cursor_line] = s[:pos.x - 1] + s[pos.x:]
                 pos.left(margin, lines)
-                modified = True
+                header.modified = True
         elif key == curses.KEY_DC:
             # noop at end of the file
             if pos.cursor_line == len(lines) - 1:
@@ -369,26 +378,26 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
             elif pos.x == len(lines[pos.cursor_line]):
                 lines[pos.cursor_line] += lines[pos.cursor_line + 1]
                 lines.pop(pos.cursor_line + 1)
-                modified = True
+                header.modified = True
             else:
                 s = lines[pos.cursor_line]
                 lines[pos.cursor_line] = s[:pos.x] + s[pos.x + 1:]
-                modified = True
+                header.modified = True
         elif wch == '\r':
             s = lines[pos.cursor_line]
             lines[pos.cursor_line] = s[:pos.x]
             lines.insert(pos.cursor_line + 1, s[pos.x:])
             pos.down(margin, lines)
             pos.x = pos.x_hint = 0
-            modified = True
+            header.modified = True
         elif isinstance(wch, str) and wch.isprintable():
             s = lines[pos.cursor_line]
             lines[pos.cursor_line] = s[:pos.x] + wch + s[pos.x:]
             pos.right(margin, lines)
-            modified = True
+            header.modified = True
             _restore_lines_eof_invariant(lines)
         else:
-            _set_status(f'unknown key: {keyname} ({key})')
+            status.update(f'unknown key: {keyname} ({key})', margin)
 
 
 def _init_screen() -> '_curses._CursesWindow':
