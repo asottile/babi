@@ -118,6 +118,13 @@ class PrintsErrorRunner(Runner):
                 f'Last cursor position: {pos}',
             )
 
+    def get_screen_line(self, n):
+        return self.screenshot().splitlines()[n]
+
+    def get_cursor_line(self):
+        _, y = self._get_cursor_position()
+        return self.get_screen_line(y)
+
     @contextlib.contextmanager
     def resize(self, width, height):
         current_w, current_h = self.get_pane_size()
@@ -234,7 +241,7 @@ def test_status_clearing_behaviour():
 
 def test_reacts_to_resize():
     with run() as h, and_exit(h):
-        first_line = h.screenshot().splitlines()[0]
+        first_line = h.get_screen_line(0)
         with h.resize(40, 20):
             # the first line should be different after resize
             h.await_text_missing(first_line)
@@ -304,6 +311,56 @@ def test_arrow_key_movement(tmpdir):
         h.await_cursor_position(x=19, y=3)
 
 
+@pytest.mark.parametrize(
+    ('page_up', 'page_down'),
+    (('PageUp', 'PageDown'), ('^Y', '^V')),
+)
+def test_page_up_and_page_down(tmpdir, page_up, page_down):
+    f = tmpdir.join('f')
+    f.write('\n'.join(f'line_{i}' for i in range(10)))
+
+    with run(str(f), height=10) as h, and_exit(h):
+        h.press('Down')
+        h.press('Down')
+        h.press(page_up)
+        h.await_cursor_position(x=0, y=1)
+
+        h.press(page_down)
+        h.await_text('line_8')
+        h.await_cursor_position(x=0, y=1)
+        assert h.get_cursor_line() == 'line_6'
+
+        h.press(page_up)
+        h.await_text_missing('line_8')
+        h.await_cursor_position(x=0, y=1)
+        assert h.get_cursor_line() == 'line_0'
+
+        h.press(page_down)
+        h.press(page_down)
+        h.await_cursor_position(x=0, y=5)
+        assert h.get_cursor_line() == ''
+        h.press('Up')
+        h.await_cursor_position(x=0, y=4)
+        assert h.get_cursor_line() == 'line_9'
+
+
+def test_page_up_page_down_size_small_window(tmpdir):
+    f = tmpdir.join('f')
+    f.write('\n'.join(f'line_{i}' for i in range(10)))
+
+    with run(str(f), height=4) as h, and_exit(h):
+        h.press('PageDown')
+        h.await_text('line_2')
+        h.await_cursor_position(x=0, y=1)
+        assert h.get_cursor_line() == 'line_1'
+
+        h.press('Down')
+        h.press('PageUp')
+        h.await_text_missing('line_2')
+        h.await_cursor_position(x=0, y=1)
+        assert h.get_cursor_line() == 'line_0'
+
+
 def test_scrolling_arrow_key_movement(tmpdir):
     f = tmpdir.join('f')
     f.write('\n'.join(f'line_{i}' for i in range(10)))
@@ -319,7 +376,7 @@ def test_scrolling_arrow_key_movement(tmpdir):
         h.press('Down')
         h.await_text('line_8')
         h.await_cursor_position(x=0, y=4)
-        assert h.screenshot().splitlines()[4] == 'line_8'
+        assert h.get_cursor_line() == 'line_8'
         # we should not have scrolled after 3 up presses
         for _ in range(3):
             h.press('Up')
@@ -382,7 +439,7 @@ def test_resize_scrolls_up(tmpdir):
             h.await_text_missing('line_0')
             h.await_cursor_position(x=0, y=3)
             # make sure we're still on the same line
-            assert h.screenshot().splitlines()[3] == 'line_7'
+            assert h.get_cursor_line() == 'line_7'
 
 
 def test_resize_scroll_does_not_go_negative(tmpdir):
@@ -401,7 +458,7 @@ def test_resize_scroll_does_not_go_negative(tmpdir):
         for _ in range(2):
             h.press('Up')
 
-        assert h.screenshot().splitlines()[1] == 'line_0'
+        assert h.get_screen_line(1) == 'line_0'
 
 
 def test_very_narrow_window_status():

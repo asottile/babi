@@ -24,6 +24,13 @@ class Margin(NamedTuple):
     def body_lines(self) -> int:
         return curses.LINES - self.header - self.footer
 
+    @property
+    def page_size(self) -> int:
+        if self.body_lines <= 2:
+            return 1
+        else:
+            return self.body_lines - 2
+
     @classmethod
     def from_screen(cls, screen: '_curses._CursesWindow') -> 'Margin':
         if curses.LINES == 1:
@@ -95,6 +102,22 @@ class Position:
     def end(self, margin: Margin, lines: List[str]) -> None:
         self.x = self.x_hint = len(lines[self.cursor_line])
 
+    def page_up(self, margin: Margin, lines: List[str]) -> None:
+        if self.cursor_line < margin.body_lines:
+            self.cursor_line = self.file_line = 0
+        else:
+            pos = self.file_line - margin.page_size
+            self.cursor_line = self.file_line = pos
+        self._set_x_after_vertical_movement(lines)
+
+    def page_down(self, margin: Margin, lines: List[str]) -> None:
+        if self.file_line + margin.body_lines >= len(lines):
+            self.cursor_line = len(lines) - 1
+        else:
+            pos = self.file_line + margin.page_size
+            self.cursor_line = self.file_line = pos
+        self._set_x_after_vertical_movement(lines)
+
     DISPATCH = {
         curses.KEY_DOWN: down,
         curses.KEY_UP: up,
@@ -102,6 +125,8 @@ class Position:
         curses.KEY_RIGHT: right,
         curses.KEY_HOME: home,
         curses.KEY_END: end,
+        curses.KEY_PPAGE: page_up,
+        curses.KEY_NPAGE: page_down,
     }
 
     def dispatch(self, key: int, margin: Margin, lines: List[str]) -> None:
@@ -345,6 +370,10 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
             pos.home(margin, lines)
         elif keyname == b'^E':
             pos.end(margin, lines)
+        elif keyname == b'^Y':
+            pos.page_up(margin, lines)
+        elif keyname == b'^V':
+            pos.page_down(margin, lines)
         elif keyname == b'^X':
             return
         elif keyname == b'^Z':
