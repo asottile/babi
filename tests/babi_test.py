@@ -361,6 +361,21 @@ def test_page_up_page_down_size_small_window(tmpdir):
         assert h.get_cursor_line() == 'line_0'
 
 
+@pytest.mark.skip(reason='not implemented')  # pragma: no cover
+def test_ctrl_home(tmpdir):
+    f = tmpdir.join('f')
+    f.write('\n'.join(f'line_{i}' for i in range(10)))
+
+    with run(str(f), height=4) as h, and_exit(h):
+        for _ in range(3):
+            h.press('PageDown')
+        h.await_text_missing('line_0')
+
+        h.press('^Home')
+        h.await_text('line_0')
+        h.await_cursor_position(x=0, y=1)
+
+
 def test_scrolling_arrow_key_movement(tmpdir):
     f = tmpdir.join('f')
     f.write('\n'.join(f'line_{i}' for i in range(10)))
