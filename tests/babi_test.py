@@ -256,6 +256,19 @@ def test_mixed_newlines(tmpdir):
         h.await_text(r"mixed newlines will be converted to '\n'")
 
 
+def test_new_file():
+    with run('this_is_a_new_file') as h, and_exit(h):
+        h.await_text('this_is_a_new_file')
+        h.await_text('(new file)')
+
+
+def test_not_a_file(tmpdir):
+    d = tmpdir.join('d').ensure_dir()
+    with run(str(d)) as h, and_exit(h):
+        h.await_text('<<new file>>')
+        h.await_text("d' is not a file")
+
+
 def test_arrow_key_movement(tmpdir):
     f = tmpdir.join('f')
     f.write(
@@ -694,4 +707,40 @@ def test_suspend(tmpdir):
 
         h.press('C-x')
         h.press_and_enter('exit')
+        h.await_exit()
+
+
+def test_multiple_files(tmpdir):
+    a = tmpdir.join('file_a')
+    a.write('a text')
+    b = tmpdir.join('file_b')
+    b.write('b text')
+    c = tmpdir.join('file_c')
+    c.write('c text')
+
+    with run(str(a), str(b), str(c)) as h:
+        h.await_text('file_a')
+        h.await_text('a text')
+        h.press('Right')
+        h.await_cursor_position(x=1, y=1)
+
+        h.press('C-h')  # TODO: alt+right
+        h.await_text('file_b')
+        h.await_text('b text')
+        h.await_cursor_position(x=0, y=1)
+
+        h.press('C-g')  # TODO: alt+left
+        h.await_text('file_a')
+        h.await_cursor_position(x=1, y=1)
+
+        # wrap around
+        h.press('C-g')  # TODO: alt+left
+        h.await_text('file_c')
+        h.await_text('c text')
+
+        h.press('C-x')
+        h.await_text('file_a')
+        h.press('C-x')
+        h.await_text('file_b')
+        h.press('C-x')
         h.await_exit()

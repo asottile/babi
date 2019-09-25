@@ -3,6 +3,7 @@ import argparse
 import collections
 import contextlib
 import curses
+import enum
 import io
 import os
 import signal
@@ -11,6 +12,7 @@ from typing import Generator
 from typing import IO
 from typing import List
 from typing import NamedTuple
+from typing import Optional
 from typing import Tuple
 
 VERSION_STR = 'babi v0'
@@ -128,9 +130,12 @@ class Position:
         curses.KEY_PPAGE: page_up,
         curses.KEY_NPAGE: page_down,
     }
-
-    def dispatch(self, key: int, margin: Margin, lines: List[str]) -> None:
-        return self.DISPATCH[key](self, margin, lines)
+    DISPATCH_KEY = {
+        b'^A': home,
+        b'^E': end,
+        b'^Y': page_up,
+        b'^V': page_down,
+    }
 
     def cursor_y(self, margin: Margin) -> int:
         return self.cursor_line - self.file_line + margin.header
@@ -203,21 +208,12 @@ def _init_colors(stdscr: '_curses._CursesWindow') -> None:
 
 
 class Header:
-    def __init__(self, filename: str) -> None:
-        self._filename = filename
-        self._modified = False
-
-    @property
-    def modified(self) -> bool:
-        return self._modified
-
-    @modified.setter
-    def modified(self, modified: bool) -> None:
-        self._modified = modified
+    def __init__(self, file: 'File') -> None:
+        self.file = file
 
     def draw(self, stdscr: '_curses._CursesWindow') -> None:
-        filename = self._filename
-        if self._modified:
+        filename = self.file.filename or '<<new file>>'
+        if self.file.modified:
             filename += ' *'
         centered = filename.center(curses.COLS)[len(VERSION_STR) + 2:]
         s = f' {VERSION_STR} {centered}'
@@ -254,8 +250,103 @@ class Status:
             self._status = ''
 
 
+class File:
+    def __init__(self, filename: Optional[str]) -> None:
+        self.filename = filename
+        self.modified = False
+        self.pos = Position()
+        self.lines: List[str] = []
+        self.nl = '\n'
+
+    def ensure_loaded(self, status: Status, margin: Margin) -> None:
+        if self.lines:
+            return
+
+        if self.filename is not None and os.path.isfile(self.filename):
+            with open(self.filename, newline='') as f:
+                self.lines, self.nl, mixed = _get_lines(f)
+        else:
+            if self.filename is not None:
+                if os.path.lexists(self.filename):
+                    status.update(f'{self.filename!r} is not a file', margin)
+                    self.filename = None
+                else:
+                    status.update('(new file)', margin)
+            self.lines, self.nl, mixed = _get_lines(io.StringIO(''))
+
+        if mixed:
+            status.update(
+                f'mixed newlines will be converted to {self.nl!r}', margin,
+            )
+            self.modified = True
+
+    def backspace(self, margin: Margin) -> None:
+        # backspace at the beginning of the file does nothing
+        if self.pos.cursor_line == 0 and self.pos.x == 0:
+            pass
+        # at the beginning of the line, we join the current line and
+        # the previous line
+        elif self.pos.x == 0:
+            victim = self.lines.pop(self.pos.cursor_line)
+            new_x = len(self.lines[self.pos.cursor_line - 1])
+            self.lines[self.pos.cursor_line - 1] += victim
+            self.pos.up(margin, self.lines)
+            self.pos.x = self.pos.x_hint = new_x
+            # deleting the fake end-of-file doesn't cause modification
+            self.modified |= self.pos.cursor_line < len(self.lines) - 1
+            _restore_lines_eof_invariant(self.lines)
+        else:
+            s = self.lines[self.pos.cursor_line]
+            self.lines[self.pos.cursor_line] = (
+                s[:self.pos.x - 1] + s[self.pos.x:]
+            )
+            self.pos.left(margin, self.lines)
+            self.modified = True
+
+    def delete(self, margin: Margin) -> None:
+        # noop at end of the file
+        if self.pos.cursor_line == len(self.lines) - 1:
+            pass
+        # if we're at the end of the line, collapse the line afterwards
+        elif self.pos.x == len(self.lines[self.pos.cursor_line]):
+            self.lines[self.pos.cursor_line] += (
+                self.lines[self.pos.cursor_line + 1]
+            )
+            self.lines.pop(self.pos.cursor_line + 1)
+            self.modified = True
+        else:
+            s = self.lines[self.pos.cursor_line]
+            self.lines[self.pos.cursor_line] = (
+                s[:self.pos.x] + s[self.pos.x + 1:]
+            )
+            self.modified = True
+
+    def enter(self, margin: Margin) -> None:
+        s = self.lines[self.pos.cursor_line]
+        self.lines[self.pos.cursor_line] = s[:self.pos.x]
+        self.lines.insert(self.pos.cursor_line + 1, s[self.pos.x:])
+        self.pos.down(margin, self.lines)
+        self.pos.x = self.pos.x_hint = 0
+        self.modified = True
+
+    DISPATCH = {
+        curses.KEY_BACKSPACE: backspace,
+        curses.KEY_DC: delete,
+        ord('\r'): enter,
+    }
+
+    def c(self, wch: str, margin: Margin) -> None:
+        s = self.lines[self.pos.cursor_line]
+        self.lines[self.pos.cursor_line] = (
+            s[:self.pos.x] + wch + s[self.pos.x:]
+        )
+        self.pos.right(margin, self.lines)
+        self.modified = True
+        _restore_lines_eof_invariant(self.lines)
+
+
 def _color_test(stdscr: '_curses._CursesWindow') -> None:
-    Header('<<color test>>').draw(stdscr)
+    Header(File('<<color test>>')).draw(stdscr)
 
     maxy, maxx = stdscr.getmaxyx()
     if maxy < 19 or maxx < 68:  # pragma: no cover (will be deleted)
@@ -328,33 +419,23 @@ def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
     return lines, nl, mixed
 
 
-def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
-    if args.color_test:
-        return _color_test(stdscr)
+EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 
-    filename = args.filename
-    pos = Position()
+
+def _edit(stdscr: '_curses._CursesWindow', file: File) -> EditResult:
     margin = Margin.from_screen(stdscr)
-    header = Header(filename or '<<new file>>')
     status = Status()
-
-    if args.filename is not None:
-        with open(args.filename, newline='') as f:
-            lines, nl, mixed = _get_lines(f)
-    else:
-        lines, nl, mixed = _get_lines(io.StringIO(''))
-    if mixed:
-        status.update(f'mixed newlines will be converted to {nl!r}', margin)
-        header.modified = True
+    file.ensure_loaded(status, margin)
+    header = Header(file)
 
     while True:
         status.tick()
 
         if margin.header:
             header.draw(stdscr)
-        _write_lines(stdscr, pos, margin, lines)
+        _write_lines(stdscr, file.pos, margin, file.lines)
         status.draw(stdscr, margin)
-        pos.move_cursor(stdscr, margin)
+        file.pos.move_cursor(stdscr, margin)
 
         wch = stdscr.get_wch()
         key = wch if isinstance(wch, int) else ord(wch)
@@ -363,69 +444,26 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
         if key == curses.KEY_RESIZE:
             curses.update_lines_cols()
             margin = Margin.from_screen(stdscr)
-            pos.maybe_scroll_down(margin)
+            file.pos.maybe_scroll_down(margin)
         elif key in Position.DISPATCH:
-            pos.dispatch(key, margin, lines)
-        elif keyname == b'^A':
-            pos.home(margin, lines)
-        elif keyname == b'^E':
-            pos.end(margin, lines)
-        elif keyname == b'^Y':
-            pos.page_up(margin, lines)
-        elif keyname == b'^V':
-            pos.page_down(margin, lines)
+            file.pos.DISPATCH[key](file.pos, margin, file.lines)
+        elif keyname in Position.DISPATCH_KEY:
+            file.pos.DISPATCH_KEY[keyname](file.pos, margin, file.lines)
         elif keyname == b'^X':
-            return
+            return EditResult.EXIT
+        # TODO: use M-Right / M-Left when I figure out how escapes work
+        elif keyname == b'^G':
+            return EditResult.PREV
+        elif keyname == b'^H':
+            return EditResult.NEXT
         elif keyname == b'^Z':
             curses.endwin()
             os.kill(os.getpid(), signal.SIGSTOP)
             stdscr = _init_screen()
-        elif key == curses.KEY_BACKSPACE:
-            # backspace at the beginning of the file does nothing
-            if pos.cursor_line == 0 and pos.x == 0:
-                pass
-            # at the beginning of the line, we join the current line and
-            # the previous line
-            elif pos.x == 0:
-                victim = lines.pop(pos.cursor_line)
-                new_x = len(lines[pos.cursor_line - 1])
-                lines[pos.cursor_line - 1] += victim
-                pos.up(margin, lines)
-                pos.x = pos.x_hint = new_x
-                # deleting the fake end-of-file doesn't cause modification
-                header.modified |= pos.cursor_line < len(lines) - 1
-                _restore_lines_eof_invariant(lines)
-            else:
-                s = lines[pos.cursor_line]
-                lines[pos.cursor_line] = s[:pos.x - 1] + s[pos.x:]
-                pos.left(margin, lines)
-                header.modified = True
-        elif key == curses.KEY_DC:
-            # noop at end of the file
-            if pos.cursor_line == len(lines) - 1:
-                pass
-            # if we're at the end of the line, collapse the line afterwards
-            elif pos.x == len(lines[pos.cursor_line]):
-                lines[pos.cursor_line] += lines[pos.cursor_line + 1]
-                lines.pop(pos.cursor_line + 1)
-                header.modified = True
-            else:
-                s = lines[pos.cursor_line]
-                lines[pos.cursor_line] = s[:pos.x] + s[pos.x + 1:]
-                header.modified = True
-        elif wch == '\r':
-            s = lines[pos.cursor_line]
-            lines[pos.cursor_line] = s[:pos.x]
-            lines.insert(pos.cursor_line + 1, s[pos.x:])
-            pos.down(margin, lines)
-            pos.x = pos.x_hint = 0
-            header.modified = True
+        elif key in file.DISPATCH:
+            file.DISPATCH[key](file, margin)
         elif isinstance(wch, str) and wch.isprintable():
-            s = lines[pos.cursor_line]
-            lines[pos.cursor_line] = s[:pos.x] + wch + s[pos.x:]
-            pos.right(margin, lines)
-            header.modified = True
-            _restore_lines_eof_invariant(lines)
+            file.c(wch, margin)
         else:
             status.update(f'unknown key: {keyname} ({key})', margin)
 
@@ -445,6 +483,25 @@ def _init_screen() -> '_curses._CursesWindow':
     return stdscr
 
 
+def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
+    if args.color_test:
+        return _color_test(stdscr)
+    files = [File(filename) for filename in args.filenames or [None]]
+    i = 0
+    while files:
+        i = i % len(files)
+        file = files[i]
+        res = _edit(stdscr, file)
+        if res == EditResult.EXIT:
+            del files[i]
+        elif res == EditResult.NEXT:
+            i += 1
+        elif res == EditResult.PREV:
+            i -= 1
+        else:
+            raise AssertionError(f'unreachable {res}')
+
+
 @contextlib.contextmanager
 def make_stdscr() -> Generator['_curses._CursesWindow', None, None]:
     """essentially `curses.wrapper` but split out to implement ^Z"""
@@ -458,7 +515,7 @@ def make_stdscr() -> Generator['_curses._CursesWindow', None, None]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--color-test', action='store_true')
-    parser.add_argument('filename', nargs='?')
+    parser.add_argument('filenames', metavar='filename', nargs='*')
     args = parser.parse_args()
     with make_stdscr() as stdscr:
         c_main(stdscr, args)
