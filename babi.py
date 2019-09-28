@@ -13,6 +13,7 @@ from typing import List
 from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
+from typing import Union
 
 VERSION_STR = 'babi v0'
 
@@ -103,6 +104,16 @@ class Position:
     def end(self, margin: Margin, lines: List[str]) -> None:
         self.x = self.x_hint = len(lines[self.cursor_line])
 
+    def ctrl_home(self, margin: Margin, lines: List[str]) -> None:
+        self.x = self.x_hint = 0
+        self.cursor_line = self.file_line = 0
+
+    def ctrl_end(self, margin: Margin, lines: List[str]) -> None:
+        self.x = self.x_hint = 0
+        self.cursor_line = len(lines) - 1
+        if self.file_line < self.cursor_line - margin.body_lines:
+            self.file_line = self.cursor_line - margin.body_lines * 3 // 4 + 1
+
     def page_up(self, margin: Margin, lines: List[str]) -> None:
         if self.cursor_line < margin.body_lines:
             self.cursor_line = self.file_line = 0
@@ -134,6 +145,8 @@ class Position:
         b'^E': end,
         b'^Y': page_up,
         b'^V': page_down,
+        b'kHOM5': ctrl_home,
+        b'kEND5': ctrl_end,
     }
 
     def cursor_y(self, margin: Margin) -> int:
@@ -417,6 +430,53 @@ def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
     return lines, nl, mixed
 
 
+class Key(NamedTuple):
+    wch: Union[int, str]
+    key: int
+    keyname: bytes
+
+
+# TODO: find a place to populate these, surely there's a database somewhere
+SEQUENCE_KEY = {
+    '\033OH': curses.KEY_HOME,
+    '\033OF': curses.KEY_END,
+}
+SEQUENCE_KEYNAME = {
+    '\033[1;5H': b'kHOM5',  # C-Home
+    '\033[1;5F': b'kEND5',  # C-End
+    '\033OH': b'KEY_HOME',
+    '\033OF': b'KEY_END',
+}
+
+
+def _get_char(stdscr: 'curses._CursesWindow') -> Key:
+    wch = stdscr.get_wch()
+    if isinstance(wch, str) and wch == '\033':
+        stdscr.nodelay(True)
+        try:
+            while True:
+                try:
+                    new_wch = stdscr.get_wch()
+                    if isinstance(new_wch, str):
+                        wch += new_wch
+                    else:  # pragma: no cover (impossible?)
+                        curses.unget_wch(new_wch)
+                        break
+                except curses.error:
+                    break
+        finally:
+            stdscr.nodelay(False)
+
+        if len(wch) > 1:
+            key = SEQUENCE_KEY.get(wch, -1)
+            keyname = SEQUENCE_KEYNAME.get(wch, b'unknown')
+            return Key(wch, key, keyname)
+
+    key = wch if isinstance(wch, int) else ord(wch)
+    keyname = curses.keyname(key)
+    return Key(wch, key, keyname)
+
+
 EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 
 
@@ -435,38 +495,38 @@ def _edit(stdscr: 'curses._CursesWindow', file: File) -> EditResult:
         status.draw(stdscr, margin)
         file.pos.move_cursor(stdscr, margin)
 
-        wch = stdscr.get_wch()
-        key = wch if isinstance(wch, int) else ord(wch)
-        keyname = curses.keyname(key)
+        key = _get_char(stdscr)
 
-        if key == curses.KEY_RESIZE:
+        if key.key == curses.KEY_RESIZE:
             curses.update_lines_cols()
             margin = Margin.from_screen(stdscr)
             file.pos.maybe_scroll_down(margin)
-        elif key in Position.DISPATCH:
-            file.pos.DISPATCH[key](file.pos, margin, file.lines)
-        elif keyname in Position.DISPATCH_KEY:
-            file.pos.DISPATCH_KEY[keyname](file.pos, margin, file.lines)
-        elif keyname == b'^X':
+        elif key.key in Position.DISPATCH:
+            file.pos.DISPATCH[key.key](file.pos, margin, file.lines)
+        elif key.keyname in Position.DISPATCH_KEY:
+            file.pos.DISPATCH_KEY[key.keyname](file.pos, margin, file.lines)
+        elif key.keyname == b'^X':
             return EditResult.EXIT
         # TODO: use M-Right / M-Left when I figure out how escapes work
-        elif keyname == b'^G':
+        elif key.keyname == b'^G':
             return EditResult.PREV
-        elif keyname == b'^H':
+        elif key.keyname == b'^H':
             return EditResult.NEXT
-        elif keyname == b'^Z':
+        elif key.keyname == b'^Z':
             curses.endwin()
             os.kill(os.getpid(), signal.SIGSTOP)
             stdscr = _init_screen()
-        elif key in file.DISPATCH:
-            file.DISPATCH[key](file, margin)
-        elif isinstance(wch, str) and wch.isprintable():
-            file.c(wch, margin)
+        elif key.key in file.DISPATCH:
+            file.DISPATCH[key.key](file, margin)
+        elif isinstance(key.wch, str) and key.wch.isprintable():
+            file.c(key.wch, margin)
         else:
-            status.update(f'unknown key: {keyname} ({key})', margin)
+            status.update(f'unknown key: {key}', margin)
 
 
 def _init_screen() -> 'curses._CursesWindow':
+    # set the escape delay so curses does not pause waiting for sequences
+    os.environ.setdefault('ESCDELAY', '25')
     stdscr = curses.initscr()
     curses.noecho()
     curses.cbreak()

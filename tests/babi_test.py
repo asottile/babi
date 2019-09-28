@@ -239,6 +239,13 @@ def test_status_clearing_behaviour():
         h.await_text_missing('unknown key')
 
 
+def test_escape_key_behaviour():
+    # TODO: eventually escape will have a command utility, for now: unknown
+    with run() as h, and_exit(h):
+        h.press('Escape')
+        h.await_text('unknown key')
+
+
 def test_reacts_to_resize():
     with run() as h, and_exit(h):
         first_line = h.get_screen_line(0)
@@ -374,7 +381,6 @@ def test_page_up_page_down_size_small_window(tmpdir):
         assert h.get_cursor_line() == 'line_0'
 
 
-@pytest.mark.skip(reason='not implemented')  # pragma: no cover
 def test_ctrl_home(tmpdir):
     f = tmpdir.join('f')
     f.write('\n'.join(f'line_{i}' for i in range(10)))
@@ -387,6 +393,30 @@ def test_ctrl_home(tmpdir):
         h.press('^Home')
         h.await_text('line_0')
         h.await_cursor_position(x=0, y=1)
+
+
+def test_ctrl_end(tmpdir):
+    f = tmpdir.join('f')
+    f.write('\n'.join(f'line_{i}' for i in range(10)))
+
+    with run(str(f), height=6) as h, and_exit(h):
+        h.press('^End')
+        h.await_cursor_position(x=0, y=3)
+        assert h.get_screen_line(2) == 'line_9'
+
+
+def test_ctrl_end_already_on_last_page(tmpdir):
+    f = tmpdir.join('f')
+    f.write('\n'.join(f'line_{i}' for i in range(10)))
+
+    with run(str(f), height=8) as h, and_exit(h):
+        h.press('PageDown')
+        h.await_cursor_position(x=0, y=1)
+        h.await_text('line_9')
+
+        h.press('^End')
+        h.await_cursor_position(x=0, y=7)
+        assert h.get_screen_line(6) == 'line_9'
 
 
 def test_scrolling_arrow_key_movement(tmpdir):
