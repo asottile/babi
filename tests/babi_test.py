@@ -754,17 +754,17 @@ def test_multiple_files(tmpdir):
         h.press('Right')
         h.await_cursor_position(x=1, y=1)
 
-        h.press('C-h')  # TODO: alt+right
+        h.press('M-Right')
         h.await_text('file_b')
         h.await_text('b text')
         h.await_cursor_position(x=0, y=1)
 
-        h.press('C-g')  # TODO: alt+left
+        h.press('M-Left')
         h.await_text('file_a')
         h.await_cursor_position(x=1, y=1)
 
         # wrap around
-        h.press('C-g')  # TODO: alt+left
+        h.press('M-Left')
         h.await_text('file_c')
         h.await_text('c text')
 

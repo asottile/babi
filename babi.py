@@ -446,6 +446,10 @@ SEQUENCE_KEYNAME = {
     '\033[1;5F': b'kEND5',  # C-End
     '\033OH': b'KEY_HOME',
     '\033OF': b'KEY_END',
+    '\033[1;3A': b'kUP3',  # M-Up
+    '\033[1;3B': b'kDN3',  # M-Down
+    '\033[1;3C': b'kRIT3',  # M-Right
+    '\033[1;3D': b'kLFT3',  # M-Left
 }
 
 
@@ -507,10 +511,9 @@ def _edit(stdscr: 'curses._CursesWindow', file: File) -> EditResult:
             file.pos.DISPATCH_KEY[key.keyname](file.pos, margin, file.lines)
         elif key.keyname == b'^X':
             return EditResult.EXIT
-        # TODO: use M-Right / M-Left when I figure out how escapes work
-        elif key.keyname == b'^G':
+        elif key.keyname == b'kLFT3':
             return EditResult.PREV
-        elif key.keyname == b'^H':
+        elif key.keyname == b'kRIT3':
             return EditResult.NEXT
         elif key.keyname == b'^Z':
             curses.endwin()
