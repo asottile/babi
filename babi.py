@@ -219,15 +219,23 @@ def _init_colors(stdscr: 'curses._CursesWindow') -> None:
 
 
 class Header:
-    def __init__(self, file: 'File') -> None:
+    def __init__(self, file: 'File', idx: int, n_files: int) -> None:
         self.file = file
+        self.idx = idx
+        self.n_files = n_files
 
     def draw(self, stdscr: 'curses._CursesWindow') -> None:
         filename = self.file.filename or '<<new file>>'
         if self.file.modified:
             filename += ' *'
-        centered = filename.center(curses.COLS)[len(VERSION_STR) + 2:]
-        s = f' {VERSION_STR} {centered}'
+        if self.n_files > 1:
+            files = f'[{self.idx + 1}/{self.n_files}] '
+            version_width = len(VERSION_STR) + 2 + len(files)
+        else:
+            files = ''
+            version_width = len(VERSION_STR) + 2
+        centered = filename.center(curses.COLS)[version_width:]
+        s = f' {VERSION_STR} {files}{centered}{files}'
         stdscr.insstr(0, 0, s, curses.A_REVERSE)
 
 
@@ -357,7 +365,7 @@ class File:
 
 
 def _color_test(stdscr: 'curses._CursesWindow') -> None:
-    Header(File('<<color test>>')).draw(stdscr)
+    Header(File('<<color test>>'), 1, 1).draw(stdscr)
 
     maxy, maxx = stdscr.getmaxyx()
     if maxy < 19 or maxx < 68:  # pragma: no cover (will be deleted)
@@ -484,11 +492,14 @@ def _get_char(stdscr: 'curses._CursesWindow') -> Key:
 EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 
 
-def _edit(stdscr: 'curses._CursesWindow', file: File) -> EditResult:
+def _edit(
+        stdscr: 'curses._CursesWindow',
+        file: File,
+        header: Header,
+) -> EditResult:
     margin = Margin.from_screen(stdscr)
     status = Status()
     file.ensure_loaded(status, margin)
-    header = Header(file)
 
     while True:
         status.tick()
@@ -552,7 +563,8 @@ def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
     while files:
         i = i % len(files)
         file = files[i]
-        res = _edit(stdscr, file)
+        header = Header(file, i, len(files))
+        res = _edit(stdscr, file, header)
         if res == EditResult.EXIT:
             del files[i]
         elif res == EditResult.NEXT:

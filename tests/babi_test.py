@@ -750,22 +750,26 @@ def test_multiple_files(tmpdir):
 
     with run(str(a), str(b), str(c)) as h:
         h.await_text('file_a')
+        h.await_text('[1/3]')
         h.await_text('a text')
         h.press('Right')
         h.await_cursor_position(x=1, y=1)
 
         h.press('M-Right')
         h.await_text('file_b')
+        h.await_text('[2/3]')
         h.await_text('b text')
         h.await_cursor_position(x=0, y=1)
 
         h.press('M-Left')
         h.await_text('file_a')
+        h.await_text('[1/3]')
         h.await_cursor_position(x=1, y=1)
 
         # wrap around
         h.press('M-Left')
         h.await_text('file_c')
+        h.await_text('[3/3]')
         h.await_text('c text')
 
         h.press('C-x')
