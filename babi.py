@@ -1,4 +1,3 @@
-import _curses
 import argparse
 import collections
 import contextlib
@@ -34,7 +33,7 @@ class Margin(NamedTuple):
             return self.body_lines - 2
 
     @classmethod
-    def from_screen(cls, screen: '_curses._CursesWindow') -> 'Margin':
+    def from_screen(cls, screen: 'curses._CursesWindow') -> 'Margin':
         if curses.LINES == 1:
             return cls(header=False, footer=False)
         elif curses.LINES == 2:
@@ -159,7 +158,7 @@ class Position:
 
     def move_cursor(
             self,
-            stdscr: '_curses._CursesWindow',
+            stdscr: 'curses._CursesWindow',
             margin: Margin,
     ) -> None:
         stdscr.move(self.cursor_y(margin), self.cursor_x())
@@ -180,8 +179,7 @@ del _get_color_pair_mapping
 
 
 def _has_colors() -> bool:
-    # https://github.com/python/typeshed/pull/3115
-    return curses.has_colors and curses.COLORS >= 16  # type: ignore
+    return curses.has_colors and curses.COLORS >= 16
 
 
 def _color(fg: int, bg: int) -> int:
@@ -197,7 +195,7 @@ def _color(fg: int, bg: int) -> int:
             return curses.color_pair(0)
 
 
-def _init_colors(stdscr: '_curses._CursesWindow') -> None:
+def _init_colors(stdscr: 'curses._CursesWindow') -> None:
     curses.use_default_colors()
     if not _has_colors():
         return
@@ -211,7 +209,7 @@ class Header:
     def __init__(self, file: 'File') -> None:
         self.file = file
 
-    def draw(self, stdscr: '_curses._CursesWindow') -> None:
+    def draw(self, stdscr: 'curses._CursesWindow') -> None:
         filename = self.file.filename or '<<new file>>'
         if self.file.modified:
             filename += ' *'
@@ -233,7 +231,7 @@ class Status:
         else:
             self._action_counter = 1
 
-    def draw(self, stdscr: '_curses._CursesWindow', margin: Margin) -> None:
+    def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
         if margin.footer or self._status:
             stdscr.insstr(curses.LINES - 1, 0, ' ' * curses.COLS)
             if self._status:
@@ -345,7 +343,7 @@ class File:
         _restore_lines_eof_invariant(self.lines)
 
 
-def _color_test(stdscr: '_curses._CursesWindow') -> None:
+def _color_test(stdscr: 'curses._CursesWindow') -> None:
     Header(File('<<color test>>')).draw(stdscr)
 
     maxy, maxx = stdscr.getmaxyx()
@@ -367,7 +365,7 @@ def _color_test(stdscr: '_curses._CursesWindow') -> None:
 
 
 def _write_lines(
-        stdscr: '_curses._CursesWindow',
+        stdscr: 'curses._CursesWindow',
         pos: Position,
         margin: Margin,
         lines: List[str],
@@ -422,7 +420,7 @@ def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
 EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 
 
-def _edit(stdscr: '_curses._CursesWindow', file: File) -> EditResult:
+def _edit(stdscr: 'curses._CursesWindow', file: File) -> EditResult:
     margin = Margin.from_screen(stdscr)
     status = Status()
     file.ensure_loaded(status, margin)
@@ -468,7 +466,7 @@ def _edit(stdscr: '_curses._CursesWindow', file: File) -> EditResult:
             status.update(f'unknown key: {keyname} ({key})', margin)
 
 
-def _init_screen() -> '_curses._CursesWindow':
+def _init_screen() -> 'curses._CursesWindow':
     stdscr = curses.initscr()
     curses.noecho()
     curses.cbreak()
@@ -483,7 +481,7 @@ def _init_screen() -> '_curses._CursesWindow':
     return stdscr
 
 
-def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
+def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
     if args.color_test:
         return _color_test(stdscr)
     files = [File(filename) for filename in args.filenames or [None]]
@@ -503,7 +501,7 @@ def c_main(stdscr: '_curses._CursesWindow', args: argparse.Namespace) -> None:
 
 
 @contextlib.contextmanager
-def make_stdscr() -> Generator['_curses._CursesWindow', None, None]:
+def make_stdscr() -> Generator['curses._CursesWindow', None, None]:
     """essentially `curses.wrapper` but split out to implement ^Z"""
     stdscr = _init_screen()
     try:
