@@ -11,8 +11,19 @@ import babi
 
 
 def test_position_repr():
-    ret = repr(babi.Position())
-    assert ret == 'Position(file_line=0, cursor_line=0, x=0, x_hint=0)'
+    ret = repr(babi.File('f.txt'))
+    assert ret == (
+        'File(\n'
+        "    filename='f.txt',\n"
+        '    modified=False,\n'
+        '    lines=[],\n'
+        "    nl='\\n',\n"
+        '    file_line=0,\n'
+        '    cursor_line=0,\n'
+        '    x=0,\n'
+        '    x_hint=0,\n'
+        ')'
+    )
 
 
 @pytest.mark.parametrize(

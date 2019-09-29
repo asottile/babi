@@ -43,140 +43,6 @@ class Margin(NamedTuple):
             return cls(header=True, footer=True)
 
 
-class Position:
-    def __init__(self) -> None:
-        self.file_line = self.cursor_line = self.x = self.x_hint = 0
-
-    def __repr__(self) -> str:
-        attrs = ', '.join(f'{k}={v}' for k, v in self.__dict__.items())
-        return f'{type(self).__name__}({attrs})'
-
-    def _scroll_amount(self) -> int:
-        return int(curses.LINES / 2 + .5)
-
-    def _set_x_after_vertical_movement(self, lines: List[str]) -> None:
-        self.x = min(len(lines[self.cursor_line]), self.x_hint)
-
-    def maybe_scroll_down(self, margin: Margin) -> None:
-        if self.cursor_line >= self.file_line + margin.body_lines:
-            self.file_line += self._scroll_amount()
-
-    def down(self, margin: Margin, lines: List[str]) -> None:
-        if self.cursor_line < len(lines) - 1:
-            self.cursor_line += 1
-            self.maybe_scroll_down(margin)
-            self._set_x_after_vertical_movement(lines)
-
-    def maybe_scroll_up(self, margin: Margin) -> None:
-        if self.cursor_line < self.file_line:
-            self.file_line -= self._scroll_amount()
-            self.file_line = max(self.file_line, 0)
-
-    def up(self, margin: Margin, lines: List[str]) -> None:
-        if self.cursor_line > 0:
-            self.cursor_line -= 1
-            self.maybe_scroll_up(margin)
-            self._set_x_after_vertical_movement(lines)
-
-    def right(self, margin: Margin, lines: List[str]) -> None:
-        if self.x >= len(lines[self.cursor_line]):
-            if self.cursor_line < len(lines) - 1:
-                self.x = 0
-                self.cursor_line += 1
-                self.maybe_scroll_down(margin)
-        else:
-            self.x += 1
-        self.x_hint = self.x
-
-    def left(self, margin: Margin, lines: List[str]) -> None:
-        if self.x == 0:
-            if self.cursor_line > 0:
-                self.cursor_line -= 1
-                self.x = len(lines[self.cursor_line])
-                self.maybe_scroll_up(margin)
-        else:
-            self.x -= 1
-        self.x_hint = self.x
-
-    def home(self, margin: Margin, lines: List[str]) -> None:
-        self.x = self.x_hint = 0
-
-    def end(self, margin: Margin, lines: List[str]) -> None:
-        self.x = self.x_hint = len(lines[self.cursor_line])
-
-    def ctrl_home(self, margin: Margin, lines: List[str]) -> None:
-        self.x = self.x_hint = 0
-        self.cursor_line = self.file_line = 0
-
-    def ctrl_end(self, margin: Margin, lines: List[str]) -> None:
-        self.x = self.x_hint = 0
-        self.cursor_line = len(lines) - 1
-        if self.file_line < self.cursor_line - margin.body_lines:
-            self.file_line = self.cursor_line - margin.body_lines * 3 // 4 + 1
-
-    def page_up(self, margin: Margin, lines: List[str]) -> None:
-        if self.cursor_line < margin.body_lines:
-            self.cursor_line = self.file_line = 0
-        else:
-            pos = self.file_line - margin.page_size
-            self.cursor_line = self.file_line = pos
-        self._set_x_after_vertical_movement(lines)
-
-    def page_down(self, margin: Margin, lines: List[str]) -> None:
-        if self.file_line + margin.body_lines >= len(lines):
-            self.cursor_line = len(lines) - 1
-        else:
-            pos = self.file_line + margin.page_size
-            self.cursor_line = self.file_line = pos
-        self._set_x_after_vertical_movement(lines)
-
-    DISPATCH = {
-        curses.KEY_DOWN: down,
-        curses.KEY_UP: up,
-        curses.KEY_LEFT: left,
-        curses.KEY_RIGHT: right,
-        curses.KEY_HOME: home,
-        curses.KEY_END: end,
-        curses.KEY_PPAGE: page_up,
-        curses.KEY_NPAGE: page_down,
-    }
-    DISPATCH_KEY = {
-        b'^A': home,
-        b'^E': end,
-        b'^Y': page_up,
-        b'^V': page_down,
-        b'kHOM5': ctrl_home,
-        b'kEND5': ctrl_end,
-    }
-
-    def cursor_y(self, margin: Margin) -> int:
-        return self.cursor_line - self.file_line + margin.header
-
-    def line_x(self) -> int:
-        margin = min(curses.COLS - 3, 6)
-        if self.x + 1 < curses.COLS:
-            return 0
-        elif curses.COLS == 1:
-            return self.x
-        else:
-            return (
-                curses.COLS - margin - 2 +
-                (self.x + 1 - curses.COLS) //
-                (curses.COLS - margin - 2) *
-                (curses.COLS - margin - 2)
-            )
-
-    def cursor_x(self) -> int:
-        return self.x - self.line_x()
-
-    def move_cursor(
-            self,
-            stdscr: 'curses._CursesWindow',
-            margin: Margin,
-    ) -> None:
-        stdscr.move(self.cursor_y(margin), self.cursor_x())
-
-
 def _get_color_pair_mapping() -> Dict[Tuple[int, int], int]:
     ret = {}
     i = 0
@@ -273,9 +139,9 @@ class File:
     def __init__(self, filename: Optional[str]) -> None:
         self.filename = filename
         self.modified = False
-        self.pos = Position()
         self.lines: List[str] = []
         self.nl = '\n'
+        self.file_line = self.cursor_line = self.x = self.x_hint = 0
 
     def ensure_loaded(self, status: Status, margin: Margin) -> None:
         if self.lines:
@@ -299,69 +165,195 @@ class File:
             )
             self.modified = True
 
+    def __repr__(self) -> str:
+        attrs = ',\n    '.join(f'{k}={v!r}' for k, v in self.__dict__.items())
+        return f'{type(self).__name__}(\n    {attrs},\n)'
+
+    # movement
+
+    def _scroll_amount(self) -> int:
+        return int(curses.LINES / 2 + .5)
+
+    def _set_x_after_vertical_movement(self) -> None:
+        self.x = min(len(self.lines[self.cursor_line]), self.x_hint)
+
+    def maybe_scroll_down(self, margin: Margin) -> None:
+        if self.cursor_line >= self.file_line + margin.body_lines:
+            self.file_line += self._scroll_amount()
+
+    def down(self, margin: Margin) -> None:
+        if self.cursor_line < len(self.lines) - 1:
+            self.cursor_line += 1
+            self.maybe_scroll_down(margin)
+            self._set_x_after_vertical_movement()
+
+    def maybe_scroll_up(self, margin: Margin) -> None:
+        if self.cursor_line < self.file_line:
+            self.file_line -= self._scroll_amount()
+            self.file_line = max(self.file_line, 0)
+
+    def up(self, margin: Margin) -> None:
+        if self.cursor_line > 0:
+            self.cursor_line -= 1
+            self.maybe_scroll_up(margin)
+            self._set_x_after_vertical_movement()
+
+    def right(self, margin: Margin) -> None:
+        if self.x >= len(self.lines[self.cursor_line]):
+            if self.cursor_line < len(self.lines) - 1:
+                self.x = 0
+                self.cursor_line += 1
+                self.maybe_scroll_down(margin)
+        else:
+            self.x += 1
+        self.x_hint = self.x
+
+    def left(self, margin: Margin) -> None:
+        if self.x == 0:
+            if self.cursor_line > 0:
+                self.cursor_line -= 1
+                self.x = len(self.lines[self.cursor_line])
+                self.maybe_scroll_up(margin)
+        else:
+            self.x -= 1
+        self.x_hint = self.x
+
+    def home(self, margin: Margin) -> None:
+        self.x = self.x_hint = 0
+
+    def end(self, margin: Margin) -> None:
+        self.x = self.x_hint = len(self.lines[self.cursor_line])
+
+    def ctrl_home(self, margin: Margin) -> None:
+        self.x = self.x_hint = 0
+        self.cursor_line = self.file_line = 0
+
+    def ctrl_end(self, margin: Margin) -> None:
+        self.x = self.x_hint = 0
+        self.cursor_line = len(self.lines) - 1
+        if self.file_line < self.cursor_line - margin.body_lines:
+            self.file_line = self.cursor_line - margin.body_lines * 3 // 4 + 1
+
+    def page_up(self, margin: Margin) -> None:
+        if self.cursor_line < margin.body_lines:
+            self.cursor_line = self.file_line = 0
+        else:
+            pos = self.file_line - margin.page_size
+            self.cursor_line = self.file_line = pos
+        self._set_x_after_vertical_movement()
+
+    def page_down(self, margin: Margin) -> None:
+        if self.file_line + margin.body_lines >= len(self.lines):
+            self.cursor_line = len(self.lines) - 1
+        else:
+            pos = self.file_line + margin.page_size
+            self.cursor_line = self.file_line = pos
+        self._set_x_after_vertical_movement()
+
+    # editing
+
     def backspace(self, margin: Margin) -> None:
         # backspace at the beginning of the file does nothing
-        if self.pos.cursor_line == 0 and self.pos.x == 0:
+        if self.cursor_line == 0 and self.x == 0:
             pass
         # at the beginning of the line, we join the current line and
         # the previous line
-        elif self.pos.x == 0:
-            victim = self.lines.pop(self.pos.cursor_line)
-            new_x = len(self.lines[self.pos.cursor_line - 1])
-            self.lines[self.pos.cursor_line - 1] += victim
-            self.pos.up(margin, self.lines)
-            self.pos.x = self.pos.x_hint = new_x
+        elif self.x == 0:
+            victim = self.lines.pop(self.cursor_line)
+            new_x = len(self.lines[self.cursor_line - 1])
+            self.lines[self.cursor_line - 1] += victim
+            self.up(margin)
+            self.x = self.x_hint = new_x
             # deleting the fake end-of-file doesn't cause modification
-            self.modified |= self.pos.cursor_line < len(self.lines) - 1
+            self.modified |= self.cursor_line < len(self.lines) - 1
             _restore_lines_eof_invariant(self.lines)
         else:
-            s = self.lines[self.pos.cursor_line]
-            self.lines[self.pos.cursor_line] = (
-                s[:self.pos.x - 1] + s[self.pos.x:]
-            )
-            self.pos.left(margin, self.lines)
+            s = self.lines[self.cursor_line]
+            self.lines[self.cursor_line] = s[:self.x - 1] + s[self.x:]
+            self.left(margin)
             self.modified = True
 
     def delete(self, margin: Margin) -> None:
         # noop at end of the file
-        if self.pos.cursor_line == len(self.lines) - 1:
+        if self.cursor_line == len(self.lines) - 1:
             pass
         # if we're at the end of the line, collapse the line afterwards
-        elif self.pos.x == len(self.lines[self.pos.cursor_line]):
-            self.lines[self.pos.cursor_line] += (
-                self.lines[self.pos.cursor_line + 1]
-            )
-            self.lines.pop(self.pos.cursor_line + 1)
+        elif self.x == len(self.lines[self.cursor_line]):
+            self.lines[self.cursor_line] += self.lines[self.cursor_line + 1]
+            self.lines.pop(self.cursor_line + 1)
             self.modified = True
         else:
-            s = self.lines[self.pos.cursor_line]
-            self.lines[self.pos.cursor_line] = (
-                s[:self.pos.x] + s[self.pos.x + 1:]
-            )
+            s = self.lines[self.cursor_line]
+            self.lines[self.cursor_line] = s[:self.x] + s[self.x + 1:]
             self.modified = True
 
     def enter(self, margin: Margin) -> None:
-        s = self.lines[self.pos.cursor_line]
-        self.lines[self.pos.cursor_line] = s[:self.pos.x]
-        self.lines.insert(self.pos.cursor_line + 1, s[self.pos.x:])
-        self.pos.down(margin, self.lines)
-        self.pos.x = self.pos.x_hint = 0
+        s = self.lines[self.cursor_line]
+        self.lines[self.cursor_line] = s[:self.x]
+        self.lines.insert(self.cursor_line + 1, s[self.x:])
+        self.down(margin)
+        self.x = self.x_hint = 0
         self.modified = True
 
     DISPATCH = {
+        # movement
+        curses.KEY_DOWN: down,
+        curses.KEY_UP: up,
+        curses.KEY_LEFT: left,
+        curses.KEY_RIGHT: right,
+        curses.KEY_HOME: home,
+        curses.KEY_END: end,
+        curses.KEY_PPAGE: page_up,
+        curses.KEY_NPAGE: page_down,
+        # editing
         curses.KEY_BACKSPACE: backspace,
         curses.KEY_DC: delete,
         ord('\r'): enter,
     }
+    DISPATCH_KEY = {
+        b'^A': home,
+        b'^E': end,
+        b'^Y': page_up,
+        b'^V': page_down,
+        b'kHOM5': ctrl_home,
+        b'kEND5': ctrl_end,
+    }
 
     def c(self, wch: str, margin: Margin) -> None:
-        s = self.lines[self.pos.cursor_line]
-        self.lines[self.pos.cursor_line] = (
-            s[:self.pos.x] + wch + s[self.pos.x:]
-        )
-        self.pos.right(margin, self.lines)
+        s = self.lines[self.cursor_line]
+        self.lines[self.cursor_line] = s[:self.x] + wch + s[self.x:]
+        self.right(margin)
         self.modified = True
         _restore_lines_eof_invariant(self.lines)
+
+    # positioning
+
+    def cursor_y(self, margin: Margin) -> int:
+        return self.cursor_line - self.file_line + margin.header
+
+    def line_x(self) -> int:
+        margin = min(curses.COLS - 3, 6)
+        if self.x + 1 < curses.COLS:
+            return 0
+        elif curses.COLS == 1:
+            return self.x
+        else:
+            return (
+                curses.COLS - margin - 2 +
+                (self.x + 1 - curses.COLS) //
+                (curses.COLS - margin - 2) *
+                (curses.COLS - margin - 2)
+            )
+
+    def cursor_x(self) -> int:
+        return self.x - self.line_x()
+
+    def move_cursor(
+            self,
+            stdscr: 'curses._CursesWindow',
+            margin: Margin,
+    ) -> None:
+        stdscr.move(self.cursor_y(margin), self.cursor_x())
 
 
 def _color_test(stdscr: 'curses._CursesWindow') -> None:
@@ -387,16 +379,15 @@ def _color_test(stdscr: 'curses._CursesWindow') -> None:
 
 def _write_lines(
         stdscr: 'curses._CursesWindow',
-        pos: Position,
+        file: File,
         margin: Margin,
-        lines: List[str],
 ) -> None:
-    lines_to_display = min(len(lines) - pos.file_line, margin.body_lines)
+    lines_to_display = min(len(file.lines) - file.file_line, margin.body_lines)
     for i in range(lines_to_display):
-        line_idx = pos.file_line + i
-        line = lines[line_idx]
-        line_x = pos.line_x()
-        if line_idx == pos.cursor_line and line_x:
+        line_idx = file.file_line + i
+        line = file.lines[line_idx]
+        line_x = file.line_x()
+        if line_idx == file.cursor_line and line_x:
             line = f'«{line[line_x + 1:]}'
             if len(line) > curses.COLS:
                 line = f'{line[:curses.COLS - 1]}»'
@@ -506,20 +497,20 @@ def _edit(
 
         if margin.header:
             header.draw(stdscr)
-        _write_lines(stdscr, file.pos, margin, file.lines)
+        _write_lines(stdscr, file, margin)
         status.draw(stdscr, margin)
-        file.pos.move_cursor(stdscr, margin)
+        file.move_cursor(stdscr, margin)
 
         key = _get_char(stdscr)
 
         if key.key == curses.KEY_RESIZE:
             curses.update_lines_cols()
             margin = Margin.from_screen(stdscr)
-            file.pos.maybe_scroll_down(margin)
-        elif key.key in Position.DISPATCH:
-            file.pos.DISPATCH[key.key](file.pos, margin, file.lines)
-        elif key.keyname in Position.DISPATCH_KEY:
-            file.pos.DISPATCH_KEY[key.keyname](file.pos, margin, file.lines)
+            file.maybe_scroll_down(margin)
+        elif key.key in File.DISPATCH:
+            file.DISPATCH[key.key](file, margin)
+        elif key.keyname in File.DISPATCH_KEY:
+            file.DISPATCH_KEY[key.keyname](file, margin)
         elif key.keyname == b'^X':
             return EditResult.EXIT
         elif key.keyname == b'kLFT3':
@@ -530,8 +521,6 @@ def _edit(
             curses.endwin()
             os.kill(os.getpid(), signal.SIGSTOP)
             stdscr = _init_screen()
-        elif key.key in file.DISPATCH:
-            file.DISPATCH[key.key](file, margin)
         elif isinstance(key.wch, str) and key.wch.isprintable():
             file.c(key.wch, margin)
         else:
