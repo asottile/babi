@@ -135,6 +135,32 @@ class Status:
             self._status = ''
 
 
+def _restore_lines_eof_invariant(lines: List[str]) -> None:
+    """The file lines will always contain a blank empty string at the end to
+    simplify rendering.  This should be called whenever the end of the file
+    might change.
+    """
+    if not lines or lines[-1] != '':
+        lines.append('')
+
+
+def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
+    lines = []
+    newlines = collections.Counter({'\n': 0})  # default to `\n`
+    for line in sio:
+        for ending in ('\r\n', '\n'):
+            if line.endswith(ending):
+                lines.append(line[:-1 * len(ending)])
+                newlines[ending] += 1
+                break
+        else:
+            lines.append(line)
+    _restore_lines_eof_invariant(lines)
+    (nl, _), = newlines.most_common(1)
+    mixed = len({k for k, v in newlines.items() if v}) > 1
+    return lines, nl, mixed
+
+
 class File:
     def __init__(self, filename: Optional[str]) -> None:
         self.filename = filename
@@ -398,32 +424,6 @@ def _color_test(stdscr: 'curses._CursesWindow') -> None:
     stdscr.get_wch()
 
 
-def _restore_lines_eof_invariant(lines: List[str]) -> None:
-    """The file lines will always contain a blank empty string at the end to
-    simplify rendering.  This should be called whenever the end of the file
-    might change.
-    """
-    if not lines or lines[-1] != '':
-        lines.append('')
-
-
-def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
-    lines = []
-    newlines = collections.Counter({'\n': 0})  # default to `\n`
-    for line in sio:
-        for ending in ('\r\n', '\n'):
-            if line.endswith(ending):
-                lines.append(line[:-1 * len(ending)])
-                newlines[ending] += 1
-                break
-        else:
-            lines.append(line)
-    _restore_lines_eof_invariant(lines)
-    (nl, _), = newlines.most_common(1)
-    mixed = len({k for k, v in newlines.items() if v}) > 1
-    return lines, nl, mixed
-
-
 class Key(NamedTuple):
     wch: Union[int, str]
     key: int
@@ -528,23 +528,6 @@ def _edit(
             status.update(f'unknown key: {key}', margin)
 
 
-def _init_screen() -> 'curses._CursesWindow':
-    # set the escape delay so curses does not pause waiting for sequences
-    os.environ.setdefault('ESCDELAY', '25')
-    stdscr = curses.initscr()
-    curses.noecho()
-    curses.cbreak()
-    # <enter> is not transformed into '\n' so it can be differentiated from ^J
-    curses.nonl()
-    # ^S / ^Q / ^Z / ^\ are passed through
-    curses.raw()
-    stdscr.keypad(True)
-    with contextlib.suppress(curses.error):
-        curses.start_color()
-    _init_colors(stdscr)
-    return stdscr
-
-
 def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
     if args.color_test:
         return _color_test(stdscr)
@@ -562,6 +545,23 @@ def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
             i -= 1
         else:
             raise AssertionError(f'unreachable {res}')
+
+
+def _init_screen() -> 'curses._CursesWindow':
+    # set the escape delay so curses does not pause waiting for sequences
+    os.environ.setdefault('ESCDELAY', '25')
+    stdscr = curses.initscr()
+    curses.noecho()
+    curses.cbreak()
+    # <enter> is not transformed into '\n' so it can be differentiated from ^J
+    curses.nonl()
+    # ^S / ^Q / ^Z / ^\ are passed through
+    curses.raw()
+    stdscr.keypad(True)
+    with contextlib.suppress(curses.error):
+        curses.start_color()
+    _init_colors(stdscr)
+    return stdscr
 
 
 @contextlib.contextmanager
