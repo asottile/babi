@@ -355,6 +355,27 @@ class File:
     ) -> None:
         stdscr.move(self.cursor_y(margin), self.cursor_x())
 
+    def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
+        to_display = min(len(self.lines) - self.file_line, margin.body_lines)
+        for i in range(to_display):
+            line_idx = self.file_line + i
+            line = self.lines[line_idx]
+            line_x = self.line_x()
+            if line_idx == self.cursor_line and line_x:
+                line = f'«{line[line_x + 1:]}'
+                if len(line) > curses.COLS:
+                    line = f'{line[:curses.COLS - 1]}»'
+                else:
+                    line = line.ljust(curses.COLS)
+            elif len(line) > curses.COLS:
+                line = f'{line[:curses.COLS - 1]}»'
+            else:
+                line = line.ljust(curses.COLS)
+            stdscr.insstr(i + margin.header, 0, line)
+        blankline = ' ' * curses.COLS
+        for i in range(to_display, margin.body_lines):
+            stdscr.insstr(i + margin.header, 0, blankline)
+
 
 def _color_test(stdscr: 'curses._CursesWindow') -> None:
     Header(File('<<color test>>'), 1, 1).draw(stdscr)
@@ -375,32 +396,6 @@ def _color_test(stdscr: 'curses._CursesWindow') -> None:
             x += 4
         y += 1
     stdscr.get_wch()
-
-
-def _write_lines(
-        stdscr: 'curses._CursesWindow',
-        file: File,
-        margin: Margin,
-) -> None:
-    lines_to_display = min(len(file.lines) - file.file_line, margin.body_lines)
-    for i in range(lines_to_display):
-        line_idx = file.file_line + i
-        line = file.lines[line_idx]
-        line_x = file.line_x()
-        if line_idx == file.cursor_line and line_x:
-            line = f'«{line[line_x + 1:]}'
-            if len(line) > curses.COLS:
-                line = f'{line[:curses.COLS - 1]}»'
-            else:
-                line = line.ljust(curses.COLS)
-        elif len(line) > curses.COLS:
-            line = f'{line[:curses.COLS - 1]}»'
-        else:
-            line = line.ljust(curses.COLS)
-        stdscr.insstr(i + margin.header, 0, line)
-    blankline = ' ' * curses.COLS
-    for i in range(lines_to_display, margin.body_lines):
-        stdscr.insstr(i + margin.header, 0, blankline)
 
 
 def _restore_lines_eof_invariant(lines: List[str]) -> None:
@@ -497,7 +492,7 @@ def _edit(
 
         if margin.header:
             header.draw(stdscr)
-        _write_lines(stdscr, file, margin)
+        file.draw(stdscr, margin)
         status.draw(stdscr, margin)
         file.move_cursor(stdscr, margin)
 
@@ -551,9 +546,8 @@ def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
     i = 0
     while files:
         i = i % len(files)
-        file = files[i]
-        header = Header(file, i, len(files))
-        res = _edit(stdscr, file, header)
+        header = Header(files[i], i, len(files))
+        res = _edit(stdscr, files[i], header)
         if res == EditResult.EXIT:
             del files[i]
         elif res == EditResult.NEXT:
