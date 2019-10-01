@@ -736,6 +736,28 @@ def test_suspend(tmpdir):
         h.await_exit()
 
 
+def test_suspend_with_resize(tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello')
+
+    with PrintsErrorRunner('env', 'PS1=$', 'bash') as h:
+        cmd = (sys.executable, '-mcoverage', 'run', '-m', 'babi', str(f))
+        h.press_and_enter(' '.join(shlex.quote(part) for part in cmd))
+        h.await_text(babi.VERSION_STR)
+        h.await_text('hello')
+
+        h.press('C-z')
+        h.await_text_missing('hello')
+
+        with h.resize(80, 10):
+            h.press_and_enter('fg')
+            h.await_text('hello')
+
+        h.press('C-x')
+        h.press_and_enter('exit')
+        h.await_exit()
+
+
 def test_multiple_files(tmpdir):
     a = tmpdir.join('file_a')
     a.write('a text')

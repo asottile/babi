@@ -475,6 +475,13 @@ def _get_char(stdscr: 'curses._CursesWindow') -> Key:
     return Key(wch, key, keyname)
 
 
+def _resize(stdscr: 'curses._CursesWindow', file: File) -> Margin:
+    curses.update_lines_cols()
+    margin = Margin.from_screen(stdscr)
+    file.maybe_scroll_down(margin)
+    return margin
+
+
 EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 
 
@@ -499,9 +506,7 @@ def _edit(
         key = _get_char(stdscr)
 
         if key.key == curses.KEY_RESIZE:
-            curses.update_lines_cols()
-            margin = Margin.from_screen(stdscr)
-            file.maybe_scroll_down(margin)
+            margin = _resize(stdscr, file)
         elif key.key in File.DISPATCH:
             file.DISPATCH[key.key](file, margin)
         elif key.keyname in File.DISPATCH_KEY:
@@ -516,6 +521,7 @@ def _edit(
             curses.endwin()
             os.kill(os.getpid(), signal.SIGSTOP)
             stdscr = _init_screen()
+            margin = _resize(stdscr, file)
         elif isinstance(key.wch, str) and key.wch.isprintable():
             file.c(key.wch, margin)
         else:
