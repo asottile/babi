@@ -22,6 +22,7 @@ def test_position_repr():
         '    cursor_line=0,\n'
         '    x=0,\n'
         '    x_hint=0,\n'
+        '    sha256=None,\n'
         ')'
     )
 
@@ -37,8 +38,15 @@ def test_position_repr():
     ),
 )
 def test_get_lines(s, lines, nl, mixed):
-    ret = babi._get_lines(io.StringIO(s))
-    assert ret == (lines, nl, mixed)
+    # sha256 tested below
+    ret_lines, ret_nl, ret_mixed, _ = babi._get_lines(io.StringIO(s))
+    assert (ret_lines, ret_nl, ret_mixed) == (lines, nl, mixed)
+
+
+def test_get_lines_sha256_checksum():
+    ret = babi._get_lines(io.StringIO(''))
+    sha256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
+    assert ret == ([''], '\n', False, sha256)
 
 
 class PrintsErrorRunner(Runner):
@@ -796,3 +804,64 @@ def test_multiple_files(tmpdir):
         h.await_text('file_b')
         h.press('C-x')
         h.await_exit()
+
+
+def test_saving_with_no_filename_doesnt_exist():
+    # TODO: this should prompt but currently refuses
+    with run() as h, and_exit(h):
+        h.press('C-s')
+        h.await_text('no filename, not implemented')
+
+
+def test_saving_file_on_disk_changes(tmpdir):
+    # TODO: this should show some sort of diffing thing or just allow overwrite
+    f = tmpdir.join('f')
+
+    with run(str(f)) as h, and_exit(h):
+        f.write('hello world')
+
+        h.press('C-s')
+        h.await_text('file changed on disk, not implemented')
+
+
+def test_allows_saving_same_contents_as_modified_contents(tmpdir):
+    f = tmpdir.join('f')
+
+    with run(str(f)) as h, and_exit(h):
+        f.write('hello world\n')
+        h.press('hello world')
+        h.await_text('hello world')
+
+        h.press('C-s')
+        h.await_text('saved! (1 line written)')
+        h.await_text_missing('*')
+
+    assert f.read() == 'hello world\n'
+
+
+def test_allows_saving_if_file_on_disk_does_not_change(tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello world\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('hello world')
+        h.press('ohai')
+        h.press('Enter')
+
+        h.press('C-s')
+        h.await_text('saved! (2 lines written)')
+        h.await_text_missing('*')
+
+    assert f.read() == 'ohai\nhello world\n'
+
+
+def test_save_file_when_it_did_not_exist(tmpdir):
+    f = tmpdir.join('f')
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('hello world')
+        h.press('C-s')
+        h.await_text('saved! (1 line written)')
+        h.await_text_missing('*')
+
+    assert f.read() == 'hello world\n'

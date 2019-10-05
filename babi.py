@@ -3,6 +3,7 @@ import collections
 import contextlib
 import curses
 import enum
+import hashlib
 import io
 import os
 import signal
@@ -144,10 +145,12 @@ def _restore_lines_eof_invariant(lines: List[str]) -> None:
         lines.append('')
 
 
-def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
+def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool, str]:
+    sha256 = hashlib.sha256()
     lines = []
     newlines = collections.Counter({'\n': 0})  # default to `\n`
     for line in sio:
+        sha256.update(line.encode())
         for ending in ('\r\n', '\n'):
             if line.endswith(ending):
                 lines.append(line[:-1 * len(ending)])
@@ -158,7 +161,7 @@ def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool]:
     _restore_lines_eof_invariant(lines)
     (nl, _), = newlines.most_common(1)
     mixed = len({k for k, v in newlines.items() if v}) > 1
-    return lines, nl, mixed
+    return lines, nl, mixed, sha256.hexdigest()
 
 
 class File:
@@ -168,6 +171,7 @@ class File:
         self.lines: List[str] = []
         self.nl = '\n'
         self.file_line = self.cursor_line = self.x = self.x_hint = 0
+        self.sha256: Optional[str] = None
 
     def ensure_loaded(self, status: Status, margin: Margin) -> None:
         if self.lines:
@@ -175,7 +179,7 @@ class File:
 
         if self.filename is not None and os.path.isfile(self.filename):
             with open(self.filename, newline='') as f:
-                self.lines, self.nl, mixed = _get_lines(f)
+                self.lines, self.nl, mixed, self.sha256 = _get_lines(f)
         else:
             if self.filename is not None:
                 if os.path.lexists(self.filename):
@@ -183,7 +187,8 @@ class File:
                     self.filename = None
                 else:
                     status.update('(new file)', margin)
-            self.lines, self.nl, mixed = _get_lines(io.StringIO(''))
+            sio = io.StringIO('')
+            self.lines, self.nl, mixed, self.sha256 = _get_lines(sio)
 
         if mixed:
             status.update(
@@ -337,6 +342,7 @@ class File:
         ord('\r'): enter,
     }
     DISPATCH_KEY = {
+        # movement
         b'^A': home,
         b'^E': end,
         b'^Y': page_up,
@@ -351,6 +357,38 @@ class File:
         self.right(margin)
         self.modified = True
         _restore_lines_eof_invariant(self.lines)
+
+    def save(self, status: Status, margin: Margin) -> None:
+        # TODO: make directories if they don't exist
+        # TODO: maybe use mtime / stat as a shortcut for hashing below
+        # TODO: strip trailing whitespace?
+        # TODO: save atomically?
+        if self.filename is None:
+            status.update('(no filename, not implemented)', margin)
+            return
+
+        if os.path.isfile(self.filename):
+            with open(self.filename) as f:
+                *_, sha256 = _get_lines(f)
+        else:
+            sha256 = hashlib.sha256(b'').hexdigest()
+
+        contents = self.nl.join(self.lines)
+        sha256_to_save = hashlib.sha256(contents.encode()).hexdigest()
+
+        # the file on disk is the same as when we opened it
+        if sha256 not in (self.sha256, sha256_to_save):
+            status.update('(file changed on disk, not implemented)', margin)
+            return
+
+        with open(self.filename, 'w') as f:
+            f.write(contents)
+
+        self.modified = False
+        self.sha256 = sha256_to_save
+        num_lines = len(self.lines) - 1
+        lines = 'lines' if num_lines != 1 else 'line'
+        status.update(f'saved! ({num_lines} {lines} written)', margin)
 
     # positioning
 
@@ -511,6 +549,8 @@ def _edit(
             file.DISPATCH[key.key](file, margin)
         elif key.keyname in File.DISPATCH_KEY:
             file.DISPATCH_KEY[key.keyname](file, margin)
+        elif key.keyname == b'^S':
+            file.save(status, margin)
         elif key.keyname == b'^X':
             return EditResult.EXIT
         elif key.keyname == b'kLFT3':
