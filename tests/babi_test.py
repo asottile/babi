@@ -243,11 +243,16 @@ def test_status_clearing_behaviour():
         h.await_text_missing('unknown key')
 
 
-def test_escape_key_behaviour():
-    # TODO: eventually escape will have a command utility, for now: unknown
-    with run() as h, and_exit(h):
-        h.press('Escape')
+def test_quit_via_colon_q():
+    with run() as h:
+        # show a status so we can tell when the command module is up
+        h.press('^J')
         h.await_text('unknown key')
+        h.press('Escape')
+        h.await_text_missing('unknown key')
+        h.press(':q')
+        h.press('Enter')
+        h.await_exit()
 
 
 def test_reacts_to_resize():

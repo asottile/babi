@@ -19,6 +19,35 @@ from typing import Union
 VERSION_STR = 'babi v0'
 
 
+def _line_x(x: int, width: int) -> int:
+    margin = min(width - 3, 6)
+    if x + 1 < width:
+        return 0
+    elif width == 1:
+        return x
+    else:
+        return (
+            width - margin - 2 +
+            (x + 1 - width) //
+            (width - margin - 2) *
+            (width - margin - 2)
+        )
+
+
+def _scrolled_line(s: str, x: int, width: int, *, current: bool) -> str:
+    line_x = _line_x(x, width)
+    if current and line_x:
+        s = f'«{s[line_x + 1:]}'
+        if line_x and len(s) > width:
+            return f'{s[:width - 1]}»'
+        else:
+            return s.ljust(width)
+    elif len(s) > width:
+        return f'{s[:width - 1]}»'
+    else:
+        return s.ljust(width)
+
+
 class Margin(NamedTuple):
     header: bool
     footer: bool
@@ -85,27 +114,6 @@ def _init_colors(stdscr: 'curses._CursesWindow') -> None:
         curses.init_pair(pair, fg, bg)
 
 
-class Header:
-    def __init__(self, file: 'File', idx: int, n_files: int) -> None:
-        self.file = file
-        self.idx = idx
-        self.n_files = n_files
-
-    def draw(self, stdscr: 'curses._CursesWindow') -> None:
-        filename = self.file.filename or '<<new file>>'
-        if self.file.modified:
-            filename += ' *'
-        if self.n_files > 1:
-            files = f'[{self.idx + 1}/{self.n_files}] '
-            version_width = len(VERSION_STR) + 2 + len(files)
-        else:
-            files = ''
-            version_width = len(VERSION_STR) + 2
-        centered = filename.center(curses.COLS)[version_width:]
-        s = f' {VERSION_STR} {files}{centered}{files}'
-        stdscr.insstr(0, 0, s, curses.A_REVERSE)
-
-
 class Status:
     def __init__(self) -> None:
         self._status = ''
@@ -134,6 +142,41 @@ class Status:
         self._action_counter -= 1
         if self._action_counter < 0:
             self._status = ''
+
+    def prompt(self, screen: 'Screen', prompt: str) -> str:
+        pos = 0
+        buf = ''
+        while True:
+            width = curses.COLS - len(prompt)
+            cmd = f'{prompt}{_scrolled_line(buf, pos, width, current=True)}'
+            screen.stdscr.insstr(curses.LINES - 1, 0, cmd, curses.A_REVERSE)
+            line_x = _line_x(pos, width)
+            screen.stdscr.move(curses.LINES - 1, pos - line_x)
+            key = _get_char(screen.stdscr)
+
+            if key.key == curses.KEY_RESIZE:
+                screen.resize()
+            elif key.key == curses.KEY_LEFT:
+                pos = max(0, pos - 1)
+            elif key.key == curses.KEY_RIGHT:
+                pos = min(len(buf), pos + 1)
+            elif key.key == curses.KEY_HOME or key.keyname == b'^A':
+                pos = 0
+            elif key.key == curses.KEY_END or key.keyname == b'^E':
+                pos = len(buf)
+            elif key.key == curses.KEY_BACKSPACE:
+                if pos > 0:
+                    buf = buf[:pos - 1] + buf[pos:]
+                    pos -= 1
+            elif key.key == curses.KEY_DC:
+                if pos < len(buf):
+                    buf = buf[:pos] + buf[pos + 1:]
+            elif isinstance(key.wch, str) and key.wch.isprintable():
+                buf = buf[:pos] + key.wch + buf[pos:]
+                pos += 1
+            elif key.key == ord('\r'):
+                return buf
+        return buf
 
 
 def _restore_lines_eof_invariant(lines: List[str]) -> None:
@@ -396,18 +439,7 @@ class File:
         return self.cursor_line - self.file_line + margin.header
 
     def line_x(self) -> int:
-        margin = min(curses.COLS - 3, 6)
-        if self.x + 1 < curses.COLS:
-            return 0
-        elif curses.COLS == 1:
-            return self.x
-        else:
-            return (
-                curses.COLS - margin - 2 +
-                (self.x + 1 - curses.COLS) //
-                (curses.COLS - margin - 2) *
-                (curses.COLS - margin - 2)
-            )
+        return _line_x(self.x, curses.COLS)
 
     def cursor_x(self) -> int:
         return self.x - self.line_x()
@@ -424,25 +456,61 @@ class File:
         for i in range(to_display):
             line_idx = self.file_line + i
             line = self.lines[line_idx]
-            line_x = self.line_x()
-            if line_idx == self.cursor_line and line_x:
-                line = f'«{line[line_x + 1:]}'
-                if len(line) > curses.COLS:
-                    line = f'{line[:curses.COLS - 1]}»'
-                else:
-                    line = line.ljust(curses.COLS)
-            elif len(line) > curses.COLS:
-                line = f'{line[:curses.COLS - 1]}»'
-            else:
-                line = line.ljust(curses.COLS)
+            current = line_idx == self.cursor_line
+            line = _scrolled_line(line, self.x, curses.COLS, current=current)
             stdscr.insstr(i + margin.header, 0, line)
         blankline = ' ' * curses.COLS
         for i in range(to_display, margin.body_lines):
             stdscr.insstr(i + margin.header, 0, blankline)
 
 
+class Screen:
+    def __init__(
+            self,
+            stdscr: 'curses._CursesWindow',
+            files: List[File],
+    ) -> None:
+        self.stdscr = stdscr
+        self.files = files
+        self.i = 0
+        self.status = Status()
+        self.margin = Margin.from_screen(self.stdscr)
+
+    @property
+    def file(self) -> File:
+        return self.files[self.i]
+
+    def _draw_header(self) -> None:
+        filename = self.file.filename or '<<new file>>'
+        if self.file.modified:
+            filename += ' *'
+        if len(self.files) > 1:
+            files = f'[{self.i + 1}/{len(self.files)}] '
+            version_width = len(VERSION_STR) + 2 + len(files)
+        else:
+            files = ''
+            version_width = len(VERSION_STR) + 2
+        centered = filename.center(curses.COLS)[version_width:]
+        s = f' {VERSION_STR} {files}{centered}{files}'
+        self.stdscr.insstr(0, 0, s, curses.A_REVERSE)
+
+    def draw(self) -> None:
+        if self.margin.header:
+            self._draw_header()
+        self.file.draw(self.stdscr, self.margin)
+        self.status.draw(self.stdscr, self.margin)
+
+    def resize(self) -> None:
+        curses.update_lines_cols()
+        self.margin = Margin.from_screen(self.stdscr)
+        self.file.maybe_scroll_down(self.margin)
+        self.draw()
+
+
 def _color_test(stdscr: 'curses._CursesWindow') -> None:
-    Header(File('<<color test>>'), 1, 1).draw(stdscr)
+    header = f' {VERSION_STR}'
+    header += '<< color test >>'.center(curses.COLS)[len(header):]
+    stdscr.insstr(0, 0, header, curses.A_REVERSE)
 
     maxy, maxx = stdscr.getmaxyx()
     if maxy < 19 or maxx < 68:  # pragma: no cover (will be deleted)
@@ -527,34 +595,31 @@ def _resize(stdscr: 'curses._CursesWindow', file: File) -> Margin:
 EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 
 
-def _edit(
-        stdscr: 'curses._CursesWindow',
-        file: File,
-        header: Header,
-) -> EditResult:
-    margin = Margin.from_screen(stdscr)
-    status = Status()
-    file.ensure_loaded(status, margin)
+def _edit(screen: Screen) -> EditResult:
+    screen.file.ensure_loaded(screen.status, screen.margin)
 
     while True:
-        status.tick()
+        screen.status.tick()
 
-        if margin.header:
-            header.draw(stdscr)
-        file.draw(stdscr, margin)
-        status.draw(stdscr, margin)
-        file.move_cursor(stdscr, margin)
+        screen.draw()
+        screen.file.move_cursor(screen.stdscr, screen.margin)
 
-        key = _get_char(stdscr)
+        key = _get_char(screen.stdscr)
 
         if key.key == curses.KEY_RESIZE:
-            margin = _resize(stdscr, file)
+            screen.resize()
         elif key.key in File.DISPATCH:
-            file.DISPATCH[key.key](file, margin)
+            screen.file.DISPATCH[key.key](screen.file, screen.margin)
         elif key.keyname in File.DISPATCH_KEY:
-            file.DISPATCH_KEY[key.keyname](file, margin)
+            screen.file.DISPATCH_KEY[key.keyname](screen.file, screen.margin)
+        elif key.keyname == b'^[':  # escape
+            response = screen.status.prompt(screen, '')
+            if response == ':q':
+                return EditResult.EXIT
+            # TODO: handle response
+            screen.status.update(response, screen.margin)
         elif key.keyname == b'^S':
-            file.save(status, margin)
+            screen.file.save(screen.status, screen.margin)
         elif key.keyname == b'^X':
             return EditResult.EXIT
         elif key.keyname == b'kLFT3':
@@ -564,29 +629,27 @@ def _edit(
         elif key.keyname == b'^Z':
             curses.endwin()
             os.kill(os.getpid(), signal.SIGSTOP)
-            stdscr = _init_screen()
-            margin = _resize(stdscr, file)
+            screen.stdscr = _init_screen()
+            screen.resize()
         elif isinstance(key.wch, str) and key.wch.isprintable():
-            file.c(key.wch, margin)
+            screen.file.c(key.wch, screen.margin)
         else:
-            status.update(f'unknown key: {key}', margin)
+            screen.status.update(f'unknown key: {key}', screen.margin)
 
 
 def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
     if args.color_test:
         return _color_test(stdscr)
-    files = [File(filename) for filename in args.filenames or [None]]
-    i = 0
-    while files:
-        i = i % len(files)
-        header = Header(files[i], i, len(files))
-        res = _edit(stdscr, files[i], header)
+    screen = Screen(stdscr, [File(f) for f in args.filenames or [None]])
+    while screen.files:
+        screen.i = screen.i % len(screen.files)
+        res = _edit(screen)
         if res == EditResult.EXIT:
-            del files[i]
+            del screen.files[screen.i]
         elif res == EditResult.NEXT:
-            i += 1
+            screen.i += 1
         elif res == EditResult.PREV:
-            i -= 1
+            screen.i -= 1
         else:
             raise AssertionError(f'unreachable {res}')
 
