@@ -507,6 +507,10 @@ def _get_char(stdscr: 'curses._CursesWindow') -> Key:
             key = SEQUENCE_KEY.get(wch, -1)
             keyname = SEQUENCE_KEYNAME.get(wch, b'unknown')
             return Key(wch, key, keyname)
+    elif wch == '\x7f':  # pramga: no cover (macos)
+        key = curses.KEY_BACKSPACE
+        keyname = curses.keyname(key)
+        return Key(wch, key, keyname)
 
     key = wch if isinstance(wch, int) else ord(wch)
     keyname = curses.keyname(key)
