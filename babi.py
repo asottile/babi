@@ -616,6 +616,8 @@ def _edit(screen: Screen) -> EditResult:
             response = screen.status.prompt(screen, '')
             if response == ':q':
                 return EditResult.EXIT
+            elif response == ':w':
+                screen.file.save(screen.status, screen.margin)
             else:
                 screen.status.update(
                     f'{response} is not a valid command.',
