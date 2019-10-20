@@ -181,9 +181,10 @@ class Status:
 
 COMMANDS = {}
 
+
 def command(name, description):
     def generator(func):
-        COMMANDS[name] = { 'description': description, 'run': func }
+        COMMANDS[name] = {'description': description, 'run': func}
     return generator
 
 
@@ -613,6 +614,7 @@ def _resize(stdscr: 'curses._CursesWindow', file: File) -> Margin:
 
 
 EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
+
 
 def _edit(screen: Screen) -> EditResult:
     screen.file.ensure_loaded(screen.status, screen.margin)
