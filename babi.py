@@ -179,6 +179,8 @@ class Status:
         return buf
 
 
+EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV NONE')
+
 COMMANDS = {}
 
 def command(name, description):
@@ -190,12 +192,13 @@ def command(name, description):
 @command(':w', 'Writes the file')
 def write_command(screen):
     screen.file.save(screen.status, screen.margin)
-    return 'NONE'
 
 
 @command(':q', 'Quits babi')
 def close_command(screen):
-    return 'EXIT'
+    while screen.files:
+        screen.i = screen.i % len(screen.files)
+        del screen.files[screen.i]
 
 
 def _restore_lines_eof_invariant(lines: List[str]) -> None:
@@ -609,9 +612,6 @@ def _resize(stdscr: 'curses._CursesWindow', file: File) -> Margin:
     margin = Margin.from_screen(stdscr)
     file.maybe_scroll_down(margin)
     return margin
-
-
-EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV NONE')
 
 
 def _edit(screen: Screen) -> EditResult:
