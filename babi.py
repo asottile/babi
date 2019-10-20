@@ -179,6 +179,25 @@ class Status:
         return buf
 
 
+COMMANDS = {}
+
+def command(name, description):
+    def generator(func):
+        COMMANDS[name] = { 'description': description, 'run': func }
+    return generator
+
+
+@command(':w', 'Writes the file')
+def write_command(screen):
+    screen.file.save(screen.status, screen.margin)
+    return 'NONE'
+
+
+@command(':q', 'Quits babi')
+def close_command(screen):
+    return 'EXIT'
+
+
 def _restore_lines_eof_invariant(lines: List[str]) -> None:
     """The file lines will always contain a blank empty string at the end to
     simplify rendering.  This should be called whenever the end of the file
@@ -592,7 +611,7 @@ def _resize(stdscr: 'curses._CursesWindow', file: File) -> Margin:
     return margin
 
 
-EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
+EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV NONE')
 
 
 def _edit(screen: Screen) -> EditResult:
@@ -614,10 +633,9 @@ def _edit(screen: Screen) -> EditResult:
             screen.file.DISPATCH_KEY[key.keyname](screen.file, screen.margin)
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '')
-            if response == ':q':
-                return EditResult.EXIT
-            elif response == ':w':
-                screen.file.save(screen.status, screen.margin)
+
+            if response in COMMANDS:
+                COMMANDS[response]['run'](screen)
             else:
                 screen.status.update(
                     f'{response} is not a valid command.',
