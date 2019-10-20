@@ -616,7 +616,7 @@ def _edit(screen: Screen) -> EditResult:
             response = screen.status.prompt(screen, '')
             if response == ':q':
                 return EditResult.EXIT
-            if response == ':w':
+            elif response == ':w':
                 screen.file.save(screen.status, screen.margin)
             else:
                 screen.status.update(
