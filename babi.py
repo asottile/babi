@@ -7,6 +7,7 @@ import hashlib
 import io
 import os
 import signal
+from typing import Callable
 from typing import Dict
 from typing import Generator
 from typing import IO
@@ -15,6 +16,8 @@ from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
 from typing import Union
+
+from mypy_extensions import TypedDict
 
 VERSION_STR = 'babi v0'
 
@@ -177,27 +180,6 @@ class Status:
             elif key.key == ord('\r'):
                 return buf
         return buf
-
-
-COMMANDS = {}
-
-
-def command(name, description):
-    def generator(func):
-        COMMANDS[name] = {'description': description, 'run': func}
-    return generator
-
-
-@command(':w', 'Writes the file')
-def write_command(screen):
-    screen.file.save(screen.status, screen.margin)
-
-
-@command(':q', 'Quits babi')
-def close_command(screen):
-    while screen.files:
-        screen.i = screen.i % len(screen.files)
-        del screen.files[screen.i]
 
 
 def _restore_lines_eof_invariant(lines: List[str]) -> None:
@@ -526,6 +508,34 @@ class Screen:
         self.margin = Margin.from_screen(self.stdscr)
         self.file.maybe_scroll_down(self.margin)
         self.draw()
+
+
+class Command(TypedDict):
+    description: str
+    run: Callable[[Screen], None]
+
+
+COMMANDS = {}  # type: Dict[str, Command]
+
+
+def command(name: str, description: str) -> Callable[
+        [Callable[[Screen], None]], None
+]:
+    def generator(func: Callable[[Screen], None]) -> None:
+        COMMANDS[name] = {'description': description, 'run': func}
+    return generator
+
+
+@command(':w', 'Writes the file')
+def write_command(screen: Screen) -> None:
+    screen.file.save(screen.status, screen.margin)
+
+
+@command(':q', 'Quits babi')
+def close_command(screen: Screen) -> None:
+    while screen.files:
+        screen.i = screen.i % len(screen.files)
+        del screen.files[screen.i]
 
 
 def _color_test(stdscr: 'curses._CursesWindow') -> None:
