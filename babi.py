@@ -179,8 +179,6 @@ class Status:
         return buf
 
 
-EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV NONE')
-
 COMMANDS = {}
 
 def command(name, description):
@@ -613,6 +611,8 @@ def _resize(stdscr: 'curses._CursesWindow', file: File) -> Margin:
     file.maybe_scroll_down(margin)
     return margin
 
+
+EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 
 def _edit(screen: Screen) -> EditResult:
     screen.file.ensure_loaded(screen.status, screen.margin)
