@@ -949,3 +949,31 @@ def test_resizing_and_scrolling_in_command_mode():
             h.await_text(f'\n{"b" * 15}\n')
 
         h.press('Enter')
+
+
+def test_invalid_command():
+    with run() as h, and_exit(h):
+        trigger_command_mode(h)
+        h.press_and_enter(':fake')
+        h.await_text('invalid command: :fake')
+
+
+def test_empty_command_is_noop():
+    with run() as h, and_exit(h):
+        h.press('hello ')
+        trigger_command_mode(h)
+        h.press('Enter')
+        h.press('world')
+        h.await_text('hello world')
+        h.await_text_missing('invalid command')
+
+
+def test_cancel_command_mode():
+    with run() as h, and_exit(h):
+        h.press('hello ')
+        trigger_command_mode(h)
+        h.press(':q')
+        h.press('^C')
+        h.press('world')
+        h.await_text('hello world')
+        h.await_text_missing('invalid command')

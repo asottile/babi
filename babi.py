@@ -174,6 +174,8 @@ class Status:
             elif isinstance(key.wch, str) and key.wch.isprintable():
                 buf = buf[:pos] + key.wch + buf[pos:]
                 pos += 1
+            elif key.keyname == b'^C':
+                return ''
             elif key.key == ord('\r'):
                 return buf
 
@@ -610,11 +612,11 @@ def _edit(screen: Screen) -> EditResult:
                 return EditResult.EXIT
             elif response == ':w':
                 screen.file.save(screen.status, screen.margin)
+            elif response == '':  # noop / cancel
+                screen.status.update('', screen.margin)
             else:
-                screen.status.update(
-                    f'{response} is not a valid command.',
-                    screen.margin,
-                )
+                msg = f'invalid command: {response}'
+                screen.status.update(msg, screen.margin)
         elif key.keyname == b'^S':
             screen.file.save(screen.status, screen.margin)
         elif key.keyname == b'^X':
