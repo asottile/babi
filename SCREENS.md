@@ -31,3 +31,25 @@ see the progress of babi over time
 - navigation via home (`^A`) + end (`^E`) is enabled
 
 ![](https://i.fluffy.cc/RhVmwb8MQkZZbC399GtV99RSH3SB6FTZ.png)
+
+### 2019-09-28
+
+- babi can now open multiple files
+- babi can switch between files via `Alt+Left` / `Alt+Right`
+
+![](https://i.fluffy.cc/dKDd9rBm7hsXVsgZfvXM63gC8QQxJdhk.png)
+
+### 2019-10-05
+
+- babi can save using `^S`
+- several cases are still unhandled (saving unnamed new file, file contents
+  changed while editing)
+
+![](https://i.fluffy.cc/PQq1sqpcx59tWNFGF4nThQH1gSVHjVCn.png)
+
+### 2019-10-13
+
+- babi now has a command mode (trigger by `Escape`)
+- babi can be quit using `:q` and can save using `:w`
+
+![](https://i.fluffy.cc/KfGg7NhNTTH5X4ZsxdsMt72RVg5nR79H.png)
