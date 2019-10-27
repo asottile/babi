@@ -476,6 +476,7 @@ class Screen:
         self.i = 0
         self.status = Status()
         self.margin = Margin.from_screen(self.stdscr)
+        self.cut_buffer = ''
 
     @property
     def file(self) -> File:
@@ -590,6 +591,7 @@ EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 
 
 def _edit(screen: Screen) -> EditResult:
+    prevkey = Key('', 0, b'')
     screen.file.ensure_loaded(screen.status, screen.margin)
 
     while True:
@@ -606,6 +608,24 @@ def _edit(screen: Screen) -> EditResult:
             screen.file.DISPATCH[key.key](screen.file, screen.margin)
         elif key.keyname in File.DISPATCH_KEY:
             screen.file.DISPATCH_KEY[key.keyname](screen.file, screen.margin)
+        elif key.keyname == b'^K':
+            if screen.file.file_line == len(screen.file.lines) - 1:
+                screen.cut_buffer = ''
+            else:
+                line = screen.file.lines[screen.file.cursor_line] + '\n'
+                if prevkey.keyname == b'^K':
+                    screen.cut_buffer += line
+                else:
+                    screen.cut_buffer = line
+                del screen.file.lines[screen.file.cursor_line]
+                screen.file.x = screen.file.x_hint = 0
+                screen.file.modified = True
+        elif key.keyname == b'^U':
+            for c in screen.cut_buffer:
+                if c == '\n':
+                    screen.file.enter(screen.margin)
+                else:
+                    screen.file.c(c, screen.margin)
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '')
             if response == ':q':
@@ -634,6 +654,8 @@ def _edit(screen: Screen) -> EditResult:
             screen.file.c(key.wch, screen.margin)
         else:
             screen.status.update(f'unknown key: {key}', screen.margin)
+
+        prevkey = key
 
 
 def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
