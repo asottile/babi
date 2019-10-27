@@ -932,6 +932,18 @@ def test_save_via_command_mode(tmpdir):
     assert f.read() == 'hello world\n'
 
 
+def test_write_and_quit(tmpdir):
+    f = tmpdir.join('f')
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('hello world')
+        trigger_command_mode(h)
+        h.press_and_enter(':wq')
+        h.await_exit()
+
+    assert f.read() == 'hello world\n'
+
+
 def test_resizing_and_scrolling_in_command_mode():
     with run(width=20) as h, and_exit(h):
         h.press('a' * 15)
