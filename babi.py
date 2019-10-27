@@ -632,6 +632,9 @@ def _edit(screen: Screen) -> EditResult:
                 return EditResult.EXIT
             elif response == ':w':
                 screen.file.save(screen.status, screen.margin)
+            elif response == ':wq':
+                screen.file.save(screen.status, screen.margin)
+                return EditResult.EXIT
             elif response == '':  # noop / cancel
                 screen.status.update('', screen.margin)
             else:
