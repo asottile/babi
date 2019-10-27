@@ -49,3 +49,19 @@ command mode (so you can quit it like vim `:q`!).
 ![](https://i.fluffy.cc/PQq1sqpcx59tWNFGF4nThQH1gSVHjVCn.png)
 
 ![](https://i.fluffy.cc/KfGg7NhNTTH5X4ZsxdsMt72RVg5nR79H.png)
+
+## testing
+
+currently, babi uses tox and pyest for coverage and testing purposes.  so to
+run tests, run one of the following:
+
+```sh
+# Run all tests
+$ pytest tests/
+
+# Run specific test (by function name)
+$ pytest tests/ -k test_name_here
+
+# Run tests + generate coverage
+$ tox -e py37
+```
