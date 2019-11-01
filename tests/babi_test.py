@@ -731,7 +731,7 @@ def test_suspend(tmpdir):
     f = tmpdir.join('f')
     f.write('hello')
 
-    with PrintsErrorRunner('env', 'PS1=$ ', 'bash') as h:
+    with PrintsErrorRunner('bash', '--norc') as h:
         cmd = (sys.executable, '-mcoverage', 'run', '-m', 'babi', str(f))
         h.press_and_enter(' '.join(shlex.quote(part) for part in cmd))
         h.await_text(babi.VERSION_STR)
@@ -752,7 +752,7 @@ def test_suspend_with_resize(tmpdir):
     f = tmpdir.join('f')
     f.write('hello')
 
-    with PrintsErrorRunner('env', 'PS1=$', 'bash') as h:
+    with PrintsErrorRunner('bash', '--norc') as h:
         cmd = (sys.executable, '-mcoverage', 'run', '-m', 'babi', str(f))
         h.press_and_enter(' '.join(shlex.quote(part) for part in cmd))
         h.await_text(babi.VERSION_STR)
