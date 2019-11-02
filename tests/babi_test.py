@@ -179,7 +179,7 @@ def run(*args, color=True, **kwargs):
 def and_exit(h):
     yield
     # only try and exit in non-exceptional cases
-    h.press('C-x')
+    h.press('^X')
     h.await_exit()
 
 
@@ -217,7 +217,7 @@ def test_window_height_2(tmpdir):
         with h.resize(80, 2):
             h.await_text_missing(babi.VERSION_STR)
             assert h.screenshot() == 'hello world\n\n'
-            h.press('C-j')
+            h.press('^J')
             h.await_text('unknown key')
 
         h.await_text(babi.VERSION_STR)
@@ -236,7 +236,7 @@ def test_window_height_1(tmpdir):
         with h.resize(80, 1):
             h.await_text_missing(babi.VERSION_STR)
             assert h.screenshot() == 'hello world\n'
-            h.press('C-j')
+            h.press('^J')
             h.await_text('unknown key')
             h.press('Right')
             h.await_text_missing('unknown key')
@@ -245,7 +245,7 @@ def test_window_height_1(tmpdir):
 
 def test_status_clearing_behaviour():
     with run() as h, and_exit(h):
-        h.press('C-j')
+        h.press('^J')
         h.await_text('unknown key')
         for i in range(24):
             h.press('LEFT')
@@ -452,7 +452,7 @@ def test_scrolling_arrow_key_movement(tmpdir):
         h.await_text('line_0')
 
 
-@pytest.mark.parametrize('k', ('End', 'C-e'))
+@pytest.mark.parametrize('k', ('End', '^E'))
 def test_end_key(tmpdir, k):
     f = tmpdir.join('f')
     f.write('hello world\nhello world\n')
@@ -466,7 +466,7 @@ def test_end_key(tmpdir, k):
         h.await_cursor_position(x=11, y=2)
 
 
-@pytest.mark.parametrize('k', ('Home', 'C-a'))
+@pytest.mark.parametrize('k', ('Home', '^A'))
 def test_home_key(tmpdir, k):
     f = tmpdir.join('f')
     f.write('hello world\nhello world\n')
@@ -543,7 +543,7 @@ def test_page_up_does_not_go_negative(tmpdir):
 def test_very_narrow_window_status():
     with run(height=50) as h, and_exit(h):
         with h.resize(5, 50):
-            h.press('C-j')
+            h.press('^J')
             h.await_text('unkno')
 
 
@@ -750,13 +750,13 @@ def test_suspend(tmpdir):
         h.await_text(babi.VERSION_STR)
         h.await_text('hello')
 
-        h.press('C-z')
+        h.press('^Z')
         h.await_text_missing('hello')
 
         h.press_and_enter('fg')
         h.await_text('hello')
 
-        h.press('C-x')
+        h.press('^X')
         h.press_and_enter('exit')
         h.await_exit()
 
@@ -771,14 +771,14 @@ def test_suspend_with_resize(tmpdir):
         h.await_text(babi.VERSION_STR)
         h.await_text('hello')
 
-        h.press('C-z')
+        h.press('^Z')
         h.await_text_missing('hello')
 
         with h.resize(80, 10):
             h.press_and_enter('fg')
             h.await_text('hello')
 
-        h.press('C-x')
+        h.press('^X')
         h.press_and_enter('exit')
         h.await_exit()
 
@@ -815,18 +815,18 @@ def test_multiple_files(tmpdir):
         h.await_text('[3/3]')
         h.await_text('c text')
 
-        h.press('C-x')
+        h.press('^X')
         h.await_text('file_a')
-        h.press('C-x')
+        h.press('^X')
         h.await_text('file_b')
-        h.press('C-x')
+        h.press('^X')
         h.await_exit()
 
 
 def test_saving_with_no_filename_doesnt_exist():
     # TODO: this should prompt but currently refuses
     with run() as h, and_exit(h):
-        h.press('C-s')
+        h.press('^S')
         h.await_text('no filename, not implemented')
 
 
@@ -837,7 +837,7 @@ def test_saving_file_on_disk_changes(tmpdir):
     with run(str(f)) as h, and_exit(h):
         f.write('hello world')
 
-        h.press('C-s')
+        h.press('^S')
         h.await_text('file changed on disk, not implemented')
 
 
@@ -849,7 +849,7 @@ def test_allows_saving_same_contents_as_modified_contents(tmpdir):
         h.press('hello world')
         h.await_text('hello world')
 
-        h.press('C-s')
+        h.press('^S')
         h.await_text('saved! (1 line written)')
         h.await_text_missing('*')
 
@@ -865,7 +865,7 @@ def test_allows_saving_if_file_on_disk_does_not_change(tmpdir):
         h.press('ohai')
         h.press('Enter')
 
-        h.press('C-s')
+        h.press('^S')
         h.await_text('saved! (2 lines written)')
         h.await_text_missing('*')
 
@@ -877,7 +877,7 @@ def test_save_file_when_it_did_not_exist(tmpdir):
 
     with run(str(f)) as h, and_exit(h):
         h.press('hello world')
-        h.press('C-s')
+        h.press('^S')
         h.await_text('saved! (1 line written)')
         h.await_text_missing('*')
 
