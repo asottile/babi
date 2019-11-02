@@ -540,24 +540,24 @@ class Key(NamedTuple):
 
 # TODO: find a place to populate these, surely there's a database somewhere
 SEQUENCE_KEY = {
-    '\033OH': curses.KEY_HOME,
-    '\033OF': curses.KEY_END,
+    '\x1bOH': curses.KEY_HOME,
+    '\x1bOF': curses.KEY_END,
 }
 SEQUENCE_KEYNAME = {
-    '\033[1;5H': b'kHOM5',  # C-Home
-    '\033[1;5F': b'kEND5',  # C-End
-    '\033OH': b'KEY_HOME',
-    '\033OF': b'KEY_END',
-    '\033[1;3A': b'kUP3',  # M-Up
-    '\033[1;3B': b'kDN3',  # M-Down
-    '\033[1;3C': b'kRIT3',  # M-Right
-    '\033[1;3D': b'kLFT3',  # M-Left
+    '\x1b[1;5H': b'kHOM5',  # C-Home
+    '\x1b[1;5F': b'kEND5',  # C-End
+    '\x1bOH': b'KEY_HOME',
+    '\x1bOF': b'KEY_END',
+    '\x1b[1;3A': b'kUP3',  # M-Up
+    '\x1b[1;3B': b'kDN3',  # M-Down
+    '\x1b[1;3C': b'kRIT3',  # M-Right
+    '\x1b[1;3D': b'kLFT3',  # M-Left
 }
 
 
 def _get_char(stdscr: 'curses._CursesWindow') -> Key:
     wch = stdscr.get_wch()
-    if isinstance(wch, str) and wch == '\033':
+    if isinstance(wch, str) and wch == '\x1b':
         stdscr.nodelay(True)
         try:
             while True:
