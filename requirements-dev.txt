@@ -1,4 +1,5 @@
 coverage
 git+https://github.com/mjsir911/hecate@092f811
+mypy
 pytest
 remote-pdb
