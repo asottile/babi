@@ -527,6 +527,19 @@ def test_resize_scroll_does_not_go_negative(tmpdir):
         assert h.get_screen_line(1) == 'line_0'
 
 
+def test_page_up_does_not_go_negative(tmpdir):
+    f = tmpdir.join('f')
+    f.write('\n'.join(f'line_{i}' for i in range(10)))
+
+    with run(str(f), height=10) as h, and_exit(h):
+        for _ in range(8):
+            h.press('Down')
+        h.await_cursor_position(x=0, y=4)
+        h.press('^Y')
+        h.await_cursor_position(x=0, y=1)
+        assert h.get_cursor_line() == 'line_0'
+
+
 def test_very_narrow_window_status():
     with run(height=50) as h, and_exit(h):
         with h.resize(5, 50):

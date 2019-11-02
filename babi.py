@@ -313,7 +313,7 @@ class File:
         if self.cursor_line < margin.body_lines:
             self.cursor_line = self.file_line = 0
         else:
-            pos = self.file_line - margin.page_size
+            pos = max(self.file_line - margin.page_size, 0)
             self.cursor_line = self.file_line = pos
         self._set_x_after_vertical_movement()
 
