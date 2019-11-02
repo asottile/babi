@@ -3,20 +3,33 @@ import collections
 import contextlib
 import curses
 import enum
+import functools
 import hashlib
 import io
 import os
 import signal
+from typing import Any
+from typing import Callable
+from typing import cast
 from typing import Dict
 from typing import Generator
 from typing import IO
+from typing import Iterator
 from typing import List
 from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
+from typing import TYPE_CHECKING
+from typing import TypeVar
 from typing import Union
 
+if TYPE_CHECKING:
+    from typing import Protocol  # python3.8+
+else:
+    Protocol = object
+
 VERSION_STR = 'babi v0'
+TCallable = TypeVar('TCallable', bound=Callable[..., Any])
 
 
 def _line_x(x: int, width: int) -> int:
@@ -46,6 +59,77 @@ def _scrolled_line(s: str, x: int, width: int, *, current: bool) -> str:
         return f'{s[:width - 1]}»'
     else:
         return s.ljust(width)
+
+
+class MutableSequenceNoSlice(Protocol):
+    def __len__(self) -> int: ...
+    def __getitem__(self, idx: int) -> str: ...
+    def __setitem__(self, idx: int, val: str) -> None: ...
+    def __delitem__(self, idx: int) -> None: ...
+    def insert(self, idx: int, val: str) -> None: ...
+
+    def __iter__(self) -> Iterator[str]:
+        for i in range(len(self)):
+            yield self[i]
+
+    def append(self, val: str) -> None:
+        self.insert(len(self), val)
+
+    def pop(self, idx: int = -1) -> str:
+        victim = self[idx]
+        del self[idx]
+        return victim
+
+
+def _del(lst: MutableSequenceNoSlice, *, idx: int) -> None:
+    del lst[idx]
+
+
+def _set(lst: MutableSequenceNoSlice, *, idx: int, val: str) -> None:
+    lst[idx] = val
+
+
+def _ins(lst: MutableSequenceNoSlice, *, idx: int, val: str) -> None:
+    lst.insert(idx, val)
+
+
+class ListSpy(MutableSequenceNoSlice):
+    def __init__(self, lst: MutableSequenceNoSlice) -> None:
+        self._lst = lst
+        self._undo: List[Callable[[MutableSequenceNoSlice], None]] = []
+
+    def __repr__(self) -> str:
+        return f'{type(self).__name__}({self._lst})'
+
+    def __len__(self) -> int:
+        return len(self._lst)
+
+    def __getitem__(self, idx: int) -> str:
+        return self._lst[idx]
+
+    def __setitem__(self, idx: int, val: str) -> None:
+        self._undo.append(functools.partial(_set, idx=idx, val=self._lst[idx]))
+        self._lst[idx] = val
+
+    def __delitem__(self, idx: int) -> None:
+        if idx < 0:
+            idx %= len(self)
+        self._undo.append(functools.partial(_ins, idx=idx, val=self._lst[idx]))
+        del self._lst[idx]
+
+    def insert(self, idx: int, val: str) -> None:
+        if idx < 0:
+            idx %= len(self)
+        self._undo.append(functools.partial(_del, idx=idx))
+        self._lst.insert(idx, val)
+
+    def undo(self, lst: MutableSequenceNoSlice) -> None:
+        for fn in reversed(self._undo):
+            fn(lst)
+
+    @property
+    def has_modifications(self) -> bool:
+        return bool(self._undo)
 
 
 class Margin(NamedTuple):
@@ -180,7 +264,7 @@ class Status:
                 return buf
 
 
-def _restore_lines_eof_invariant(lines: List[str]) -> None:
+def _restore_lines_eof_invariant(lines: MutableSequenceNoSlice) -> None:
     """The file lines will always contain a blank empty string at the end to
     simplify rendering.  This should be called whenever the end of the file
     might change.
@@ -208,14 +292,102 @@ def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool, str]:
     return lines, nl, mixed, sha256.hexdigest()
 
 
+class Action:
+    def __init__(
+            self, *, name: str, spy: ListSpy,
+            start_x: int, start_line: int, start_modified: bool,
+            end_x: int, end_line: int, end_modified: bool,
+    ):
+        self.name = name
+        self.spy = spy
+        self.start_x = start_x
+        self.start_line = start_line
+        self.start_modified = start_modified
+        self.end_x = end_x
+        self.end_line = end_line
+        self.end_modified = end_modified
+        self.final = False
+
+    def apply(self, file: 'File') -> 'Action':
+        spy = ListSpy(file.lines)
+        action = Action(
+            name=self.name, spy=spy,
+            start_x=self.end_x, start_line=self.end_line,
+            start_modified=self.end_modified,
+            end_x=self.start_x, end_line=self.start_line,
+            end_modified=self.start_modified,
+        )
+
+        self.spy.undo(spy)
+        file.x = self.start_x
+        file.cursor_line = self.start_line
+        file.modified = self.start_modified
+
+        return action
+
+
+def action(func: TCallable) -> TCallable:
+    @functools.wraps(func)
+    def action_inner(self: 'File', *args: Any, **kwargs: Any) -> Any:
+        assert not isinstance(self.lines, ListSpy), 'nested edit/movement'
+        if self.undo_stack:
+            self.undo_stack[-1].final = True
+        return func(self, *args, **kwargs)
+    return cast(TCallable, action_inner)
+
+
+def edit_action(name: str) -> Callable[[TCallable], TCallable]:
+    def edit_action_decorator(func: TCallable) -> TCallable:
+        @functools.wraps(func)
+        def edit_action_inner(self: 'File', *args: Any, **kwargs: Any) -> Any:
+            continue_last = (
+                self.undo_stack and
+                self.undo_stack[-1].name == name and
+                not self.undo_stack[-1].final
+            )
+            if continue_last:
+                spy = self.undo_stack[-1].spy
+            else:
+                if self.undo_stack:
+                    self.undo_stack[-1].final = True
+                spy = ListSpy(self.lines)
+
+            before_x, before_line = self.x, self.cursor_line
+            before_modified = self.modified
+            assert not isinstance(self.lines, ListSpy), 'recursive action?'
+            orig, self.lines = self.lines, spy
+            try:
+                return func(self, *args, **kwargs)
+            finally:
+                self.lines = orig
+                self.redo_stack.clear()
+                if continue_last:
+                    self.undo_stack[-1].end_x = self.x
+                    self.undo_stack[-1].end_line = self.cursor_line
+                    self.undo_stack[-1].end_modified = self.modified
+                elif spy.has_modifications:
+                    action = Action(
+                        name=name, spy=spy,
+                        start_x=before_x, start_line=before_line,
+                        start_modified=before_modified,
+                        end_x=self.x, end_line=self.cursor_line,
+                        end_modified=self.modified,
+                    )
+                    self.undo_stack.append(action)
+        return cast(TCallable, edit_action_inner)
+    return edit_action_decorator
+
+
 class File:
     def __init__(self, filename: Optional[str]) -> None:
         self.filename = filename
         self.modified = False
-        self.lines: List[str] = []
+        self.lines: MutableSequenceNoSlice = []
         self.nl = '\n'
         self.file_line = self.cursor_line = self.x = self.x_hint = 0
         self.sha256: Optional[str] = None
+        self.undo_stack: List[Action] = []
+        self.redo_stack: List[Action] = []
 
     def ensure_loaded(self, status: Status) -> None:
         if self.lines:
@@ -244,6 +416,17 @@ class File:
 
     # movement
 
+    def _scroll_screen_if_needed(self, margin: Margin) -> None:
+        # if the `cursor_line` is not on screen, make it so
+        if (
+                self.file_line <=
+                self.cursor_line <
+                self.file_line + margin.body_lines
+        ):
+            return
+
+        self.file_line = max(self.cursor_line - margin.body_lines // 2, 0)
+
     def _scroll_amount(self) -> int:
         return int(curses.LINES / 2 + .5)
 
@@ -254,23 +437,26 @@ class File:
         if self.cursor_line >= self.file_line + margin.body_lines:
             self.file_line += self._scroll_amount()
 
+    @action
     def down(self, margin: Margin) -> None:
         if self.cursor_line < len(self.lines) - 1:
             self.cursor_line += 1
             self.maybe_scroll_down(margin)
             self._set_x_after_vertical_movement()
 
-    def maybe_scroll_up(self, margin: Margin) -> None:
+    def _maybe_scroll_up(self, margin: Margin) -> None:
         if self.cursor_line < self.file_line:
             self.file_line -= self._scroll_amount()
             self.file_line = max(self.file_line, 0)
 
+    @action
     def up(self, margin: Margin) -> None:
         if self.cursor_line > 0:
             self.cursor_line -= 1
-            self.maybe_scroll_up(margin)
+            self._maybe_scroll_up(margin)
             self._set_x_after_vertical_movement()
 
+    @action
     def right(self, margin: Margin) -> None:
         if self.x >= len(self.lines[self.cursor_line]):
             if self.cursor_line < len(self.lines) - 1:
@@ -281,32 +467,37 @@ class File:
             self.x += 1
         self.x_hint = self.x
 
+    @action
     def left(self, margin: Margin) -> None:
         if self.x == 0:
             if self.cursor_line > 0:
                 self.cursor_line -= 1
                 self.x = len(self.lines[self.cursor_line])
-                self.maybe_scroll_up(margin)
+                self._maybe_scroll_up(margin)
         else:
             self.x -= 1
         self.x_hint = self.x
 
+    @action
     def home(self, margin: Margin) -> None:
         self.x = self.x_hint = 0
 
+    @action
     def end(self, margin: Margin) -> None:
         self.x = self.x_hint = len(self.lines[self.cursor_line])
 
+    @action
     def ctrl_home(self, margin: Margin) -> None:
         self.x = self.x_hint = 0
         self.cursor_line = self.file_line = 0
 
+    @action
     def ctrl_end(self, margin: Margin) -> None:
         self.x = self.x_hint = 0
         self.cursor_line = len(self.lines) - 1
-        if self.file_line < self.cursor_line - margin.body_lines:
-            self.file_line = self.cursor_line - margin.body_lines * 3 // 4 + 1
+        self._scroll_screen_if_needed(margin)
 
+    @action
     def page_up(self, margin: Margin) -> None:
         if self.cursor_line < margin.body_lines:
             self.cursor_line = self.file_line = 0
@@ -315,6 +506,7 @@ class File:
             self.cursor_line = self.file_line = pos
         self._set_x_after_vertical_movement()
 
+    @action
     def page_down(self, margin: Margin) -> None:
         if self.file_line + margin.body_lines >= len(self.lines):
             self.cursor_line = len(self.lines) - 1
@@ -325,6 +517,7 @@ class File:
 
     # editing
 
+    @edit_action('backspace text')
     def backspace(self, margin: Margin) -> None:
         # backspace at the beginning of the file does nothing
         if self.cursor_line == 0 and self.x == 0:
@@ -335,7 +528,8 @@ class File:
             victim = self.lines.pop(self.cursor_line)
             new_x = len(self.lines[self.cursor_line - 1])
             self.lines[self.cursor_line - 1] += victim
-            self.up(margin)
+            self.cursor_line -= 1
+            self._maybe_scroll_up(margin)
             self.x = self.x_hint = new_x
             # deleting the fake end-of-file doesn't cause modification
             self.modified |= self.cursor_line < len(self.lines) - 1
@@ -343,30 +537,54 @@ class File:
         else:
             s = self.lines[self.cursor_line]
             self.lines[self.cursor_line] = s[:self.x - 1] + s[self.x:]
-            self.left(margin)
+            self.x = self.x_hint = self.x - 1
             self.modified = True
 
+    @edit_action('delete text')
     def delete(self, margin: Margin) -> None:
         # noop at end of the file
         if self.cursor_line == len(self.lines) - 1:
             pass
         # if we're at the end of the line, collapse the line afterwards
         elif self.x == len(self.lines[self.cursor_line]):
-            self.lines[self.cursor_line] += self.lines[self.cursor_line + 1]
-            self.lines.pop(self.cursor_line + 1)
+            victim = self.lines.pop(self.cursor_line + 1)
+            self.lines[self.cursor_line] += victim
             self.modified = True
         else:
             s = self.lines[self.cursor_line]
             self.lines[self.cursor_line] = s[:self.x] + s[self.x + 1:]
             self.modified = True
 
+    @edit_action('line break')
     def enter(self, margin: Margin) -> None:
         s = self.lines[self.cursor_line]
         self.lines[self.cursor_line] = s[:self.x]
         self.lines.insert(self.cursor_line + 1, s[self.x:])
-        self.down(margin)
+        self.cursor_line += 1
+        self.maybe_scroll_down(margin)
         self.x = self.x_hint = 0
         self.modified = True
+
+    @edit_action('cut')
+    def cut(self, cut_buffer: Tuple[str, ...]) -> Tuple[str, ...]:
+        if self.cursor_line == len(self.lines) - 1:
+            return ()
+        else:
+            victim = self.lines.pop(self.cursor_line)
+            self.x = self.x_hint = 0
+            self.modified = True
+            return cut_buffer + (victim,)
+
+    @edit_action('uncut')
+    def uncut(self, cut_buffer: Tuple[str, ...], margin: Margin) -> None:
+        for cut_line in cut_buffer:
+            line = self.lines[self.cursor_line]
+            before, after = line[:self.x], line[self.x:]
+            self.lines[self.cursor_line] = before + cut_line
+            self.lines.insert(self.cursor_line + 1, after)
+            self.cursor_line += 1
+            self.x = self.x_hint = 0
+            self.maybe_scroll_down(margin)
 
     DISPATCH = {
         # movement
@@ -393,13 +611,41 @@ class File:
         b'kEND5': ctrl_end,
     }
 
+    @edit_action('text')
     def c(self, wch: str, margin: Margin) -> None:
         s = self.lines[self.cursor_line]
         self.lines[self.cursor_line] = s[:self.x] + wch + s[self.x:]
-        self.right(margin)
+        self.x = self.x_hint = self.x + 1
         self.modified = True
         _restore_lines_eof_invariant(self.lines)
 
+    def _undo_redo(
+            self,
+            op: str,
+            from_stack: List[Action],
+            to_stack: List[Action],
+            status: Status,
+            margin: Margin,
+    ) -> None:
+        if not from_stack:
+            status.update(f'nothing to {op}!')
+        else:
+            action = from_stack.pop()
+            to_stack.append(action.apply(self))
+            self._scroll_screen_if_needed(margin)
+            status.update(f'{op}: {action.name}')
+
+    def undo(self, status: Status, margin: Margin) -> None:
+        self._undo_redo(
+            'undo', self.undo_stack, self.redo_stack, status, margin,
+        )
+
+    def redo(self, status: Status, margin: Margin) -> None:
+        self._undo_redo(
+            'redo', self.redo_stack, self.undo_stack, status, margin,
+        )
+
+    @action
     def save(self, status: Status) -> None:
         # TODO: make directories if they don't exist
         # TODO: maybe use mtime / stat as a shortcut for hashing below
@@ -431,6 +677,14 @@ class File:
         num_lines = len(self.lines) - 1
         lines = 'lines' if num_lines != 1 else 'line'
         status.update(f'saved! ({num_lines} {lines} written)')
+
+        # fix up modified state in undo / redo stacks
+        for stack in (self.undo_stack, self.redo_stack):
+            first = True
+            for action in reversed(stack):
+                action.end_modified = not first
+                action.start_modified = True
+                first = False
 
     # positioning
 
@@ -474,7 +728,7 @@ class Screen:
         self.i = 0
         self.status = Status()
         self.margin = Margin.from_screen(self.stdscr)
-        self.cut_buffer = ''
+        self.cut_buffer: Tuple[str, ...] = ()
 
     @property
     def file(self) -> File:
@@ -571,7 +825,9 @@ def _get_char(stdscr: 'curses._CursesWindow') -> Key:
         finally:
             stdscr.nodelay(False)
 
-        if len(wch) > 1:
+        if len(wch) == 2:
+            return Key(wch, -1, f'M-{wch[1]}'.encode())
+        elif len(wch) > 1:
             key = SEQUENCE_KEY.get(wch, -1)
             keyname = SEQUENCE_KEYNAME.get(wch, b'unknown')
             return Key(wch, key, keyname)
@@ -607,23 +863,17 @@ def _edit(screen: Screen) -> EditResult:
         elif key.keyname in File.DISPATCH_KEY:
             screen.file.DISPATCH_KEY[key.keyname](screen.file, screen.margin)
         elif key.keyname == b'^K':
-            if screen.file.file_line == len(screen.file.lines) - 1:
-                screen.cut_buffer = ''
+            if prevkey.keyname == b'^K':
+                cut_buffer = screen.cut_buffer
             else:
-                line = screen.file.lines[screen.file.cursor_line] + '\n'
-                if prevkey.keyname == b'^K':
-                    screen.cut_buffer += line
-                else:
-                    screen.cut_buffer = line
-                del screen.file.lines[screen.file.cursor_line]
-                screen.file.x = screen.file.x_hint = 0
-                screen.file.modified = True
+                cut_buffer = ()
+            screen.cut_buffer = screen.file.cut(cut_buffer)
         elif key.keyname == b'^U':
-            for c in screen.cut_buffer:
-                if c == '\n':
-                    screen.file.enter(screen.margin)
-                else:
-                    screen.file.c(c, screen.margin)
+            screen.file.uncut(screen.cut_buffer, screen.margin)
+        elif key.keyname == b'M-u':
+            screen.file.undo(screen.status, screen.margin)
+        elif key.keyname == b'M-U':
+            screen.file.redo(screen.status, screen.margin)
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '')
             if response == ':q':

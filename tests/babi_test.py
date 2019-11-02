@@ -10,6 +10,147 @@ from hecate import Runner
 import babi
 
 
+def test_list_spy_repr():
+    assert repr(babi.ListSpy(['a', 'b', 'c'])) == "ListSpy(['a', 'b', 'c'])"
+
+
+def test_list_spy_item_retrieval():
+    spy = babi.ListSpy(['a', 'b', 'c'])
+    assert spy[1] == 'b'
+    assert spy[-1] == 'c'
+    with pytest.raises(IndexError):
+        spy[3]
+
+
+def test_list_spy_del():
+    lst = ['a', 'b', 'c']
+
+    spy = babi.ListSpy(lst)
+    del spy[1]
+
+    assert lst == ['a', 'c']
+
+    spy.undo(lst)
+
+    assert lst == ['a', 'b', 'c']
+
+
+def test_list_spy_del_with_negative():
+    lst = ['a', 'b', 'c']
+
+    spy = babi.ListSpy(lst)
+    del spy[-1]
+
+    assert lst == ['a', 'b']
+
+    spy.undo(lst)
+
+    assert lst == ['a', 'b', 'c']
+
+
+def test_list_spy_insert():
+    lst = ['a', 'b', 'c']
+
+    spy = babi.ListSpy(lst)
+    spy.insert(1, 'q')
+
+    assert lst == ['a', 'q', 'b', 'c']
+
+    spy.undo(lst)
+
+    assert lst == ['a', 'b', 'c']
+
+
+def test_list_spy_insert_with_negative():
+    lst = ['a', 'b', 'c']
+
+    spy = babi.ListSpy(lst)
+    spy.insert(-1, 'q')
+
+    assert lst == ['a', 'b', 'q', 'c']
+
+    spy.undo(lst)
+
+    assert lst == ['a', 'b', 'c']
+
+
+def test_list_spy_set_value():
+    lst = ['a', 'b', 'c']
+
+    spy = babi.ListSpy(lst)
+    spy[1] = 'hello'
+
+    assert lst == ['a', 'hello', 'c']
+
+    spy.undo(lst)
+
+    assert lst == ['a', 'b', 'c']
+
+
+def test_list_spy_multiple_modifications():
+    lst = ['a', 'b', 'c']
+
+    spy = babi.ListSpy(lst)
+    spy[1] = 'hello'
+    spy.insert(1, 'ohai')
+    del spy[0]
+
+    assert lst == ['ohai', 'hello', 'c']
+
+    spy.undo(lst)
+
+    assert lst == ['a', 'b', 'c']
+
+
+def test_list_spy_iter():
+    spy = babi.ListSpy(['a', 'b', 'c'])
+    spy_iter = iter(spy)
+    assert next(spy_iter) == 'a'
+    assert next(spy_iter) == 'b'
+    assert next(spy_iter) == 'c'
+    with pytest.raises(StopIteration):
+        next(spy_iter)
+
+
+def test_list_spy_append():
+    lst = ['a', 'b', 'c']
+
+    spy = babi.ListSpy(lst)
+    spy.append('q')
+
+    assert lst == ['a', 'b', 'c', 'q']
+
+    spy.undo(lst)
+
+    assert lst == ['a', 'b', 'c']
+
+
+def test_list_spy_pop_default():
+    lst = ['a', 'b', 'c']
+
+    spy = babi.ListSpy(lst)
+    spy.pop()
+
+    assert lst == ['a', 'b']
+
+    spy.undo(lst)
+
+    assert lst == ['a', 'b', 'c']
+
+
+def test_list_spy_pop_idx():
+    lst = ['a', 'b', 'c']
+
+    spy = babi.ListSpy(lst)
+    spy.pop(1)
+
+    assert lst == ['a', 'c']
+
+    spy.undo(lst)
+
+    assert lst == ['a', 'b', 'c']
+
+
 def test_position_repr():
     ret = repr(babi.File('f.txt'))
     assert ret == (
@@ -23,6 +164,8 @@ def test_position_repr():
         '    x=0,\n'
         '    x_hint=0,\n'
         '    sha256=None,\n'
+        '    undo_stack=[],\n'
+        '    redo_stack=[],\n'
         ')'
     )
 
@@ -417,14 +560,14 @@ def test_ctrl_end_already_on_last_page(tmpdir):
     f = tmpdir.join('f')
     f.write('\n'.join(f'line_{i}' for i in range(10)))
 
-    with run(str(f), height=8) as h, and_exit(h):
+    with run(str(f), height=9) as h, and_exit(h):
         h.press('PageDown')
         h.await_cursor_position(x=0, y=1)
         h.await_text('line_9')
 
         h.press('^End')
-        h.await_cursor_position(x=0, y=7)
-        assert h.get_screen_line(6) == 'line_9'
+        h.await_cursor_position(x=0, y=6)
+        assert h.get_screen_line(5) == 'line_9'
 
 
 def test_scrolling_arrow_key_movement(tmpdir):
@@ -1031,6 +1174,14 @@ def test_cut_at_beginning_of_file():
         h.await_text_missing('*')
 
 
+def test_cut_end_of_file():
+    with run() as h, and_exit(h):
+        h.press('hi')
+        h.press('Down')
+        h.press('^K')
+        h.press('hi')
+
+
 def test_cut_uncut_multiple_file_buffers(tmpdir):
     f1 = tmpdir.join('f1')
     f1.write('hello\nworld\n')
@@ -1044,3 +1195,128 @@ def test_cut_uncut_multiple_file_buffers(tmpdir):
         h.await_text_missing('world')
         h.press('^U')
         h.await_text('hello\ngood\nbye\n')
+
+
+def test_nothing_to_undo_redo():
+    with run() as h, and_exit(h):
+        h.press('M-u')
+        h.await_text('nothing to undo!')
+        h.press('M-U')
+        h.await_text('nothing to redo!')
+
+
+def test_undo_redo():
+    with run() as h, and_exit(h):
+        h.press('hello')
+        h.await_text('hello')
+        h.press('M-u')
+        h.await_text('undo: text')
+        h.await_text_missing('hello')
+        h.await_text_missing(' *')
+        h.press('M-U')
+        h.await_text('redo: text')
+        h.await_text('hello')
+        h.await_text(' *')
+
+
+def test_undo_redo_movement_interrupts_actions():
+    with run() as h, and_exit(h):
+        h.press('hello')
+        h.press('Left')
+        h.press('Right')
+        h.press('world')
+        h.press('M-u')
+        h.await_text('undo: text')
+        h.await_text('hello')
+
+
+def test_undo_redo_action_interrupts_actions():
+    with run() as h, and_exit(h):
+        h.press('hello')
+        h.await_text('hello')
+        h.press('Bspace')
+        h.await_text_missing('hello')
+        h.press('M-u')
+        h.await_text('hello')
+        h.press('world')
+        h.await_text('helloworld')
+        h.press('M-u')
+        h.await_text_missing('world')
+        h.await_text('hello')
+
+
+def test_undo_redo_mixed_newlines(tmpdir):
+    f = tmpdir.join('f')
+    f.write_binary(b'foo\nbar\r\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('hello')
+        h.press('M-u')
+        h.await_text('undo: text')
+        h.await_text(' *')
+
+
+def test_undo_redo_with_save(tmpdir):
+    f = tmpdir.join('f').ensure()
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('hello')
+        h.press('^S')
+        h.await_text_missing(' *')
+        h.press('M-u')
+        h.await_text(' *')
+        h.press('M-U')
+        h.await_text_missing(' *')
+        h.press('M-u')
+        h.await_text(' *')
+        h.press('^S')
+        h.await_text_missing(' *')
+        h.press('M-U')
+        h.await_text(' *')
+
+
+def test_undo_redo_implicit_linebreak(tmpdir):
+    f = tmpdir.join('f')
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('hello')
+        h.press('M-u')
+        h.press('^S')
+        h.await_text('saved!')
+        assert f.read() == ''
+        h.press('M-U')
+        h.press('^S')
+        h.await_text('saved!')
+        assert f.read() == 'hello\n'
+
+
+def test_redo_cleared_after_action(tmpdir):
+    with run() as h, and_exit(h):
+        h.press('hello')
+        h.press('M-u')
+        h.press('world')
+        h.press('M-U')
+        h.await_text('nothing to redo!')
+
+
+def test_undo_no_action_when_noop():
+    with run() as h, and_exit(h):
+        h.press('hello')
+        h.press('Enter')
+        h.press('world')
+        h.press('Down')
+        h.press('^K')
+        h.press('M-u')
+        h.await_text('undo: text')
+        h.await_cursor_position(x=0, y=2)
+
+
+def test_undo_redo_causes_scroll():
+    with run(height=8) as h, and_exit(h):
+        for i in range(10):
+            h.press('Enter')
+        h.await_cursor_position(x=0, y=3)
+        h.press('M-u')
+        h.await_cursor_position(x=0, y=1)
+        h.press('M-U')
+        h.await_cursor_position(x=0, y=4)
