@@ -119,13 +119,9 @@ class Status:
         self._status = ''
         self._action_counter = -1
 
-    def update(self, status: str, margin: Margin) -> None:
+    def update(self, status: str) -> None:
         self._status = status
-        # when the window is only 1-tall, hide the status quicker
-        if margin.footer:
-            self._action_counter = 25
-        else:
-            self._action_counter = 1
+        self._action_counter = 25
 
     def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
         if margin.footer or self._status:
@@ -138,8 +134,12 @@ class Status:
                     status = status.strip()
                 stdscr.insstr(curses.LINES - 1, x, status, curses.A_REVERSE)
 
-    def tick(self) -> None:
-        self._action_counter -= 1
+    def tick(self, margin: Margin) -> None:
+        # when the window is only 1-tall, hide the status quicker
+        if margin.footer:
+            self._action_counter -= 1
+        else:
+            self._action_counter -= 24
         if self._action_counter < 0:
             self._status = ''
 
@@ -217,7 +217,7 @@ class File:
         self.file_line = self.cursor_line = self.x = self.x_hint = 0
         self.sha256: Optional[str] = None
 
-    def ensure_loaded(self, status: Status, margin: Margin) -> None:
+    def ensure_loaded(self, status: Status) -> None:
         if self.lines:
             return
 
@@ -227,17 +227,15 @@ class File:
         else:
             if self.filename is not None:
                 if os.path.lexists(self.filename):
-                    status.update(f'{self.filename!r} is not a file', margin)
+                    status.update(f'{self.filename!r} is not a file')
                     self.filename = None
                 else:
-                    status.update('(new file)', margin)
+                    status.update('(new file)')
             sio = io.StringIO('')
             self.lines, self.nl, mixed, self.sha256 = _get_lines(sio)
 
         if mixed:
-            status.update(
-                f'mixed newlines will be converted to {self.nl!r}', margin,
-            )
+            status.update(f'mixed newlines will be converted to {self.nl!r}')
             self.modified = True
 
     def __repr__(self) -> str:
@@ -402,13 +400,13 @@ class File:
         self.modified = True
         _restore_lines_eof_invariant(self.lines)
 
-    def save(self, status: Status, margin: Margin) -> None:
+    def save(self, status: Status) -> None:
         # TODO: make directories if they don't exist
         # TODO: maybe use mtime / stat as a shortcut for hashing below
         # TODO: strip trailing whitespace?
         # TODO: save atomically?
         if self.filename is None:
-            status.update('(no filename, not implemented)', margin)
+            status.update('(no filename, not implemented)')
             return
 
         if os.path.isfile(self.filename):
@@ -422,7 +420,7 @@ class File:
 
         # the file on disk is the same as when we opened it
         if sha256 not in (self.sha256, sha256_to_save):
-            status.update('(file changed on disk, not implemented)', margin)
+            status.update('(file changed on disk, not implemented)')
             return
 
         with open(self.filename, 'w') as f:
@@ -432,7 +430,7 @@ class File:
         self.sha256 = sha256_to_save
         num_lines = len(self.lines) - 1
         lines = 'lines' if num_lines != 1 else 'line'
-        status.update(f'saved! ({num_lines} {lines} written)', margin)
+        status.update(f'saved! ({num_lines} {lines} written)')
 
     # positioning
 
@@ -592,10 +590,10 @@ EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 
 def _edit(screen: Screen) -> EditResult:
     prevkey = Key('', 0, b'')
-    screen.file.ensure_loaded(screen.status, screen.margin)
+    screen.file.ensure_loaded(screen.status)
 
     while True:
-        screen.status.tick()
+        screen.status.tick(screen.margin)
 
         screen.draw()
         screen.file.move_cursor(screen.stdscr, screen.margin)
@@ -631,17 +629,16 @@ def _edit(screen: Screen) -> EditResult:
             if response == ':q':
                 return EditResult.EXIT
             elif response == ':w':
-                screen.file.save(screen.status, screen.margin)
+                screen.file.save(screen.status)
             elif response == ':wq':
-                screen.file.save(screen.status, screen.margin)
+                screen.file.save(screen.status)
                 return EditResult.EXIT
             elif response == '':  # noop / cancel
-                screen.status.update('', screen.margin)
+                screen.status.update('')
             else:
-                msg = f'invalid command: {response}'
-                screen.status.update(msg, screen.margin)
+                screen.status.update(f'invalid command: {response}')
         elif key.keyname == b'^S':
-            screen.file.save(screen.status, screen.margin)
+            screen.file.save(screen.status)
         elif key.keyname == b'^X':
             return EditResult.EXIT
         elif key.keyname == b'kLFT3':
@@ -656,7 +653,7 @@ def _edit(screen: Screen) -> EditResult:
         elif isinstance(key.wch, str) and key.wch.isprintable():
             screen.file.c(key.wch, screen.margin)
         else:
-            screen.status.update(f'unknown key: {key}', screen.margin)
+            screen.status.update(f'unknown key: {key}')
 
         prevkey = key
 
