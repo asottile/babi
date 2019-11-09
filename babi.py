@@ -1,27 +1,5 @@
-import argparse
-import collections
-import contextlib
-import curses
-import enum
-import functools
-import hashlib
-import io
-import os
-import signal
-from typing import Any
-from typing import Callable
-from typing import cast
-from typing import Dict
-from typing import Generator
-from typing import IO
-from typing import Iterator
-from typing import List
-from typing import NamedTuple
-from typing import Optional
-from typing import Tuple
-from typing import TYPE_CHECKING
-from typing import TypeVar
-from typing import Union
+(lambda __g: [[[[[[[[[[(lambda __mod: [(lambda __mod: [(lambda __mod: [(lambda __mod: [(lambda __mod: [(lambda __mod: [(lambda __mod: [(lambda __mod: [(lambda __mod: [(lambda __mod: [(lambda __mod: [(lambda __mod: [(lambda __mod: [(lambda __mod: [None for __g['Union'] in [(__mod.Union)]][0])(__import__('typing', __g, __g, ('Union',), 0)) for __g['TypeVar'] in [(__mod.TypeVar)]][0])(__import__('typing', __g, __g, ('TypeVar',), 0)) for __g['TYPE_CHECKING'] in [(__mod.TYPE_CHECKING)]][0])(__import__('typing', __g, __g, ('TYPE_CHECKING',), 0)) for __g['Tuple'] in [(__mod.Tuple)]][0])(__import__('typing', __g, __g, ('Tuple',), 0)) for __g['Optional'] in [(__mod.Optional)]][0])(__import__('typing', __g, __g, ('Optional',), 0)) for __g['NamedTuple'] in [(__mod.NamedTuple)]][0])(__import__('typing', __g, __g, ('NamedTuple',), 0)) for __g['List'] in [(__mod.List)]][0])(__import__('typing', __g, __g, ('List',), 0)) for __g['Iterator'] in [(__mod.Iterator)]][0])(__import__('typing', __g, __g, ('Iterator',), 0)) for __g['IO'] in [(__mod.IO)]][0])(__import__('typing', __g, __g, ('IO',), 0)) for __g['Generator'] in [(__mod.Generator)]][0])(__import__('typing', __g, __g, ('Generator',), 0)) for __g['Dict'] in [(__mod.Dict)]][0])(__import__('typing', __g, __g, ('Dict',), 0)) for __g['cast'] in [(__mod.cast)]][0])(__import__('typing', __g, __g, ('cast',), 0)) for __g['Callable'] in [(__mod.Callable)]][0])(__import__('typing', __g, __g, ('Callable',), 0)) for __g['Any'] in [(__mod.Any)]][0])(__import__('typing', __g, __g, ('Any',), 0)) for __g['signal'] in [(__import__('signal', __g, __g))]][0] for __g['os'] in [(__import__('os', __g, __g))]][0] for __g['io'] in [(__import__('io', __g, __g))]][0] for __g['hashlib'] in [(__import__('hashlib', __g, __g))]][0] for __g['functools'] in [(__import__('functools', __g, __g))]][0] for __g['enum'] in [(__import__('enum', __g, __g))]][0] for __g['curses'] in [(__import__('curses', __g, __g))]][0] for __g['contextlib'] in [(__import__('contextlib', __g, __g))]][0] for __g['collections'] in [(__import__('collections', __g, __g))]][0] for __g['argparse'] in [(__import__('argparse', __g, __g))]][0])(globals())
+
 
 if TYPE_CHECKING:
     from typing import Protocol  # python3.8+
