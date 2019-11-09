@@ -18,7 +18,7 @@ from typing import Tuple
 from typing import Union
 
 VERSION_STR = 'babi v0'
-CursesWindowType = NewType('curses._CursesWindow')
+CursesWindowType = NewType('CursesWindowType', 'curses._CursesWindow')
 
 def _line_x(x: int, width: int) -> int:
     margin = min(width - 3, 6)
