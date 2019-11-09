@@ -17,7 +17,7 @@ from typing import Tuple
 from typing import Union
 
 VERSION_STR = 'babi v0'
-
+CursesWindowType = 'curses._CursesWindow'
 
 def _line_x(x: int, width: int) -> int:
     margin = min(width - 3, 6)
@@ -64,7 +64,7 @@ class Margin(NamedTuple):
             return self.body_lines - 2
 
     @classmethod
-    def from_screen(cls, screen: 'curses._CursesWindow') -> 'Margin':
+    def from_screen(cls, screen: CursesWindowType) -> 'Margin':
         if curses.LINES == 1:
             return cls(header=False, footer=False)
         elif curses.LINES == 2:
@@ -104,7 +104,7 @@ def _color(fg: int, bg: int) -> int:
             return curses.color_pair(0)
 
 
-def _init_colors(stdscr: 'curses._CursesWindow') -> None:
+def _init_colors(stdscr: CursesWindowType) -> None:
     curses.use_default_colors()
     if not _has_colors():
         return
@@ -123,7 +123,7 @@ class Status:
         self._status = status
         self._action_counter = 25
 
-    def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
+    def draw(self, stdscr: CursesWindowType, margin: Margin) -> None:
         if margin.footer or self._status:
             stdscr.insstr(curses.LINES - 1, 0, ' ' * curses.COLS)
             if self._status:
@@ -445,12 +445,12 @@ class File:
 
     def move_cursor(
             self,
-            stdscr: 'curses._CursesWindow',
+            stdscr: CursesWindowType,
             margin: Margin,
     ) -> None:
         stdscr.move(self.cursor_y(margin), self.cursor_x())
 
-    def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
+    def draw(self, stdscr: CursesWindowType, margin: Margin) -> None:
         to_display = min(len(self.lines) - self.file_line, margin.body_lines)
         for i in range(to_display):
             line_idx = self.file_line + i
@@ -466,7 +466,7 @@ class File:
 class Screen:
     def __init__(
             self,
-            stdscr: 'curses._CursesWindow',
+            stdscr: CursesWindowType,
             files: List[File],
     ) -> None:
         self.stdscr = stdscr
@@ -507,7 +507,7 @@ class Screen:
         self.draw()
 
 
-def _color_test(stdscr: 'curses._CursesWindow') -> None:
+def _color_test(stdscr: CursesWindowType) -> None:
     header = f' {VERSION_STR}'
     header += '<< color test >>'.center(curses.COLS)[len(header):]
     stdscr.insstr(0, 0, header, curses.A_REVERSE)
@@ -553,7 +553,7 @@ SEQUENCE_KEYNAME = {
 }
 
 
-def _get_char(stdscr: 'curses._CursesWindow') -> Key:
+def _get_char(stdscr: CursesWindowType) -> Key:
     wch = stdscr.get_wch()
     if isinstance(wch, str) and wch == '\x1b':
         stdscr.nodelay(True)
@@ -658,7 +658,7 @@ def _edit(screen: Screen) -> EditResult:
         prevkey = key
 
 
-def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
+def c_main(stdscr: CursesWindowType, args: argparse.Namespace) -> None:
     if args.color_test:
         return _color_test(stdscr)
     screen = Screen(stdscr, [File(f) for f in args.filenames or [None]])
@@ -675,7 +675,7 @@ def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
             raise AssertionError(f'unreachable {res}')
 
 
-def _init_screen() -> 'curses._CursesWindow':
+def _init_screen() -> CursesWindowType:
     # set the escape delay so curses does not pause waiting for sequences
     os.environ.setdefault('ESCDELAY', '25')
     stdscr = curses.initscr()
@@ -693,7 +693,7 @@ def _init_screen() -> 'curses._CursesWindow':
 
 
 @contextlib.contextmanager
-def make_stdscr() -> Generator['curses._CursesWindow', None, None]:
+def make_stdscr() -> Generator[CursesWindowType, None, None]:
     """essentially `curses.wrapper` but split out to implement ^Z"""
     stdscr = _init_screen()
     try:
