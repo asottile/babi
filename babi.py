@@ -12,12 +12,13 @@ from typing import Generator
 from typing import IO
 from typing import List
 from typing import NamedTuple
+from typing import NewType
 from typing import Optional
 from typing import Tuple
 from typing import Union
 
 VERSION_STR = 'babi v0'
-CursesWindowType = 'curses._CursesWindow'
+CursesWindowType = NewType('curses._CursesWindow')
 
 def _line_x(x: int, width: int) -> int:
     margin = min(width - 3, 6)
@@ -626,91 +627,4 @@ def _edit(screen: Screen) -> EditResult:
                     screen.file.c(c, screen.margin)
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '')
-            if response == ':q':
-                return EditResult.EXIT
-            elif response == ':w':
-                screen.file.save(screen.status)
-            elif response == ':wq':
-                screen.file.save(screen.status)
-                return EditResult.EXIT
-            elif response == '':  # noop / cancel
-                screen.status.update('')
-            else:
-                screen.status.update(f'invalid command: {response}')
-        elif key.keyname == b'^S':
-            screen.file.save(screen.status)
-        elif key.keyname == b'^X':
-            return EditResult.EXIT
-        elif key.keyname == b'kLFT3':
-            return EditResult.PREV
-        elif key.keyname == b'kRIT3':
-            return EditResult.NEXT
-        elif key.keyname == b'^Z':
-            curses.endwin()
-            os.kill(os.getpid(), signal.SIGSTOP)
-            screen.stdscr = _init_screen()
-            screen.resize()
-        elif isinstance(key.wch, str) and key.wch.isprintable():
-            screen.file.c(key.wch, screen.margin)
-        else:
-            screen.status.update(f'unknown key: {key}')
-
-        prevkey = key
-
-
-def c_main(stdscr: CursesWindowType, args: argparse.Namespace) -> None:
-    if args.color_test:
-        return _color_test(stdscr)
-    screen = Screen(stdscr, [File(f) for f in args.filenames or [None]])
-    while screen.files:
-        screen.i = screen.i % len(screen.files)
-        res = _edit(screen)
-        if res == EditResult.EXIT:
-            del screen.files[screen.i]
-        elif res == EditResult.NEXT:
-            screen.i += 1
-        elif res == EditResult.PREV:
-            screen.i -= 1
-        else:
-            raise AssertionError(f'unreachable {res}')
-
-
-def _init_screen() -> CursesWindowType:
-    # set the escape delay so curses does not pause waiting for sequences
-    os.environ.setdefault('ESCDELAY', '25')
-    stdscr = curses.initscr()
-    curses.noecho()
-    curses.cbreak()
-    # <enter> is not transformed into '\n' so it can be differentiated from ^J
-    curses.nonl()
-    # ^S / ^Q / ^Z / ^\ are passed through
-    curses.raw()
-    stdscr.keypad(True)
-    with contextlib.suppress(curses.error):
-        curses.start_color()
-    _init_colors(stdscr)
-    return stdscr
-
-
-@contextlib.contextmanager
-def make_stdscr() -> Generator[CursesWindowType, None, None]:
-    """essentially `curses.wrapper` but split out to implement ^Z"""
-    stdscr = _init_screen()
-    try:
-        yield stdscr
-    finally:
-        curses.endwin()
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--color-test', action='store_true')
-    parser.add_argument('filenames', metavar='filename', nargs='*')
-    args = parser.parse_args()
-    with make_stdscr() as stdscr:
-        c_main(stdscr, args)
-    return 0
-
-
-if __name__ == '__main__':
-    exit(main())
+            
