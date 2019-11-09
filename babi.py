@@ -8,6 +8,7 @@ import hashlib
 import io
 import os
 import signal
+import sys
 from typing import Any
 from typing import Callable
 from typing import cast
@@ -927,7 +928,11 @@ def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
 
 def _init_screen() -> 'curses._CursesWindow':
     # set the escape delay so curses does not pause waiting for sequences
-    os.environ.setdefault('ESCDELAY', '25')
+    if sys.version_info >= (3, 9):  # pragma: no cover
+        curses.set_escdelay(25)
+    else:  # pragma: no cover
+        os.environ.setdefault('ESCDELAY', '25')
+
     stdscr = curses.initscr()
     curses.noecho()
     curses.cbreak()
