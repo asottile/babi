@@ -209,8 +209,8 @@ def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool, str]:
 
 
 class File:
-    def __init__(self, filename: Optional[str]) -> None:
-        self.filename = filename
+    def __init__(self, filename: Optional[os.PathLike]) -> None:
+        self.filename = os.fspath(filename)
         self.modified = False
         self.lines: List[str] = []
         self.nl = '\n'
