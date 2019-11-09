@@ -4,9 +4,11 @@ import contextlib
 import curses
 import enum
 import hashlib
+import keyword
 import io
 import os
 import signal
+import tokenize
 from typing import Dict
 from typing import Generator
 from typing import IO
@@ -47,6 +49,69 @@ def _scrolled_line(s: str, x: int, width: int, *, current: bool) -> str:
     else:
         return s.ljust(width)
 
+class Highlight:
+    def __init_subclass__(cls):
+        if not hasattr(cls, "supports"):
+            raise ValueError("Can't subclass Highlight without a sequence of supported suffixes")
+
+    @classmethod
+    def from_language(cls, filename):
+        if not filename:
+            return cls()
+        
+        suffix = os.path.splitext(filename)[1]
+        for subclass in cls.__subclasses__():
+            if suffix in subclass.supports:
+                break
+        else:
+            return cls()
+        return subclass()
+
+    def highlight(self, line):
+        return line, curses.A_NORMAL
+
+    def add_highlighted_line(self, stdscr, y, x, line):
+        stdscr.insstr(y, x, *self.highlight(line))
+
+class PythonHighlighter(Highlight):
+    supports = (".py",)
+
+    _STATEMENTS = {"import"}
+    def highlight(self, token):
+        if not isinstance(token, tokenize.TokenInfo):
+            return curses.A_NORMAL
+        
+        token_name = tokenize.tok_name.get(token.type, '_unknown').lower()
+        handler = getattr(self, f"_{token_name}_handler", lambda _: curses.A_NORMAL)
+        return handler(token)
+
+    def add_highlighted_line(self, stdscr, y, x, line):
+        rl = io.StringIO(line).readline
+        tokens = tuple(tokenize.generate_tokens(rl))
+        for x, char in enumerate(line):
+            attrs = self.highlight(self.matching_token(tokens, x))
+            stdscr.insstr(y, x, char, attrs) 
+        
+    def _name_handler(self, token):
+        if keyword.iskeyword(token.string):
+            return _color(13, 0)
+        return _color(12, 0)
+
+    def _op_handler(self, token):
+        return _color(11, 0)
+
+    def _string_handler(self, token):
+        return _color(10, 0)
+
+    def _number_handler(self, token):
+        return _color(9, 0)
+
+    @staticmethod
+    def matching_token(tokens, x):
+        for token in tokens:
+            token_start_x, token_end_x = token.start[1], token.end[1]
+            if token_start_x <= x < token_end_x:
+                return token
 
 class Margin(NamedTuple):
     header: bool
@@ -451,13 +516,14 @@ class File:
         stdscr.move(self.cursor_y(margin), self.cursor_x())
 
     def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
+        highlighter = Highlight.from_language(self.filename)
         to_display = min(len(self.lines) - self.file_line, margin.body_lines)
         for i in range(to_display):
             line_idx = self.file_line + i
             line = self.lines[line_idx]
             current = line_idx == self.cursor_line
             line = _scrolled_line(line, self.x, curses.COLS, current=current)
-            stdscr.insstr(i + margin.header, 0, line)
+            highlighter.add_highlighted_line(stdscr, i + margin.header, 0, line)
         blankline = ' ' * curses.COLS
         for i in range(to_display, margin.body_lines):
             stdscr.insstr(i + margin.header, 0, blankline)
