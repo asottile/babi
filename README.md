@@ -13,8 +13,7 @@ keyboard, when the right hand is shifted left by one, `nano` becomes `babi`.
 
 ### quitting babi
 
-currently you can quit `babi` by using `^X` (or `^C` which triggers a
-backtrace).
+currently you can quit `babi` by using `^X` (or via `Esc` + `:q`).
 
 ## demos
 
