@@ -159,8 +159,8 @@ def test_position_repr():
         '    modified=False,\n'
         '    lines=[],\n'
         "    nl='\\n',\n"
-        '    file_line=0,\n'
-        '    cursor_line=0,\n'
+        '    file_y=0,\n'
+        '    cursor_y=0,\n'
         '    x=0,\n'
         '    x_hint=0,\n'
         '    sha256=None,\n'

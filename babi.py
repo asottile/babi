@@ -296,16 +296,16 @@ def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool, str]:
 class Action:
     def __init__(
             self, *, name: str, spy: ListSpy,
-            start_x: int, start_line: int, start_modified: bool,
-            end_x: int, end_line: int, end_modified: bool,
+            start_x: int, start_y: int, start_modified: bool,
+            end_x: int, end_y: int, end_modified: bool,
     ):
         self.name = name
         self.spy = spy
         self.start_x = start_x
-        self.start_line = start_line
+        self.start_y = start_y
         self.start_modified = start_modified
         self.end_x = end_x
-        self.end_line = end_line
+        self.end_y = end_y
         self.end_modified = end_modified
         self.final = False
 
@@ -313,15 +313,15 @@ class Action:
         spy = ListSpy(file.lines)
         action = Action(
             name=self.name, spy=spy,
-            start_x=self.end_x, start_line=self.end_line,
+            start_x=self.end_x, start_y=self.end_y,
             start_modified=self.end_modified,
-            end_x=self.start_x, end_line=self.start_line,
+            end_x=self.start_x, end_y=self.start_y,
             end_modified=self.start_modified,
         )
 
         self.spy.undo(spy)
         file.x = self.start_x
-        file.cursor_line = self.start_line
+        file.cursor_y = self.start_y
         file.modified = self.start_modified
 
         return action
@@ -353,7 +353,7 @@ def edit_action(name: str) -> Callable[[TCallable], TCallable]:
                     self.undo_stack[-1].final = True
                 spy = ListSpy(self.lines)
 
-            before_x, before_line = self.x, self.cursor_line
+            before_x, before_line = self.x, self.cursor_y
             before_modified = self.modified
             assert not isinstance(self.lines, ListSpy), 'recursive action?'
             orig, self.lines = self.lines, spy
@@ -364,14 +364,14 @@ def edit_action(name: str) -> Callable[[TCallable], TCallable]:
                 self.redo_stack.clear()
                 if continue_last:
                     self.undo_stack[-1].end_x = self.x
-                    self.undo_stack[-1].end_line = self.cursor_line
+                    self.undo_stack[-1].end_y = self.cursor_y
                     self.undo_stack[-1].end_modified = self.modified
                 elif spy.has_modifications:
                     action = Action(
                         name=name, spy=spy,
-                        start_x=before_x, start_line=before_line,
+                        start_x=before_x, start_y=before_line,
                         start_modified=before_modified,
-                        end_x=self.x, end_line=self.cursor_line,
+                        end_x=self.x, end_y=self.cursor_y,
                         end_modified=self.modified,
                     )
                     self.undo_stack.append(action)
@@ -385,7 +385,7 @@ class File:
         self.modified = False
         self.lines: MutableSequenceNoSlice = []
         self.nl = '\n'
-        self.file_line = self.cursor_line = self.x = self.x_hint = 0
+        self.file_y = self.cursor_y = self.x = self.x_hint = 0
         self.sha256: Optional[str] = None
         self.undo_stack: List[Action] = []
         self.redo_stack: List[Action] = []
@@ -418,51 +418,47 @@ class File:
     # movement
 
     def _scroll_screen_if_needed(self, margin: Margin) -> None:
-        # if the `cursor_line` is not on screen, make it so
-        if (
-                self.file_line <=
-                self.cursor_line <
-                self.file_line + margin.body_lines
-        ):
+        # if the `cursor_y` is not on screen, make it so
+        if self.file_y <= self.cursor_y < self.file_y + margin.body_lines:
             return
 
-        self.file_line = max(self.cursor_line - margin.body_lines // 2, 0)
+        self.file_y = max(self.cursor_y - margin.body_lines // 2, 0)
 
     def _scroll_amount(self) -> int:
         return int(curses.LINES / 2 + .5)
 
     def _set_x_after_vertical_movement(self) -> None:
-        self.x = min(len(self.lines[self.cursor_line]), self.x_hint)
+        self.x = min(len(self.lines[self.cursor_y]), self.x_hint)
 
     def maybe_scroll_down(self, margin: Margin) -> None:
-        if self.cursor_line >= self.file_line + margin.body_lines:
-            self.file_line += self._scroll_amount()
+        if self.cursor_y >= self.file_y + margin.body_lines:
+            self.file_y += self._scroll_amount()
 
     @action
     def down(self, margin: Margin) -> None:
-        if self.cursor_line < len(self.lines) - 1:
-            self.cursor_line += 1
+        if self.cursor_y < len(self.lines) - 1:
+            self.cursor_y += 1
             self.maybe_scroll_down(margin)
             self._set_x_after_vertical_movement()
 
     def _maybe_scroll_up(self, margin: Margin) -> None:
-        if self.cursor_line < self.file_line:
-            self.file_line -= self._scroll_amount()
-            self.file_line = max(self.file_line, 0)
+        if self.cursor_y < self.file_y:
+            self.file_y -= self._scroll_amount()
+            self.file_y = max(self.file_y, 0)
 
     @action
     def up(self, margin: Margin) -> None:
-        if self.cursor_line > 0:
-            self.cursor_line -= 1
+        if self.cursor_y > 0:
+            self.cursor_y -= 1
             self._maybe_scroll_up(margin)
             self._set_x_after_vertical_movement()
 
     @action
     def right(self, margin: Margin) -> None:
-        if self.x >= len(self.lines[self.cursor_line]):
-            if self.cursor_line < len(self.lines) - 1:
+        if self.x >= len(self.lines[self.cursor_y]):
+            if self.cursor_y < len(self.lines) - 1:
                 self.x = 0
-                self.cursor_line += 1
+                self.cursor_y += 1
                 self.maybe_scroll_down(margin)
         else:
             self.x += 1
@@ -471,9 +467,9 @@ class File:
     @action
     def left(self, margin: Margin) -> None:
         if self.x == 0:
-            if self.cursor_line > 0:
-                self.cursor_line -= 1
-                self.x = len(self.lines[self.cursor_line])
+            if self.cursor_y > 0:
+                self.cursor_y -= 1
+                self.x = len(self.lines[self.cursor_y])
                 self._maybe_scroll_up(margin)
         else:
             self.x -= 1
@@ -485,35 +481,35 @@ class File:
 
     @action
     def end(self, margin: Margin) -> None:
-        self.x = self.x_hint = len(self.lines[self.cursor_line])
+        self.x = self.x_hint = len(self.lines[self.cursor_y])
 
     @action
     def ctrl_home(self, margin: Margin) -> None:
         self.x = self.x_hint = 0
-        self.cursor_line = self.file_line = 0
+        self.cursor_y = self.file_y = 0
 
     @action
     def ctrl_end(self, margin: Margin) -> None:
         self.x = self.x_hint = 0
-        self.cursor_line = len(self.lines) - 1
+        self.cursor_y = len(self.lines) - 1
         self._scroll_screen_if_needed(margin)
 
     @action
     def page_up(self, margin: Margin) -> None:
-        if self.cursor_line < margin.body_lines:
-            self.cursor_line = self.file_line = 0
+        if self.cursor_y < margin.body_lines:
+            self.cursor_y = self.file_y = 0
         else:
-            pos = max(self.file_line - margin.page_size, 0)
-            self.cursor_line = self.file_line = pos
+            pos = max(self.file_y - margin.page_size, 0)
+            self.cursor_y = self.file_y = pos
         self._set_x_after_vertical_movement()
 
     @action
     def page_down(self, margin: Margin) -> None:
-        if self.file_line + margin.body_lines >= len(self.lines):
-            self.cursor_line = len(self.lines) - 1
+        if self.file_y + margin.body_lines >= len(self.lines):
+            self.cursor_y = len(self.lines) - 1
         else:
-            pos = self.file_line + margin.page_size
-            self.cursor_line = self.file_line = pos
+            pos = self.file_y + margin.page_size
+            self.cursor_y = self.file_y = pos
         self._set_x_after_vertical_movement()
 
     # editing
@@ -521,57 +517,57 @@ class File:
     @edit_action('backspace text')
     def backspace(self, margin: Margin) -> None:
         # backspace at the beginning of the file does nothing
-        if self.cursor_line == 0 and self.x == 0:
+        if self.cursor_y == 0 and self.x == 0:
             pass
         # at the beginning of the line, we join the current line and
         # the previous line
         elif self.x == 0:
-            victim = self.lines.pop(self.cursor_line)
-            new_x = len(self.lines[self.cursor_line - 1])
-            self.lines[self.cursor_line - 1] += victim
-            self.cursor_line -= 1
+            victim = self.lines.pop(self.cursor_y)
+            new_x = len(self.lines[self.cursor_y - 1])
+            self.lines[self.cursor_y - 1] += victim
+            self.cursor_y -= 1
             self._maybe_scroll_up(margin)
             self.x = self.x_hint = new_x
             # deleting the fake end-of-file doesn't cause modification
-            self.modified |= self.cursor_line < len(self.lines) - 1
+            self.modified |= self.cursor_y < len(self.lines) - 1
             _restore_lines_eof_invariant(self.lines)
         else:
-            s = self.lines[self.cursor_line]
-            self.lines[self.cursor_line] = s[:self.x - 1] + s[self.x:]
+            s = self.lines[self.cursor_y]
+            self.lines[self.cursor_y] = s[:self.x - 1] + s[self.x:]
             self.x = self.x_hint = self.x - 1
             self.modified = True
 
     @edit_action('delete text')
     def delete(self, margin: Margin) -> None:
         # noop at end of the file
-        if self.cursor_line == len(self.lines) - 1:
+        if self.cursor_y == len(self.lines) - 1:
             pass
         # if we're at the end of the line, collapse the line afterwards
-        elif self.x == len(self.lines[self.cursor_line]):
-            victim = self.lines.pop(self.cursor_line + 1)
-            self.lines[self.cursor_line] += victim
+        elif self.x == len(self.lines[self.cursor_y]):
+            victim = self.lines.pop(self.cursor_y + 1)
+            self.lines[self.cursor_y] += victim
             self.modified = True
         else:
-            s = self.lines[self.cursor_line]
-            self.lines[self.cursor_line] = s[:self.x] + s[self.x + 1:]
+            s = self.lines[self.cursor_y]
+            self.lines[self.cursor_y] = s[:self.x] + s[self.x + 1:]
             self.modified = True
 
     @edit_action('line break')
     def enter(self, margin: Margin) -> None:
-        s = self.lines[self.cursor_line]
-        self.lines[self.cursor_line] = s[:self.x]
-        self.lines.insert(self.cursor_line + 1, s[self.x:])
-        self.cursor_line += 1
+        s = self.lines[self.cursor_y]
+        self.lines[self.cursor_y] = s[:self.x]
+        self.lines.insert(self.cursor_y + 1, s[self.x:])
+        self.cursor_y += 1
         self.maybe_scroll_down(margin)
         self.x = self.x_hint = 0
         self.modified = True
 
     @edit_action('cut')
     def cut(self, cut_buffer: Tuple[str, ...]) -> Tuple[str, ...]:
-        if self.cursor_line == len(self.lines) - 1:
+        if self.cursor_y == len(self.lines) - 1:
             return ()
         else:
-            victim = self.lines.pop(self.cursor_line)
+            victim = self.lines.pop(self.cursor_y)
             self.x = self.x_hint = 0
             self.modified = True
             return cut_buffer + (victim,)
@@ -579,11 +575,11 @@ class File:
     @edit_action('uncut')
     def uncut(self, cut_buffer: Tuple[str, ...], margin: Margin) -> None:
         for cut_line in cut_buffer:
-            line = self.lines[self.cursor_line]
+            line = self.lines[self.cursor_y]
             before, after = line[:self.x], line[self.x:]
-            self.lines[self.cursor_line] = before + cut_line
-            self.lines.insert(self.cursor_line + 1, after)
-            self.cursor_line += 1
+            self.lines[self.cursor_y] = before + cut_line
+            self.lines.insert(self.cursor_y + 1, after)
+            self.cursor_y += 1
             self.x = self.x_hint = 0
             self.maybe_scroll_down(margin)
 
@@ -614,8 +610,8 @@ class File:
 
     @edit_action('text')
     def c(self, wch: str, margin: Margin) -> None:
-        s = self.lines[self.cursor_line]
-        self.lines[self.cursor_line] = s[:self.x] + wch + s[self.x:]
+        s = self.lines[self.cursor_y]
+        self.lines[self.cursor_y] = s[:self.x] + wch + s[self.x:]
         self.x = self.x_hint = self.x + 1
         self.modified = True
         _restore_lines_eof_invariant(self.lines)
@@ -689,28 +685,21 @@ class File:
 
     # positioning
 
-    def cursor_y(self, margin: Margin) -> int:
-        return self.cursor_line - self.file_line + margin.header
-
-    def line_x(self) -> int:
-        return _line_x(self.x, curses.COLS)
-
-    def cursor_x(self) -> int:
-        return self.x - self.line_x()
-
     def move_cursor(
             self,
             stdscr: 'curses._CursesWindow',
             margin: Margin,
     ) -> None:
-        stdscr.move(self.cursor_y(margin), self.cursor_x())
+        y = self.cursor_y - self.file_y + margin.header
+        x = self.x - _line_x(self.x, curses.COLS)
+        stdscr.move(y, x)
 
     def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
-        to_display = min(len(self.lines) - self.file_line, margin.body_lines)
+        to_display = min(len(self.lines) - self.file_y, margin.body_lines)
         for i in range(to_display):
-            line_idx = self.file_line + i
+            line_idx = self.file_y + i
             line = self.lines[line_idx]
-            current = line_idx == self.cursor_line
+            current = line_idx == self.cursor_y
             line = _scrolled_line(line, self.x, curses.COLS, current=current)
             stdscr.insstr(i + margin.header, 0, line)
         blankline = ' ' * curses.COLS
