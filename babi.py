@@ -229,6 +229,7 @@ class Status:
             self._status = ''
 
     def prompt(self, screen: 'Screen', prompt: str) -> str:
+        self.update('')
         pos = 0
         buf = ''
         while True:
@@ -904,9 +905,7 @@ def _edit(screen: Screen) -> EditResult:
             elif response == ':wq':
                 screen.file.save(screen.status)
                 return EditResult.EXIT
-            elif response == '':  # noop / cancel
-                screen.status.update('')
-            else:
+            elif response != '':  # noop / cancel
                 screen.status.update(f'invalid command: {response}')
         elif key.keyname == b'^S':
             screen.file.save(screen.status)
