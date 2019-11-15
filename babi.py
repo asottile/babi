@@ -232,11 +232,18 @@ class Status:
         pos = 0
         buf = ''
         while True:
-            width = curses.COLS - len(prompt)
-            cmd = f'{prompt}{_scrolled_line(buf, pos, width, current=True)}'
+            if not prompt or curses.COLS < 7:
+                prompt_s = ''
+            elif len(prompt) > curses.COLS - 6:
+                prompt_s = f'{prompt[:curses.COLS - 7]}…: '
+            else:
+                prompt_s = f'{prompt}: '
+
+            width = curses.COLS - len(prompt_s)
+            cmd = f'{prompt_s}{_scrolled_line(buf, pos, width, current=True)}'
             screen.stdscr.insstr(curses.LINES - 1, 0, cmd, curses.A_REVERSE)
             line_x = _line_x(pos, width)
-            screen.stdscr.move(curses.LINES - 1, pos - line_x)
+            screen.stdscr.move(curses.LINES - 1, len(prompt_s) + pos - line_x)
             key = _get_char(screen.stdscr)
 
             if key.key == curses.KEY_RESIZE:
@@ -492,6 +499,19 @@ class File:
     def ctrl_end(self, margin: Margin) -> None:
         self.x = self.x_hint = 0
         self.cursor_y = len(self.lines) - 1
+        self._scroll_screen_if_needed(margin)
+
+    @action
+    def go_to_line(self, lineno: int, margin: Margin) -> None:
+        self.x = self.x_hint = 0
+        if lineno == 0:
+            self.cursor_y = 0
+        elif lineno > len(self.lines):
+            self.cursor_y = len(self.lines) - 1
+        elif lineno < 0:
+            self.cursor_y = max(0, lineno + len(self.lines))
+        else:
+            self.cursor_y = lineno - 1
         self._scroll_screen_if_needed(margin)
 
     @action
@@ -864,6 +884,17 @@ def _edit(screen: Screen) -> EditResult:
             screen.file.undo(screen.status, screen.margin)
         elif key.keyname == b'M-U':
             screen.file.redo(screen.status, screen.margin)
+        elif key.keyname == b'^_':
+            response = screen.status.prompt(screen, 'enter line number')
+            if response == '':
+                screen.status.update('cancelled')
+            else:
+                try:
+                    lineno = int(response)
+                except ValueError:
+                    screen.status.update(f'not an integer: {response!r}')
+                else:
+                    screen.file.go_to_line(lineno, screen.margin)
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '')
             if response == ':q':
