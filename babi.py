@@ -503,6 +503,18 @@ class File:
         self._scroll_screen_if_needed(margin)
 
     @action
+    def ctrl_up(self, margin: Margin) -> None:
+        self.file_y = max(0, self.file_y - 1)
+        self.cursor_y = min(self.cursor_y, self.file_y + margin.body_lines - 1)
+        self._set_x_after_vertical_movement()
+
+    @action
+    def ctrl_down(self, margin: Margin) -> None:
+        self.file_y = min(len(self.lines) - 1, self.file_y + 1)
+        self.cursor_y = max(self.cursor_y, self.file_y)
+        self._set_x_after_vertical_movement()
+
+    @action
     def go_to_line(self, lineno: int, margin: Margin) -> None:
         self.x = self.x_hint = 0
         if lineno == 0:
@@ -627,6 +639,8 @@ class File:
         b'^V': page_down,
         b'kHOM5': ctrl_home,
         b'kEND5': ctrl_end,
+        b'kUP5': ctrl_up,
+        b'kDN5': ctrl_down,
     }
 
     @edit_action('text')
@@ -807,14 +821,16 @@ SEQUENCE_KEY = {
     '\x1bOF': curses.KEY_END,
 }
 SEQUENCE_KEYNAME = {
-    '\x1b[1;5H': b'kHOM5',  # C-Home
-    '\x1b[1;5F': b'kEND5',  # C-End
+    '\x1b[1;5H': b'kHOM5',  # ^Home
+    '\x1b[1;5F': b'kEND5',  # ^End
     '\x1bOH': b'KEY_HOME',
     '\x1bOF': b'KEY_END',
     '\x1b[1;3A': b'kUP3',  # M-Up
     '\x1b[1;3B': b'kDN3',  # M-Down
     '\x1b[1;3C': b'kRIT3',  # M-Right
     '\x1b[1;3D': b'kLFT3',  # M-Left
+    '\x1b[1;5A': b'kUP5',  # ^Up
+    '\x1b[1;5B': b'kDN5',  # ^Down
 }
 
 

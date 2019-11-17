@@ -649,6 +649,81 @@ def test_scrolling_arrow_key_movement(ten_lines):
         h.await_text('line_0')
 
 
+def test_ctrl_down_beginning_of_file(ten_lines):
+    with run(str(ten_lines), height=5) as h, and_exit(h):
+        h.press('^Down')
+        h.await_text('line_3')
+        h.await_cursor_position(x=0, y=1)
+        assert h.get_cursor_line() == 'line_1'
+
+
+def test_ctrl_up_moves_screen_up_one_line(ten_lines):
+    with run(str(ten_lines), height=5) as h, and_exit(h):
+        h.press('^Down')
+        h.press('^Up')
+        h.await_text('line_0')
+        h.await_text('line_2')
+        h.await_cursor_position(x=0, y=2)
+
+
+def test_ctrl_up_at_beginning_of_file_does_nothing(ten_lines):
+    with run(str(ten_lines), height=5) as h, and_exit(h):
+        h.press('^Up')
+        h.await_text('line_0')
+        h.await_text('line_2')
+        h.await_cursor_position(x=0, y=1)
+
+
+def test_ctrl_up_at_bottom_of_screen(ten_lines):
+    with run(str(ten_lines), height=5) as h, and_exit(h):
+        h.press('^Down')
+        h.press('Down')
+        h.press('Down')
+        h.await_text('line_1')
+        h.await_text('line_3')
+        h.await_cursor_position(x=0, y=3)
+        h.press('^Up')
+        h.await_text('line_0')
+        h.await_cursor_position(x=0, y=3)
+
+
+def test_ctrl_down_at_end_of_file(ten_lines):
+    with run(str(ten_lines), height=5) as h, and_exit(h):
+        h.press('^End')
+        for i in range(4):
+            h.press('^Down')
+        h.press('Up')
+        h.await_text('line_9')
+        assert h.get_cursor_line() == 'line_9'
+
+
+def test_ctrl_down_causing_cursor_movement_should_fix_x(tmpdir):
+    f = tmpdir.join('f')
+    f.write('1\n\n2\n\n3\n\n4\n')
+
+    with run(str(f), height=5) as h, and_exit(h):
+        h.press('Right')
+        h.press('^Down')
+        h.await_text_missing('\n1\n')
+        h.await_cursor_position(x=0, y=1)
+
+
+def test_ctrl_up_causing_cursor_movement_should_fix_x(tmpdir):
+    f = tmpdir.join('f')
+    f.write('1\n\n2\n\n3\n\n4\n')
+
+    with run(str(f), height=5) as h, and_exit(h):
+        h.press('^Down')
+        h.press('^Down')
+        h.press('Down')
+        h.press('Down')
+        h.press('Right')
+        h.await_text('3')
+        h.press('^Up')
+        h.await_text_missing('3')
+        h.await_cursor_position(x=0, y=3)
+
+
 @pytest.mark.parametrize('k', ('End', '^E'))
 def test_end_key(tmpdir, k):
     f = tmpdir.join('f')
