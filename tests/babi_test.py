@@ -1078,8 +1078,22 @@ def test_multiple_files(tmpdir):
         h.await_text('[3/3]')
         h.await_text('c text')
 
+        # make sure to clear statuses when switching files
+        h.press('^J')
+        h.await_text('unknown key')
+        h.press('M-Right')
+        h.await_text_missing('unknown key')
+        h.press('^J')
+        h.await_text('unknown key')
+        h.press('M-Left')
+        h.await_text_missing('unknown key')
+
+        # also make sure to clear statuses when exiting files
+        h.press('^J')
+        h.await_text('unknown key')
         h.press('^X')
         h.await_text('file_a')
+        h.await_text_missing('unknown key')
         h.press('^X')
         h.await_text('file_b')
         h.press('^X')

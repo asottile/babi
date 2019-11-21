@@ -208,6 +208,9 @@ class Status:
         self._status = status
         self._action_counter = 25
 
+    def clear(self) -> None:
+        self._status = ''
+
     def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
         if margin.footer or self._status:
             stdscr.insstr(curses.LINES - 1, 0, ' ' * curses.COLS)
@@ -226,10 +229,10 @@ class Status:
         else:
             self._action_counter -= 24
         if self._action_counter < 0:
-            self._status = ''
+            self.clear()
 
     def prompt(self, screen: 'Screen', prompt: str) -> str:
-        self.update('')
+        self.clear()
         pos = 0
         buf = ''
         while True:
@@ -953,10 +956,13 @@ def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
         res = _edit(screen)
         if res == EditResult.EXIT:
             del screen.files[screen.i]
+            screen.status.clear()
         elif res == EditResult.NEXT:
             screen.i += 1
+            screen.status.clear()
         elif res == EditResult.PREV:
             screen.i -= 1
+            screen.status.clear()
         else:
             raise AssertionError(f'unreachable {res}')
 
