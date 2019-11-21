@@ -699,18 +699,18 @@ def test_ctrl_down_at_end_of_file(ten_lines):
 
 def test_ctrl_down_causing_cursor_movement_should_fix_x(tmpdir):
     f = tmpdir.join('f')
-    f.write('1\n\n2\n\n3\n\n4\n')
+    f.write('line_1\n\nline_2\n\nline_3\n\nline_4\n')
 
     with run(str(f), height=5) as h, and_exit(h):
         h.press('Right')
         h.press('^Down')
-        h.await_text_missing('\n1\n')
+        h.await_text_missing('\nline_1\n')
         h.await_cursor_position(x=0, y=1)
 
 
 def test_ctrl_up_causing_cursor_movement_should_fix_x(tmpdir):
     f = tmpdir.join('f')
-    f.write('1\n\n2\n\n3\n\n4\n')
+    f.write('line_1\n\nline_2\n\nline_3\n\nline_4\n')
 
     with run(str(f), height=5) as h, and_exit(h):
         h.press('^Down')
@@ -718,7 +718,7 @@ def test_ctrl_up_causing_cursor_movement_should_fix_x(tmpdir):
         h.press('Down')
         h.press('Down')
         h.press('Right')
-        h.await_text('3')
+        h.await_text('line_3')
         h.press('^Up')
         h.await_text_missing('3')
         h.await_cursor_position(x=0, y=3)
