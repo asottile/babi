@@ -1100,11 +1100,27 @@ def test_multiple_files(tmpdir):
         h.await_exit()
 
 
-def test_saving_with_no_filename_doesnt_exist():
-    # TODO: this should prompt but currently refuses
+def test_save_no_filename_specified(tmpdir):
+    f = tmpdir.join('f')
+
     with run() as h, and_exit(h):
+        h.press('hello world')
         h.press('^S')
-        h.await_text('no filename, not implemented')
+        h.await_text('enter filename:')
+        h.press_and_enter(str(f))
+        h.await_text('saved! (1 line written)')
+        h.await_text_missing('*')
+        assert f.read() == 'hello world\n'
+
+
+@pytest.mark.parametrize('k', ('Enter', '^C'))
+def test_save_no_filename_specified_cancel(k):
+    with run() as h, and_exit(h):
+        h.press('hello world')
+        h.press('^S')
+        h.await_text('enter filename:')
+        h.press(k)
+        h.await_text('cancelled')
 
 
 def test_saving_file_on_disk_changes(tmpdir):

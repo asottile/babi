@@ -681,14 +681,18 @@ class File:
         )
 
     @action
-    def save(self, status: Status) -> None:
+    def save(self, screen: 'Screen', status: Status) -> None:
         # TODO: make directories if they don't exist
         # TODO: maybe use mtime / stat as a shortcut for hashing below
         # TODO: strip trailing whitespace?
         # TODO: save atomically?
         if self.filename is None:
-            status.update('(no filename, not implemented)')
-            return
+            filename = status.prompt(screen, 'enter filename')
+            if not filename:
+                status.update('cancelled')
+                return
+            else:
+                self.filename = filename
 
         if os.path.isfile(self.filename):
             with open(self.filename) as f:
@@ -920,14 +924,14 @@ def _edit(screen: Screen) -> EditResult:
             if response == ':q':
                 return EditResult.EXIT
             elif response == ':w':
-                screen.file.save(screen.status)
+                screen.file.save(screen, screen.status)
             elif response == ':wq':
-                screen.file.save(screen.status)
+                screen.file.save(screen, screen.status)
                 return EditResult.EXIT
             elif response != '':  # noop / cancel
                 screen.status.update(f'invalid command: {response}')
         elif key.keyname == b'^S':
-            screen.file.save(screen.status)
+            screen.file.save(screen, screen.status)
         elif key.keyname == b'^X':
             return EditResult.EXIT
         elif key.keyname == b'kLFT3':
