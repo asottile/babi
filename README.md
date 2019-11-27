@@ -4,6 +4,8 @@
 babi
 ====
 
+> "babi technically nano-- according to the keyboard" - naclEric on Twitch
+
 a text editor, eventually...
 
 ### why is it called babi?
