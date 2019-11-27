@@ -7,6 +7,7 @@ import functools
 import hashlib
 import io
 import os
+import re
 import signal
 import sys
 from typing import Any
@@ -19,6 +20,7 @@ from typing import Iterator
 from typing import List
 from typing import NamedTuple
 from typing import Optional
+from typing import Pattern
 from typing import Tuple
 from typing import TYPE_CHECKING
 from typing import TypeVar
@@ -531,6 +533,36 @@ class File:
         self._scroll_screen_if_needed(margin)
 
     @action
+    def search(
+            self,
+            reg: Pattern[str],
+            status: Status,
+            margin: Margin,
+    ) -> None:
+        line_y = self.cursor_y
+        match = reg.search(self.lines[self.cursor_y], self.x + 1)
+        if not match:
+            for line_y in range(self.cursor_y + 1, len(self.lines)):
+                match = reg.search(self.lines[line_y])
+                if match:
+                    break
+            else:
+                status.update('search wrapped')
+                for line_y in range(0, self.cursor_y + 1):
+                    match = reg.search(self.lines[line_y])
+                    if match:
+                        break
+
+        if match and line_y == self.cursor_y and match.start() == self.x:
+            status.update('this is the only occurrence')
+        elif match:
+            self.cursor_y = line_y
+            self.x = match.start()
+            self._scroll_screen_if_needed(margin)
+        else:
+            status.update('no matches')
+
+    @action
     def page_up(self, margin: Margin) -> None:
         if self.cursor_y < margin.body_lines:
             self.cursor_y = self.file_y = 0
@@ -919,6 +951,17 @@ def _edit(screen: Screen) -> EditResult:
                     screen.status.update(f'not an integer: {response!r}')
                 else:
                     screen.file.go_to_line(lineno, screen.margin)
+        elif key.keyname == b'^W':
+            response = screen.status.prompt(screen, 'search')
+            if response == '':
+                screen.status.update('cancelled')
+            else:
+                try:
+                    regex = re.compile(response)
+                except re.error:
+                    screen.status.update(f'invalid regex: {response!r}')
+                else:
+                    screen.file.search(regex, screen.status, screen.margin)
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '')
             if response == ':q':

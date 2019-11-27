@@ -619,6 +619,77 @@ def test_go_to_line_cancel(ten_lines, key):
         h.await_text('cancelled')
 
 
+def test_search_wraps(ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('Down')
+        h.press('Down')
+        h.await_cursor_position(x=0, y=3)
+        h.press('^W')
+        h.await_text('search:')
+        h.press_and_enter('^line_0$')
+        h.await_text('search wrapped')
+        h.await_cursor_position(x=0, y=1)
+
+
+def test_search_find_next_line(ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.await_cursor_position(x=0, y=1)
+        h.press('^W')
+        h.await_text('search:')
+        h.press_and_enter('^line_')
+        h.await_cursor_position(x=0, y=2)
+
+
+def test_search_find_later_in_line():
+    with run() as h, and_exit(h):
+        h.press_and_enter('lol')
+        h.press('Up')
+        h.press('Right')
+        h.await_cursor_position(x=1, y=1)
+
+        h.press('^W')
+        h.await_text('search:')
+        h.press_and_enter('l')
+        h.await_cursor_position(x=2, y=1)
+
+
+def test_search_only_one_match_already_at_that_match(ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('Down')
+        h.await_cursor_position(x=0, y=2)
+        h.press('^W')
+        h.await_text('search:')
+        h.press_and_enter('^line_1$')
+        h.await_text('this is the only occurrence')
+        h.await_cursor_position(x=0, y=2)
+
+
+def test_search_not_found(ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^W')
+        h.await_text('search:')
+        h.press_and_enter('this will not match')
+        h.await_text('no matches')
+        h.await_cursor_position(x=0, y=1)
+
+
+def test_search_invalid_regex(ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^W')
+        h.await_text('search:')
+        h.press_and_enter('invalid(regex')
+        h.await_text("invalid regex: 'invalid(regex'")
+
+
+@pytest.mark.parametrize('key', ('Enter', '^C'))
+def test_search_cancel(ten_lines, key):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^W')
+        h.await_text('search:')
+        h.press(key)
+        h.await_text('cancelled')
+
+
 def test_go_to_line_not_an_integer():
     with run() as h, and_exit(h):
         h.press('^_')
