@@ -619,6 +619,14 @@ def test_go_to_line_cancel(ten_lines, key):
         h.await_text('cancelled')
 
 
+def test_go_to_line_not_an_integer():
+    with run() as h, and_exit(h):
+        h.press('^_')
+        h.await_text('enter line number:')
+        h.press_and_enter('asdf')
+        h.await_text("not an integer: 'asdf'")
+
+
 def test_search_wraps(ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('Down')
@@ -688,14 +696,6 @@ def test_search_cancel(ten_lines, key):
         h.await_text('search:')
         h.press(key)
         h.await_text('cancelled')
-
-
-def test_go_to_line_not_an_integer():
-    with run() as h, and_exit(h):
-        h.press('^_')
-        h.await_text('enter line number:')
-        h.press_and_enter('asdf')
-        h.await_text("not an integer: 'asdf'")
 
 
 def test_scrolling_arrow_key_movement(ten_lines):
@@ -1366,6 +1366,23 @@ def test_cancel_command_mode():
         h.press('world')
         h.await_text('hello world')
         h.await_text_missing('invalid command')
+
+
+def test_current_position(ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^C')
+        h.await_text('line 1, col 1 (of 10 lines)')
+        h.press('Right')
+        h.press('^C')
+        h.await_text('line 1, col 2 (of 10 lines)')
+        h.press('Down')
+        h.press('^C')
+        h.await_text('line 2, col 2 (of 10 lines)')
+        h.press('Up')
+        for i in range(10):
+            h.press('^K')
+        h.press('^C')
+        h.await_text('line 1, col 1 (of 1 line)')
 
 
 def test_cut_and_uncut(ten_lines):

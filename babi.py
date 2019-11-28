@@ -780,6 +780,13 @@ class File:
         for i in range(to_display, margin.body_lines):
             stdscr.insstr(i + margin.header, 0, blankline)
 
+    def current_position(self, status: Status) -> None:
+        line = f'line {self.cursor_y + 1}'
+        col = f'col {self.x + 1}'
+        line_count = max(len(self.lines) - 1, 1)
+        lines_word = 'line' if line_count == 1 else 'lines'
+        status.update(f'{line}, {col} (of {line_count} {lines_word})')
+
 
 class Screen:
     def __init__(
@@ -962,6 +969,8 @@ def _edit(screen: Screen) -> EditResult:
                     screen.status.update(f'invalid regex: {response!r}')
                 else:
                     screen.file.search(regex, screen.status, screen.margin)
+        elif key.keyname == b'^C':
+            screen.file.current_position(screen.status)
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '')
             if response == ':q':
