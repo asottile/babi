@@ -914,7 +914,7 @@ def _get_char(stdscr: 'curses._CursesWindow') -> Key:
     return Key(wch, key, keyname)
 
 
-EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
+EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV EDIT')
 
 
 class Command:
@@ -961,6 +961,7 @@ def quit_command(screen: Screen) -> EditResult:
 @command('write', 'Saves the current buffer.', ['C-s'], aliases=['w'])
 def save_command(screen: Screen) -> None:
     screen.file.save(screen, screen.status)
+    return EditResult.EDIT
 
 
 @command('write-quit', 'Saves the current buffer then quits it.', ['C-o-x'], aliases=['wq'])
@@ -1056,10 +1057,7 @@ def _edit(screen: Screen) -> EditResult:
         prevkey = key
 
 
-def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
-    if args.color_test:
-        return _color_test(stdscr)
-    screen = Screen(stdscr, [File(f) for f in args.filenames or [None]])
+def edit_cycle(screen: Screen) -> None:
     while screen.files:
         screen.i = screen.i % len(screen.files)
         res = _edit(screen)
@@ -1072,8 +1070,17 @@ def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
         elif res == EditResult.PREV:
             screen.i -= 1
             screen.status.clear()
+        elif res == EditResult.EDIT:
+            edit_cycle(screen)
         else:
             raise AssertionError(f'unreachable {res}')
+
+
+def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
+    if args.color_test:
+        return _color_test(stdscr)
+    screen = Screen(stdscr, [File(f) for f in args.filenames or [None]])
+    edit_cycle(screen)
 
 
 def _init_screen() -> 'curses._CursesWindow':
