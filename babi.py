@@ -933,17 +933,17 @@ class Command:
         self.func = func
 
     def translate_keybinds(self) -> List[bytes]:
-        """
-        Translates the keybinds in the form "Modifier-key" to curses-compatible
-        format.
-        """
-        new_binds = []  # type: List[bytes]
+    """
+    Translates the keybinds in the form "Modifier-key" to curses-compatible
+    format.
+    """
+        new_binds: List[bytes] = []
         for bind in self.keybinds:
             new_binds.append(bind.replace('C-', '^').upper().encode('UTF-8'))
         return new_binds
 
 
-COMMANDS = {}  # type: Dict[str, Command]
+COMMANDS: Dict[str, Command] = {} 
 
 
 def command(
@@ -956,6 +956,7 @@ def command(
         COMMANDS[name] = Command(
             name, description, keybinds, func, aliases=aliases,
         )
+        return func
     return inner
 
 
