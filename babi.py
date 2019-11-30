@@ -941,7 +941,7 @@ COMMANDS = {}
 
 def command(name: str, description: str, keybinds: List[str]) -> None:
     def inner(func: Callable[[Screen], EditResult]):
-        COMMANDS[name] = Command(name, description, keybinds)
+        COMMANDS[name] = Command(name, description, keybinds, func)
 
     return inner
 
@@ -1007,12 +1007,12 @@ def _edit(screen: Screen) -> EditResult:
             screen.file.current_position(screen.status)
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '')
-            if COMMANDS.get(response):
-                return COMMANDS.get(response).func(screen)
-            if response == ':q':
+            if COMMANDS[response[1:]]:
+                return COMMANDS[response[1:]].func(screen)
+            elif response == ':q':
                 return EditResult.EXIT
             elif response == ':w':
-                screen.file.savescreen, screen.status)
+                screen.file.save(screen, screen.status)
             elif response == ':wq':
                 screen.file.save(screen, screen.status)
                 return EditResult.EXIT
