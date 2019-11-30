@@ -923,8 +923,8 @@ class Command:
         name: str,
         description: str,
         keybinds: List[str],
-        func: Callable[[Screen], None],
-        aliases: List[str] = []
+        func: Callable[[Screen, Key], EditResult],
+        aliases: List[str] = [],
     ) -> None:
         self.name = name
         self.description = description
@@ -937,37 +937,59 @@ class Command:
         Translates the keybinds in the form "Modifier-key" to curses-compatible
         format.
         """
-        newBinds = [] # type: List[Bytes]
+        new_binds = []  # type: List[bytes]
         for bind in self.keybinds:
-            newBinds.append(bind.replace("C-", "^").upper().encode('UTF-8'))
-        return newBinds
+            new_binds.append(bind.replace('C-', '^').upper().encode('UTF-8'))
+        return new_binds
 
 
-# type: Dict[str, Command]
-COMMANDS = {}
+COMMANDS = {}  # type: Dict[str, Command]
 
-def command(name: str, description: str, keybinds: List[str], aliases: List[str] = []) -> None:
-    def inner(func: Callable[[Screen], EditResult]):
-        COMMANDS[name] = Command(name, description, keybinds, func, aliases=aliases)
 
+def command(
+    name: str,
+    description: str,
+    keybinds: List[str],
+    aliases: List[str] = [],
+) -> Callable[[Callable[[Screen, Key], EditResult]], None]:
+    def inner(func: Callable[[Screen, Key], EditResult]) -> None:
+        COMMANDS[name] = Command(
+            name, description, keybinds, func, aliases=aliases,
+        )
     return inner
 
 
 @command('quit', 'Quits the current buffer.', ['C-x'], aliases=['q'])
-def quit_command(screen: Screen) -> EditResult:
+def quit_command(screen: Screen, prevkey: Key) -> EditResult:
     return EditResult.EXIT
 
 
 @command('write', 'Saves the current buffer.', ['C-s'], aliases=['w'])
-def save_command(screen: Screen) -> None:
+def save_command(screen: Screen, prevkey: Key) -> EditResult:
     screen.file.save(screen, screen.status)
     return EditResult.EDIT
 
 
-@command('write-quit', 'Saves the current buffer then quits it.', ['C-o-x'], aliases=['wq'])
-def write_quit_command(screen: Screen) -> EditResult:
+@command(
+    'write-quit',
+    'Saves the current buffer then quits it.',
+    ['C-o-x'],
+    aliases=['wq'],
+)
+def write_quit_command(screen: Screen, prevkey: Key) -> EditResult:
     screen.file.save(screen, screen.status)
     return EditResult.EXIT
+
+
+@command(
+    'lineno',
+    'Shows the line and column number for the current buffer.',
+    ['C-c'],
+    aliases=['ln'],
+)
+def lineno_command(screen: Screen, prevkey: Key) -> EditResult:
+    screen.file.current_position(screen.status)
+    return EditResult.EDIT
 
 
 def _edit(screen: Screen) -> EditResult:
@@ -988,9 +1010,13 @@ def _edit(screen: Screen) -> EditResult:
             elif key.key in File.DISPATCH:
                 screen.file.DISPATCH[key.key](screen.file, screen.margin)
             elif key.keyname in File.DISPATCH_KEY:
-                screen.file.DISPATCH_KEY[key.keyname](screen.file, screen.margin)
+                screen.file.DISPATCH_KEY[key.keyname](
+                    screen.file, screen.margin,
+                )
             elif key.keyname in value.translate_keybinds():
-                return value.func(screen)
+                res = value.func(screen, prevkey)
+                prevkey = key
+                return res
             elif key.keyname == b'^K':
                 if prevkey.keyname == b'^K':
                     cut_buffer = screen.cut_buffer
@@ -1025,21 +1051,15 @@ def _edit(screen: Screen) -> EditResult:
                         screen.status.update(f'invalid regex: {response!r}')
                     else:
                         screen.file.search(regex, screen.status, screen.margin)
-            elif key.keyname == b'^C':
-                screen.file.current_position(screen.status)
             elif key.keyname == b'^[':  # escape
                 response = screen.status.prompt(screen, '')
-                for key, value in COMMANDS.items():
-                    if key == response[1:]:
-                        return value.func(screen)
+                for name, value in COMMANDS.items():
+                    if name == response[1:]:
+                        return value.func(screen, prevkey)
                     elif response[1:] in value.aliases:
-                        return value.func(screen)
+                        return value.func(screen, prevkey)
                     elif response != '':  # noop / cancel
                         screen.status.update(f'invalid command: {response}')
-#            elif key.keyname == b'^S':
-#                screen.file.save(screen, screen.status)
-#            elif key.keyname == b'^X':
-#                return EditResult.EXIT
             elif key.keyname == b'kLFT3':
                 return EditResult.PREV
             elif key.keyname == b'kRIT3':
@@ -1053,8 +1073,6 @@ def _edit(screen: Screen) -> EditResult:
                 screen.file.c(key.wch, screen.margin)
             else:
                 screen.status.update(f'unknown key: {key}')
-
-        prevkey = key
 
 
 def edit_cycle(screen: Screen) -> None:
