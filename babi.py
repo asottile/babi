@@ -917,55 +917,39 @@ def _get_char(stdscr: 'curses._CursesWindow') -> Key:
 EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV EDIT')
 
 
-class Command:
-    def __init__(
-        self,
-        name: str,
-        description: str,
-        keybinds: List[str],
-        func: Callable[[Screen, Key], EditResult],
-        aliases: List[str] = [],
-    ) -> None:
-        self.name = name
-        self.description = description
-        self.keybinds = keybinds
-        self.aliases = aliases
-        self.func = func
-
-    def translate_keybinds(self) -> List[bytes]:
-    """
-    Translates the keybinds in the form "Modifier-key" to curses-compatible
-    format.
-    """
-        new_binds: List[bytes] = []
-        for bind in self.keybinds:
-            new_binds.append(bind.replace('C-', '^').upper().encode('UTF-8'))
-        return new_binds
+class Command(NamedTuple):
+        name: str
+        description: str
+        binds: List[str]
+        func: Callable[[Screen, Key], EditResult]
+        aliases: List[str] = []
 
 
-COMMANDS: Dict[str, Command] = {} 
+COMMANDS: List[Command] = []
 
 
 def command(
     name: str,
     description: str,
-    keybinds: List[str],
+    binds: List[str] = [],
     aliases: List[str] = [],
 ) -> Callable[[Callable[[Screen, Key], EditResult]], None]:
     def inner(func: Callable[[Screen, Key], EditResult]) -> None:
-        COMMANDS[name] = Command(
-            name, description, keybinds, func, aliases=aliases,
+        COMMANDS.append(
+            Command(
+                name, description, binds, func, aliases=aliases,
+            )
         )
         return func
     return inner
 
 
-@command('quit', 'Quits the current buffer.', ['C-x'], aliases=['q'])
+@command('quit', 'Quits the current buffer.', binds=[b'^X'], aliases=['q'])
 def quit_command(screen: Screen, prevkey: Key) -> EditResult:
     return EditResult.EXIT
 
 
-@command('write', 'Saves the current buffer.', ['C-s'], aliases=['w'])
+@command('write', 'Saves the current buffer.', binds=[b'^S'], aliases=['w'])
 def save_command(screen: Screen, prevkey: Key) -> EditResult:
     screen.file.save(screen, screen.status)
     return EditResult.EDIT
@@ -974,7 +958,7 @@ def save_command(screen: Screen, prevkey: Key) -> EditResult:
 @command(
     'write-quit',
     'Saves the current buffer then quits it.',
-    ['C-o-x'],
+    binds=[],
     aliases=['wq'],
 )
 def write_quit_command(screen: Screen, prevkey: Key) -> EditResult:
@@ -985,7 +969,7 @@ def write_quit_command(screen: Screen, prevkey: Key) -> EditResult:
 @command(
     'lineno',
     'Shows the line and column number for the current buffer.',
-    ['C-c'],
+    [b'^C'],
     aliases=['ln'],
 )
 def lineno_command(screen: Screen, prevkey: Key) -> EditResult:
@@ -1005,78 +989,90 @@ def _edit(screen: Screen) -> EditResult:
 
         key = _get_char(screen.stdscr)
 
-        for _, value in COMMANDS.items():
-            if key.key == curses.KEY_RESIZE:
-                screen.resize()
-            elif key.key in File.DISPATCH:
-                screen.file.DISPATCH[key.key](screen.file, screen.margin)
-            elif key.keyname in File.DISPATCH_KEY:
-                screen.file.DISPATCH_KEY[key.keyname](
-                    screen.file, screen.margin,
-                )
-            elif key.keyname in value.translate_keybinds():
-                res = value.func(screen, prevkey)
-                prevkey = key
-                return res
-            elif key.keyname == b'^K':
-                if prevkey.keyname == b'^K':
-                    cut_buffer = screen.cut_buffer
-                else:
-                    cut_buffer = ()
-                    screen.cut_buffer = screen.file.cut(cut_buffer)
-            elif key.keyname == b'^U':
-                screen.file.uncut(screen.cut_buffer, screen.margin)
-            elif key.keyname == b'M-u':
-                screen.file.undo(screen.status, screen.margin)
-            elif key.keyname == b'M-U':
-                screen.file.redo(screen.status, screen.margin)
-            elif key.keyname == b'^_':
-                response = screen.status.prompt(screen, 'enter line number')
-                if response == '':
-                    screen.status.update('cancelled')
-                else:
-                    try:
-                        lineno = int(response)
-                    except ValueError:
-                        screen.status.update(f'not an integer: {response!r}')
-                    else:
-                        screen.file.go_to_line(lineno, screen.margin)
-            elif key.keyname == b'^W':
-                response = screen.status.prompt(screen, 'search')
-                if response == '':
-                    screen.status.update('cancelled')
-                else:
-                    try:
-                        regex = re.compile(response)
-                    except re.error:
-                        screen.status.update(f'invalid regex: {response!r}')
-                    else:
-                        screen.file.search(regex, screen.status, screen.margin)
-            elif key.keyname == b'^[':  # escape
-                response = screen.status.prompt(screen, '')
-                for name, value in COMMANDS.items():
-                    if name == response[1:]:
-                        return value.func(screen, prevkey)
-                    elif response[1:] in value.aliases:
-                        return value.func(screen, prevkey)
-                    elif response != '':  # noop / cancel
-                        screen.status.update(f'invalid command: {response}')
-            elif key.keyname == b'kLFT3':
-                return EditResult.PREV
-            elif key.keyname == b'kRIT3':
-                return EditResult.NEXT
-            elif key.keyname == b'^Z':
-                curses.endwin()
-                os.kill(os.getpid(), signal.SIGSTOP)
-                screen.stdscr = _init_screen()
-                screen.resize()
-            elif isinstance(key.wch, str) and key.wch.isprintable():
-                screen.file.c(key.wch, screen.margin)
+        res = None
+
+        bind_found = [[command.binds, command.func] for command in COMMANDS if key.keyname in command.binds]
+        cmd = []
+        if len(bind_found) > 0:
+            cmd = bind_found[0]
+            
+        if key.key == curses.KEY_RESIZE:
+            screen.resize()
+        elif key.key in File.DISPATCH:
+            screen.file.DISPATCH[key.key](screen.file, screen.margin)
+        elif key.keyname in File.DISPATCH_KEY:
+            screen.file.DISPATCH_KEY[key.keyname](
+                screen.file, screen.margin,
+            )
+        elif key.keyname in cmd[0]:
+            res = cmd[1](screen, prevkey)
+            prevkey = key
+        elif key.keyname == b'^K':
+            if prevkey.keyname == b'^K':
+                cut_buffer = screen.cut_buffer
             else:
-                screen.status.update(f'unknown key: {key}')
+                cut_buffer = ()
+                screen.cut_buffer = screen.file.cut(cut_buffer)
+        elif key.keyname == b'^U':
+            screen.file.uncut(screen.cut_buffer, screen.margin)
+        elif key.keyname == b'M-u':
+            screen.file.undo(screen.status, screen.margin)
+        elif key.keyname == b'M-U':
+            screen.file.redo(screen.status, screen.margin)
+        elif key.keyname == b'^_':
+            response = screen.status.prompt(screen, 'enter line number')
+            if response == '':
+                screen.status.update('cancelled')
+            else:
+                try:
+                    lineno = int(response)
+                except ValueError:
+                    screen.status.update(f'not an integer: {response!r}')
+                else:
+                    screen.file.go_to_line(lineno, screen.margin)
+        elif key.keyname == b'^W':
+            response = screen.status.prompt(screen, 'search')
+            if response == '':
+                screen.status.update('cancelled')
+            else:
+                try:
+                    regex = re.compile(response)
+                except re.error:
+                    screen.status.update(f'invalid regex: {response!r}')
+                else:
+                    screen.file.search(regex, screen.status, screen.margin)
+        elif key.keyname == b'^[':  # escape
+            response = screen.status.prompt(screen, '')
+            for name, value in COMMANDS.items():
+                if name == response[1:]:
+                    return value.func(screen, prevkey)
+                elif response[1:] in value.aliases:
+                    return value.func(screen, prevkey)
+                elif response != '':  # noop / cancel
+                    screen.status.update(f'invalid command: {response}')
+        elif key.keyname == b'kLFT3':
+            res = EditResult.PREV
+        elif key.keyname == b'kRIT3':
+            res = EditResult.NEXT
+        elif key.keyname == b'^Z':
+            curses.endwin()
+            os.kill(os.getpid(), signal.SIGSTOP)
+            screen.stdscr = _init_screen()
+            screen.resize()
+        elif isinstance(key.wch, str) and key.wch.isprintable():
+            screen.file.c(key.wch, screen.margin)
+        else:
+            screen.status.update(f'unknown key: {key}')
+
+        if not res == EditResult.EDIT:
+            return res
 
 
-def edit_cycle(screen: Screen) -> None:
+def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
+    if args.color_test:
+        return _color_test(stdscr)
+    screen = Screen(stdscr, [File(f) for f in args.filenames or [None]])
+
     while screen.files:
         screen.i = screen.i % len(screen.files)
         res = _edit(screen)
@@ -1089,17 +1085,8 @@ def edit_cycle(screen: Screen) -> None:
         elif res == EditResult.PREV:
             screen.i -= 1
             screen.status.clear()
-        elif res == EditResult.EDIT:
-            edit_cycle(screen)
         else:
             raise AssertionError(f'unreachable {res}')
-
-
-def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
-    if args.color_test:
-        return _color_test(stdscr)
-    screen = Screen(stdscr, [File(f) for f in args.filenames or [None]])
-    edit_cycle(screen)
 
 
 def _init_screen() -> 'curses._CursesWindow':
