@@ -259,29 +259,43 @@ class Status:
             *,
             history: Optional[str] = None,
     ) -> str:
+        self.clear()
         if history is not None:
             lst = [*self._history[history], '']
             lst_pos = len(lst) - 1
         else:
             lst = ['']
             lst_pos = 0
-
-        self.clear()
         pos = 0
-        while True:
-            if not prompt or curses.COLS < 7:
-                prompt_s = ''
-            elif len(prompt) > curses.COLS - 6:
-                prompt_s = f'{prompt[:curses.COLS - 7]}…: '
-            else:
-                prompt_s = f'{prompt}: '
 
+        def buf() -> str:
+            return lst[lst_pos]
+
+        def set_buf(s: str) -> None:
+            lst[lst_pos] = s
+
+        def _save_history_entry() -> None:
+            if history is not None:
+                history_lst = self._history[history]
+                if not history_lst or history_lst[-1] != lst[lst_pos]:
+                    history_lst.append(lst[lst_pos])
+
+        def _render_prompt(*, base: str = prompt) -> None:
+            if not base or curses.COLS < 7:
+                prompt_s = ''
+            elif len(base) > curses.COLS - 6:
+                prompt_s = f'{base[:curses.COLS - 7]}…: '
+            else:
+                prompt_s = f'{base}: '
             width = curses.COLS - len(prompt_s)
             line = _scrolled_line(lst[lst_pos], pos, width, current=True)
             cmd = f'{prompt_s}{line}'
             screen.stdscr.insstr(curses.LINES - 1, 0, cmd, curses.A_REVERSE)
             line_x = _line_x(pos, width)
             screen.stdscr.move(curses.LINES - 1, len(prompt_s) + pos - line_x)
+
+        while True:
+            _render_prompt()
             key = _get_char(screen.stdscr)
 
             if key.key == curses.KEY_RESIZE:
@@ -302,22 +316,55 @@ class Status:
                 pos = len(lst[lst_pos])
             elif key.key == curses.KEY_BACKSPACE:
                 if pos > 0:
-                    lst[lst_pos] = lst[lst_pos][:pos - 1] + lst[lst_pos][pos:]
+                    set_buf(buf()[:pos - 1] + buf()[pos:])
                     pos -= 1
             elif key.key == curses.KEY_DC:
                 if pos < len(lst[lst_pos]):
-                    lst[lst_pos] = lst[lst_pos][:pos] + lst[lst_pos][pos + 1:]
+                    set_buf(buf()[:pos] + buf()[pos + 1:])
             elif isinstance(key.wch, str) and key.wch.isprintable():
-                c = key.wch
-                lst[lst_pos] = lst[lst_pos][:pos] + c + lst[lst_pos][pos:]
+                set_buf(buf()[:pos] + key.wch + buf()[pos:])
                 pos += 1
+            elif key.keyname == b'^R':
+                reverse_s = ''
+                reverse_idx = lst_pos
+                while True:
+                    reverse_failed = False
+                    for search_idx in range(reverse_idx, -1, -1):
+                        if reverse_s in lst[search_idx]:
+                            reverse_idx = lst_pos = search_idx
+                            pos = len(buf())
+                            break
+                    else:
+                        reverse_failed = True
+
+                    if reverse_failed:
+                        base = f'{prompt}(failed reverse-search)`{reverse_s}`'
+                    else:
+                        base = f'{prompt}(reverse-search)`{reverse_s}`'
+
+                    _render_prompt(base=base)
+                    key = _get_char(screen.stdscr)
+
+                    if key.key == curses.KEY_RESIZE:
+                        screen.resize()
+                    elif key.key == curses.KEY_BACKSPACE:
+                        reverse_s = reverse_s[:-1]
+                    elif isinstance(key.wch, str) and key.wch.isprintable():
+                        reverse_s += key.wch
+                    elif key.keyname == b'^R':
+                        reverse_idx = max(0, reverse_idx - 1)
+                    elif key.keyname == b'^C':
+                        return ''
+                    elif key.key == ord('\r'):
+                        _save_history_entry()
+                        return lst[lst_pos]
+                    else:
+                        break
+
             elif key.keyname == b'^C':
                 return ''
             elif key.key == ord('\r'):
-                if history is not None:
-                    history_lst = self._history[history]
-                    if not history_lst or history_lst[-1] != lst[lst_pos]:
-                        history_lst.append(lst[lst_pos])
+                _save_history_entry()
                 return lst[lst_pos]
 
 

@@ -784,6 +784,118 @@ def test_search_history_is_saved_between_sessions(xdg_data_home):
         h.press('Enter')
 
 
+def test_search_reverse_search_history(xdg_data_home, ten_lines):
+    xdg_data_home.join('babi/history/search').ensure().write(
+        'line_5\n'
+        'line_3\n'
+        'line_1\n',
+    )
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^W')
+        h.press('^R')
+        h.await_text('search(reverse-search)``:')
+        h.press('line')
+        h.await_text('search(reverse-search)`line`: line_1')
+        h.press('a')
+        h.await_text('search(failed reverse-search)`linea`: line_1')
+        h.press('BSpace')
+        h.await_text('search(reverse-search)`line`: line_1')
+        h.press('^R')
+        h.await_text('search(reverse-search)`line`: line_3')
+        h.press('Enter')
+        h.await_cursor_position(x=0, y=4)
+
+
+def test_search_reverse_search_history_pos_after(xdg_data_home, ten_lines):
+    xdg_data_home.join('babi/history/search').ensure().write(
+        'line_3\n',
+    )
+    with run(str(ten_lines), height=20) as h, and_exit(h):
+        h.press('^W')
+        h.press('^R')
+        h.press('line')
+        h.await_text('search(reverse-search)`line`: line_3')
+        h.press('Right')
+        h.await_text('search: line_3')
+        h.await_cursor_position(y=19, x=14)
+        h.press('^C')
+
+
+def test_search_reverse_search_enter_saves_entry(xdg_data_home, ten_lines):
+    xdg_data_home.join('babi/history/search').ensure().write(
+        'line_1\n'
+        'line_3\n',
+    )
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^W')
+        h.press('^R')
+        h.press('1')
+        h.await_text('search(reverse-search)`1`: line_1')
+        h.press('Enter')
+        h.press('^W')
+        h.press('Up')
+        h.await_text('search: line_1')
+        h.press('^C')
+
+
+def test_search_reverse_search_history_cancel():
+    with run() as h, and_exit(h):
+        h.press('^W')
+        h.press('^R')
+        h.await_text('search(reverse-search)``:')
+        h.press('^C')
+        h.await_text('cancelled')
+
+
+def test_search_reverse_search_resizing():
+    with run() as h, and_exit(h):
+        h.press('^W')
+        h.press('^R')
+        with h.resize(width=24, height=24):
+            h.await_text('search(reverse-se…:')
+            h.press('^C')
+
+
+def test_search_reverse_search_does_not_wrap_around(xdg_data_home):
+    xdg_data_home.join('babi/history/search').ensure().write(
+        'line_1\n'
+        'line_3\n',
+    )
+    with run() as h, and_exit(h):
+        h.press('^W')
+        h.press('^R')
+        # this should not wrap around
+        for i in range(6):
+            h.press('^R')
+        h.await_text('search(reverse-search)``: line_1')
+        h.press('^C')
+
+
+def test_search_reverse_search_ctrl_r_on_failed_match(xdg_data_home):
+    xdg_data_home.join('babi/history/search').ensure().write(
+        'nomatch\n'
+        'line_1\n',
+    )
+    with run() as h, and_exit(h):
+        h.press('^W')
+        h.press('^R')
+        h.press('line')
+        h.await_text('search(reverse-search)`line`: line_1')
+        h.press('^R')
+        h.await_text('search(failed reverse-search)`line`: line_1')
+        h.press('^C')
+
+
+def test_search_reverse_search_keeps_current_text_displayed():
+    with run() as h, and_exit(h):
+        h.press('^W')
+        h.press('ohai')
+        h.await_text('search: ohai')
+        h.press('^R')
+        h.await_text('search(reverse-search)``: ohai')
+        h.press('^C')
+
+
 def test_scrolling_arrow_key_movement(ten_lines):
     with run(str(ten_lines), height=10) as h, and_exit(h):
         h.await_text('line_7')
