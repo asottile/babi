@@ -932,14 +932,15 @@ class Command:
         self.aliases = aliases
         self.func = func
 
-    def translate_keybinds():
+    def translate_keybinds(self) -> List[bytes]:
         """
         Translates the keybinds in the form "Modifier-key" to curses-compatible
         format.
         """
         newBinds = [] # type: List[Bytes]
         for bind in self.keybinds:
-            newBinds.append(bind.replace("C-", "^").encode('UTF-8'))
+            newBinds.append(bind.replace("C-", "^").upper().encode('UTF-8'))
+        return newBinds
 
 
 # type: Dict[str, Command]
@@ -980,74 +981,77 @@ def _edit(screen: Screen) -> EditResult:
 
         key = _get_char(screen.stdscr)
 
-        if key.key == curses.KEY_RESIZE:
-            screen.resize()
-        elif key.key in File.DISPATCH:
-            screen.file.DISPATCH[key.key](screen.file, screen.margin)
-        elif key.keyname in File.DISPATCH_KEY:
-            screen.file.DISPATCH_KEY[key.keyname](screen.file, screen.margin)
-        elif key.keyname == b'^K':
-            if prevkey.keyname == b'^K':
-                cut_buffer = screen.cut_buffer
-            else:
-                cut_buffer = ()
-            screen.cut_buffer = screen.file.cut(cut_buffer)
-        elif key.keyname == b'^U':
-            screen.file.uncut(screen.cut_buffer, screen.margin)
-        elif key.keyname == b'M-u':
-            screen.file.undo(screen.status, screen.margin)
-        elif key.keyname == b'M-U':
-            screen.file.redo(screen.status, screen.margin)
-        elif key.keyname == b'^_':
-            response = screen.status.prompt(screen, 'enter line number')
-            if response == '':
-                screen.status.update('cancelled')
-            else:
-                try:
-                    lineno = int(response)
-                except ValueError:
-                    screen.status.update(f'not an integer: {response!r}')
+        for _, value in COMMANDS.items():
+            if key.key == curses.KEY_RESIZE:
+                screen.resize()
+            elif key.key in File.DISPATCH:
+                screen.file.DISPATCH[key.key](screen.file, screen.margin)
+            elif key.keyname in File.DISPATCH_KEY:
+                screen.file.DISPATCH_KEY[key.keyname](screen.file, screen.margin)
+            elif key.keyname in value.translate_keybinds():
+                return value.func(screen)
+            elif key.keyname == b'^K':
+                if prevkey.keyname == b'^K':
+                    cut_buffer = screen.cut_buffer
                 else:
-                    screen.file.go_to_line(lineno, screen.margin)
-        elif key.keyname == b'^W':
-            response = screen.status.prompt(screen, 'search')
-            if response == '':
-                screen.status.update('cancelled')
-            else:
-                try:
-                    regex = re.compile(response)
-                except re.error:
-                    screen.status.update(f'invalid regex: {response!r}')
+                    cut_buffer = ()
+                    screen.cut_buffer = screen.file.cut(cut_buffer)
+            elif key.keyname == b'^U':
+                screen.file.uncut(screen.cut_buffer, screen.margin)
+            elif key.keyname == b'M-u':
+                screen.file.undo(screen.status, screen.margin)
+            elif key.keyname == b'M-U':
+                screen.file.redo(screen.status, screen.margin)
+            elif key.keyname == b'^_':
+                response = screen.status.prompt(screen, 'enter line number')
+                if response == '':
+                    screen.status.update('cancelled')
                 else:
-                    screen.file.search(regex, screen.status, screen.margin)
-        elif key.keyname == b'^C':
-            screen.file.current_position(screen.status)
-        elif key.keyname == b'^[':  # escape
-            response = screen.status.prompt(screen, '')
-            for key, value in COMMANDS.items():
-                if key == response[1:]:
-                    return value.func(screen)
-                elif response[1:] in value.aliases:
-                    return value.func(screen)
-                elif response != '':  # noop / cancel
-                    screen.status.update(f'invalid command: {response}')
-        elif key.keyname == b'^S':
-            screen.file.save(screen, screen.status)
-        elif key.keyname == b'^X':
-            return EditResult.EXIT
-        elif key.keyname == b'kLFT3':
-            return EditResult.PREV
-        elif key.keyname == b'kRIT3':
-            return EditResult.NEXT
-        elif key.keyname == b'^Z':
-            curses.endwin()
-            os.kill(os.getpid(), signal.SIGSTOP)
-            screen.stdscr = _init_screen()
-            screen.resize()
-        elif isinstance(key.wch, str) and key.wch.isprintable():
-            screen.file.c(key.wch, screen.margin)
-        else:
-            screen.status.update(f'unknown key: {key}')
+                    try:
+                        lineno = int(response)
+                    except ValueError:
+                        screen.status.update(f'not an integer: {response!r}')
+                    else:
+                        screen.file.go_to_line(lineno, screen.margin)
+            elif key.keyname == b'^W':
+                response = screen.status.prompt(screen, 'search')
+                if response == '':
+                    screen.status.update('cancelled')
+                else:
+                    try:
+                        regex = re.compile(response)
+                    except re.error:
+                        screen.status.update(f'invalid regex: {response!r}')
+                    else:
+                        screen.file.search(regex, screen.status, screen.margin)
+            elif key.keyname == b'^C':
+                screen.file.current_position(screen.status)
+            elif key.keyname == b'^[':  # escape
+                response = screen.status.prompt(screen, '')
+                for key, value in COMMANDS.items():
+                    if key == response[1:]:
+                        return value.func(screen)
+                    elif response[1:] in value.aliases:
+                        return value.func(screen)
+                    elif response != '':  # noop / cancel
+                        screen.status.update(f'invalid command: {response}')
+#            elif key.keyname == b'^S':
+#                screen.file.save(screen, screen.status)
+#            elif key.keyname == b'^X':
+#                return EditResult.EXIT
+            elif key.keyname == b'kLFT3':
+                return EditResult.PREV
+            elif key.keyname == b'kRIT3':
+                return EditResult.NEXT
+            elif key.keyname == b'^Z':
+                curses.endwin()
+                os.kill(os.getpid(), signal.SIGSTOP)
+                screen.stdscr = _init_screen()
+                screen.resize()
+            elif isinstance(key.wch, str) and key.wch.isprintable():
+                screen.file.c(key.wch, screen.margin)
+            else:
+                screen.status.update(f'unknown key: {key}')
 
         prevkey = key
 
