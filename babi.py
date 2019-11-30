@@ -917,17 +917,17 @@ def _get_char(stdscr: 'curses._CursesWindow') -> Key:
 EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 
 
-class Command():
+class Command:
     def __init__(self, name: str, description: str, keybinds: List[str], func: Callable[[Screen], None]) -> None:
         self.name = name
         self.description = description
         self.keybinds = keybinds
         self.func = func
 
-    def getKeybinds():
+    def get_keybinds():
         return self.keybinds
 
-    def translateKeybinds():
+    def translate_keybinds():
         """
         Translates the keybinds in the form "Modifier-key" to curses-compatible
         format.
@@ -936,7 +936,7 @@ class Command():
             print(bind)
 
 
-# type: NamedTuple[Command]
+# type: Dict[str, Command]
 COMMANDS = {}
 
 def command(name: str, description: str, keybinds: List[str]) -> None:
