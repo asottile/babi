@@ -205,6 +205,25 @@ class Status:
     def __init__(self) -> None:
         self._status = ''
         self._action_counter = -1
+        self._history: Dict[str, List[str]] = collections.defaultdict(list)
+
+    @contextlib.contextmanager
+    def save_history(self) -> Generator[None, None, None]:
+        history_dir = os.path.join(
+            os.environ.get('XDG_DATA_HOME') or
+            os.path.expanduser('~/.local/share'),
+            'babi/history',
+        )
+        os.makedirs(history_dir, exist_ok=True)
+        for filename in os.listdir(history_dir):
+            with open(os.path.join(history_dir, filename)) as f:
+                self._history[filename] = f.read().splitlines()
+        try:
+            yield
+        finally:
+            for k, v in self._history.items():
+                with open(os.path.join(history_dir, k), 'w') as f:
+                    f.write('\n'.join(v) + '\n')
 
     def update(self, status: str) -> None:
         self._status = status
@@ -233,10 +252,22 @@ class Status:
         if self._action_counter < 0:
             self.clear()
 
-    def prompt(self, screen: 'Screen', prompt: str) -> str:
+    def prompt(
+            self,
+            screen: 'Screen',
+            prompt: str,
+            *,
+            history: Optional[str] = None,
+    ) -> str:
+        if history is not None:
+            lst = [*self._history[history], '']
+            lst_pos = len(lst) - 1
+        else:
+            lst = ['']
+            lst_pos = 0
+
         self.clear()
         pos = 0
-        buf = ''
         while True:
             if not prompt or curses.COLS < 7:
                 prompt_s = ''
@@ -246,7 +277,8 @@ class Status:
                 prompt_s = f'{prompt}: '
 
             width = curses.COLS - len(prompt_s)
-            cmd = f'{prompt_s}{_scrolled_line(buf, pos, width, current=True)}'
+            line = _scrolled_line(lst[lst_pos], pos, width, current=True)
+            cmd = f'{prompt_s}{line}'
             screen.stdscr.insstr(curses.LINES - 1, 0, cmd, curses.A_REVERSE)
             line_x = _line_x(pos, width)
             screen.stdscr.move(curses.LINES - 1, len(prompt_s) + pos - line_x)
@@ -257,25 +289,36 @@ class Status:
             elif key.key == curses.KEY_LEFT:
                 pos = max(0, pos - 1)
             elif key.key == curses.KEY_RIGHT:
-                pos = min(len(buf), pos + 1)
+                pos = min(len(lst[lst_pos]), pos + 1)
+            elif key.key == curses.KEY_UP:
+                lst_pos = max(0, lst_pos - 1)
+                pos = len(lst[lst_pos])
+            elif key.key == curses.KEY_DOWN:
+                lst_pos = min(len(lst) - 1, lst_pos + 1)
+                pos = len(lst[lst_pos])
             elif key.key == curses.KEY_HOME or key.keyname == b'^A':
                 pos = 0
             elif key.key == curses.KEY_END or key.keyname == b'^E':
-                pos = len(buf)
+                pos = len(lst[lst_pos])
             elif key.key == curses.KEY_BACKSPACE:
                 if pos > 0:
-                    buf = buf[:pos - 1] + buf[pos:]
+                    lst[lst_pos] = lst[lst_pos][:pos - 1] + lst[lst_pos][pos:]
                     pos -= 1
             elif key.key == curses.KEY_DC:
-                if pos < len(buf):
-                    buf = buf[:pos] + buf[pos + 1:]
+                if pos < len(lst[lst_pos]):
+                    lst[lst_pos] = lst[lst_pos][:pos] + lst[lst_pos][pos + 1:]
             elif isinstance(key.wch, str) and key.wch.isprintable():
-                buf = buf[:pos] + key.wch + buf[pos:]
+                c = key.wch
+                lst[lst_pos] = lst[lst_pos][:pos] + c + lst[lst_pos][pos:]
                 pos += 1
             elif key.keyname == b'^C':
                 return ''
             elif key.key == ord('\r'):
-                return buf
+                if history is not None:
+                    history_lst = self._history[history]
+                    if not history_lst or history_lst[-1] != lst[lst_pos]:
+                        history_lst.append(lst[lst_pos])
+                return lst[lst_pos]
 
 
 def _restore_lines_eof_invariant(lines: MutableSequenceNoSlice) -> None:
@@ -959,7 +1002,7 @@ def _edit(screen: Screen) -> EditResult:
                 else:
                     screen.file.go_to_line(lineno, screen.margin)
         elif key.keyname == b'^W':
-            response = screen.status.prompt(screen, 'search')
+            response = screen.status.prompt(screen, 'search', history='search')
             if response == '':
                 screen.status.update('cancelled')
             else:
@@ -1007,20 +1050,21 @@ def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
     if args.color_test:
         return _color_test(stdscr)
     screen = Screen(stdscr, [File(f) for f in args.filenames or [None]])
-    while screen.files:
-        screen.i = screen.i % len(screen.files)
-        res = _edit(screen)
-        if res == EditResult.EXIT:
-            del screen.files[screen.i]
-            screen.status.clear()
-        elif res == EditResult.NEXT:
-            screen.i += 1
-            screen.status.clear()
-        elif res == EditResult.PREV:
-            screen.i -= 1
-            screen.status.clear()
-        else:
-            raise AssertionError(f'unreachable {res}')
+    with screen.status.save_history():
+        while screen.files:
+            screen.i = screen.i % len(screen.files)
+            res = _edit(screen)
+            if res == EditResult.EXIT:
+                del screen.files[screen.i]
+                screen.status.clear()
+            elif res == EditResult.NEXT:
+                screen.i += 1
+                screen.status.clear()
+            elif res == EditResult.PREV:
+                screen.i -= 1
+                screen.status.clear()
+            else:
+                raise AssertionError(f'unreachable {res}')
 
 
 def _init_screen() -> 'curses._CursesWindow':

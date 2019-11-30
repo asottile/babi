@@ -1,13 +1,22 @@
 import contextlib
 import io
+import os
 import shlex
 import sys
 from typing import List
+from unittest import mock
 
 import pytest
 from hecate import Runner
 
 import babi
+
+
+@pytest.fixture(autouse=True)
+def xdg_data_home(tmpdir):
+    data_home = tmpdir.join('data_home')
+    with mock.patch.dict(os.environ, {'XDG_DATA_HOME': str(data_home)}):
+        yield data_home
 
 
 def test_list_spy_repr():
@@ -696,6 +705,83 @@ def test_search_cancel(ten_lines, key):
         h.await_text('search:')
         h.press(key)
         h.await_text('cancelled')
+
+
+def test_search_history_recorded():
+    with run() as h, and_exit(h):
+        h.press('^W')
+        h.await_text('search:')
+        h.press_and_enter('asdf')
+        h.await_text('no matches')
+
+        h.press('^W')
+        h.press('Up')
+        h.await_text('search: asdf')
+        h.press('BSpace')
+        h.press('test')
+        h.await_text('search: asdtest')
+        h.press('Down')
+        h.await_text_missing('asdtest')
+        h.press('Down')  # can't go past the end
+        h.press('Up')
+        h.await_text('asdtest')
+        h.press('Up')  # can't go past the beginning
+        h.await_text('asdtest')
+        h.press('enter')
+        h.await_text('no matches')
+
+        h.press('^W')
+        h.press('Up')
+        h.await_text('search: asdtest')
+        h.press('Up')
+        h.await_text('search: asdf')
+        h.press('^C')
+
+
+def test_search_history_duplicates_dont_repeat():
+    with run() as h, and_exit(h):
+        h.press('^W')
+        h.await_text('search:')
+        h.press_and_enter('search1')
+        h.await_text('no matches')
+
+        h.press('^W')
+        h.press('search2')
+        h.await_text('search:')
+        h.press_and_enter('search2')
+        h.await_text('no matches')
+
+        h.press('^W')
+        h.press('search2')
+        h.await_text('search:')
+        h.press_and_enter('search2')
+        h.await_text('no matches')
+
+        h.press('^W')
+        h.press('Up')
+        h.await_text('search2')
+        h.press('Up')
+        h.await_text('search1')
+        h.press('Enter')
+
+
+def test_search_history_is_saved_between_sessions(xdg_data_home):
+    with run() as h, and_exit(h):
+        h.press('^W')
+        h.press_and_enter('search1')
+        h.press('^W')
+        h.press_and_enter('search2')
+
+    contents = xdg_data_home.join('babi/history/search').read()
+    assert contents == 'search1\nsearch2\n'
+
+    with run() as h, and_exit(h):
+        h.press('^W')
+        h.press('Up')
+        h.await_text('search: search2')
+        h.press('Up')
+        h.await_text('search: search1')
+        h.press('Enter')
 
 
 def test_scrolling_arrow_key_movement(ten_lines):
