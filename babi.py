@@ -917,6 +917,40 @@ def _get_char(stdscr: 'curses._CursesWindow') -> Key:
 EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 
 
+class Command():
+    def __init__(self, name: str, description: str, keybinds: List[str], func: Callable[[Screen], None]) -> None:
+        self.name = name
+        self.description = description
+        self.keybinds = keybinds
+        self.func = func
+
+    def getKeybinds():
+        return self.keybinds
+
+    def translateKeybinds():
+        """
+        Translates the keybinds in the form "Modifier-key" to curses-compatible
+        format.
+        """
+        for bind in self.keybinds:
+            print(bind)
+
+
+# type: NamedTuple[Command]
+COMMANDS = {}
+
+def command(name: str, description: str, keybinds: List[str]) -> None:
+    def inner(func: Callable[[Screen], EditResult]):
+        COMMANDS[name] = Command(name, description, keybinds)
+
+    return inner
+
+
+@command('quit', 'Quits the current buffer.', ['C-x'])
+def quit_command(screen: Screen) -> EditResult:
+    return EditResult.EXIT
+
+
 def _edit(screen: Screen) -> EditResult:
     prevkey = Key('', 0, b'')
     screen.file.ensure_loaded(screen.status)
@@ -973,10 +1007,12 @@ def _edit(screen: Screen) -> EditResult:
             screen.file.current_position(screen.status)
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '')
+            if COMMANDS.get(response):
+                return COMMANDS.get(response).func(screen)
             if response == ':q':
                 return EditResult.EXIT
             elif response == ':w':
-                screen.file.save(screen, screen.status)
+                screen.file.savescreen, screen.status)
             elif response == ':wq':
                 screen.file.save(screen, screen.status)
                 return EditResult.EXIT
