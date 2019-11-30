@@ -951,6 +951,17 @@ def quit_command(screen: Screen) -> EditResult:
     return EditResult.EXIT
 
 
+@command('write', 'Saves the current buffer.', ['C-s'])
+def save_command(screen: Screen) -> None:
+    screen.file.save(screen, screen.status)
+
+
+@command('write-quit', 'Saves the current buffer then quits it.', ['C-o-x'])
+def write_quit_command(screen: Screen) -> EditResult:
+    screen.file.save(screen, screen.status)
+    return EditResult.EXIT
+
+
 def _edit(screen: Screen) -> EditResult:
     prevkey = Key('', 0, b'')
     screen.file.ensure_loaded(screen.status)
@@ -1009,13 +1020,6 @@ def _edit(screen: Screen) -> EditResult:
             response = screen.status.prompt(screen, '')
             if COMMANDS[response[1:]]:
                 return COMMANDS[response[1:]].func(screen)
-            elif response == ':q':
-                return EditResult.EXIT
-            elif response == ':w':
-                screen.file.save(screen, screen.status)
-            elif response == ':wq':
-                screen.file.save(screen, screen.status)
-                return EditResult.EXIT
             elif response != '':  # noop / cancel
                 screen.status.update(f'invalid command: {response}')
         elif key.keyname == b'^S':
