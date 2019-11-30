@@ -1015,7 +1015,7 @@ def _edit(screen: Screen) -> EditResult:
         elif key.keyname == b'^C':
             screen.file.current_position(screen.status)
         elif key.keyname == b'^[':  # escape
-            response = screen.status.prompt(screen, '')
+            response = screen.status.prompt(screen, '', history='command')
             if response == ':q':
                 return EditResult.EXIT
             elif response == ':w':
