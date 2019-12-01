@@ -1166,11 +1166,11 @@ def _edit(screen: Screen) -> EditResult:
         res = None
 
         bind_found = [
-            [command.binds, command.func]
+            (command.binds, command.func)
             for command in COMMANDS if key.keyname in command.binds
         ]
 
-        cmd: List[Any] = []
+        cmd: Tuple[List[bytes], Callable[[Screen, Key], EditResult]]
         if len(bind_found) > 0:
             cmd = bind_found[0]
 
@@ -1232,6 +1232,7 @@ def _edit(screen: Screen) -> EditResult:
             res = EditResult.EDIT
 
         if not res == EditResult.EDIT:
+            assert res is not None
             return res
 
 
