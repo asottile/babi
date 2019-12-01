@@ -1030,7 +1030,7 @@ def command(
         COMMANDS.append(
             Command(
                 name, description, binds, func, aliases=aliases,
-            )
+            ),
         )
         return func
     return inner
@@ -1096,7 +1096,7 @@ def uncut_command(screen: Screen, prevkey: Key) -> EditResult:
 @command(
     'undo',
     'Undoes your last action.',
-    binds=[b'M-u']
+    binds=[b'M-u'],
 )
 def undo_command(screen: Screen, prevkey: Key) -> EditResult:
     screen.file.undo(screen.status, screen.margin)
@@ -1106,9 +1106,9 @@ def undo_command(screen: Screen, prevkey: Key) -> EditResult:
 @command(
     'redo',
     'Redoes your last action.',
-    binds=[b'M-U']
+    binds=[b'M-U'],
 )
-def undo_command(screen: Screen, prevkey: Key) -> EditResult:
+def redo_command(screen: Screen, prevkey: Key) -> EditResult:
     screen.file.redo(screen.status, screen.margin)
     return EditResult.EDIT
 
@@ -1116,7 +1116,7 @@ def undo_command(screen: Screen, prevkey: Key) -> EditResult:
 @command(
     'go-to-line',
     'Jumps to a specific line in the current buffer',
-    binds=[b'^_']
+    binds=[b'^_'],
 )
 def go_to_line_command(screen: Screen, prevkey: Key) -> EditResult:
     response = screen.status.prompt(screen, 'enter line number')
@@ -1136,7 +1136,7 @@ def go_to_line_command(screen: Screen, prevkey: Key) -> EditResult:
     'search',
     'Searches the current buffer',
     binds=[b'^W'],
-    aliases=['s']
+    aliases=['s'],
 )
 def search_command(screen: Screen, prevkey: Key) -> EditResult:
     response = screen.status.prompt(screen, 'search', history='search')
@@ -1166,8 +1166,10 @@ def _edit(screen: Screen) -> EditResult:
 
         res = None
 
-        bind_found = [[command.binds, command.func]
-                      for command in COMMANDS if key.keyname in command.binds]
+        bind_found = [
+            [command.binds, command.func]
+            for command in COMMANDS if key.keyname in command.binds
+        ]
         cmd = []
         if len(bind_found) > 0:
             cmd = bind_found[0]
@@ -1186,10 +1188,14 @@ def _edit(screen: Screen) -> EditResult:
                 prevkey = key
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '', history='command')
-            cmd_found = [[command.name, command.func]
-                         for command in COMMANDS if response[1:] == command.name]
-            alias_found = [[command.aliases, command.func]
-                           for command in COMMANDS if response[1:] in command.aliases]
+            cmd_found = [
+                [command.name, command.func]
+                for command in COMMANDS if response[1:] == command.name
+            ]
+            alias_found = [
+                [command.aliases, command.func]
+                for command in COMMANDS if response[1:] in command.aliases
+            ]
             cmd = []
             if len(cmd_found) > 0:
                 cmd = cmd_found[0]
