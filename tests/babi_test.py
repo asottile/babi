@@ -784,6 +784,28 @@ def test_search_history_is_saved_between_sessions(xdg_data_home):
         h.press('Enter')
 
 
+def test_multiple_sessions_append_to_history(xdg_data_home):
+    xdg_data_home.join('babi/history/search').ensure().write(
+        'orig\n'
+        'history\n',
+    )
+
+    with run() as h1, and_exit(h1):
+        with run() as h2, and_exit(h2):
+            h2.press('^W')
+            h2.press_and_enter('h2 history')
+        h1.press('^W')
+        h1.press_and_enter('h1 history')
+
+    contents = xdg_data_home.join('babi/history/search').read()
+    assert contents == (
+        'orig\n'
+        'history\n'
+        'h2 history\n'
+        'h1 history\n'
+    )
+
+
 def test_search_reverse_search_history(xdg_data_home, ten_lines):
     xdg_data_home.join('babi/history/search').ensure().write(
         'line_5\n'

@@ -206,6 +206,7 @@ class Status:
         self._status = ''
         self._action_counter = -1
         self._history: Dict[str, List[str]] = collections.defaultdict(list)
+        self._history_orig_len: Dict[str, int] = {}
 
     @contextlib.contextmanager
     def save_history(self) -> Generator[None, None, None]:
@@ -218,12 +219,13 @@ class Status:
         for filename in os.listdir(history_dir):
             with open(os.path.join(history_dir, filename)) as f:
                 self._history[filename] = f.read().splitlines()
+                self._history_orig_len[filename] = len(self._history[filename])
         try:
             yield
         finally:
             for k, v in self._history.items():
-                with open(os.path.join(history_dir, k), 'w') as f:
-                    f.write('\n'.join(v) + '\n')
+                with open(os.path.join(history_dir, k), 'a+') as f:
+                    f.write('\n'.join(v[self._history_orig_len[k]:]) + '\n')
 
     def update(self, status: str) -> None:
         self._status = status
