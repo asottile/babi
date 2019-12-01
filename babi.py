@@ -361,7 +361,9 @@ class Status:
                         _save_history_entry()
                         return lst[lst_pos]
                     else:
-                        break
+                        # python3.8+ optimizes this out
+                        # https://github.com/nedbat/coveragepy/issues/772
+                        break  # pragma: no cover
 
             elif key.keyname == b'^C':
                 return ''
