@@ -1096,9 +1096,10 @@ def _edit(screen: Screen) -> EditResult:
             screen.file.DISPATCH_KEY[key.keyname](
                 screen.file, screen.margin,
             )
-        elif key.keyname in cmd[0]:
-            res = cmd[1](screen, prevkey)
-            prevkey = key
+        elif cmd:
+            if key.keyname in cmd[0]:
+                res = cmd[1](screen, prevkey)
+                prevkey = key
         elif key.keyname == b'^K':
             if prevkey.keyname == b'^K':
                 cut_buffer = screen.cut_buffer
@@ -1135,13 +1136,17 @@ def _edit(screen: Screen) -> EditResult:
                     screen.file.search(regex, screen.status, screen.margin)
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '', history='command')
-            for name, value in COMMANDS.items():
-                if name == response[1:]:
-                    return value.func(screen, prevkey)
-                elif response[1:] in value.aliases:
-                    return value.func(screen, prevkey)
-                elif response != '':  # noop / cancel
-                    screen.status.update(f'invalid command: {response}')
+            cmd_found = [[command.name, command.func] for command in COMMANDS if response[1:] == command.name]
+            alias_found = [[command.aliases, command.func] for command in COMMANDS if response[1:] in command.aliases]
+            cmd = []
+            if len(cmd_found) > 0:
+                cmd = cmd_found[0]
+            elif len(alias_found) > 0:
+                cmd = alias_found[0]
+            if cmd:
+                return cmd[1](screen, prevkey)
+            elif response != '':  # noop / cancel
+                screen.status.update(f'invalid command: {response}')
         elif key.keyname == b'kLFT3':
             res = EditResult.PREV
         elif key.keyname == b'kRIT3':
