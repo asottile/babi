@@ -1173,6 +1173,8 @@ def _edit(screen: Screen) -> EditResult:
         cmd: Tuple[List[bytes], Callable[[Screen, Key], EditResult]]
         if len(bind_found) > 0:
             cmd = bind_found[0]
+        else:
+            cmd = None
 
         if key.key == curses.KEY_RESIZE:
             screen.resize()
@@ -1192,19 +1194,23 @@ def _edit(screen: Screen) -> EditResult:
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '', history='command')
             cmd_found = [
-                [command.name, command.func]
+                (command.name, command.func)
                 for command in COMMANDS if response[1:] == command.name
             ]
-            alias_found = [
-                [command.aliases, command.func]
-                for command in COMMANDS if response[1:] in command.aliases
-            ]
+            
+            cmd: Tuple[List[bytes], Callable[[Screen, Key], EditResult]]
 
-            cmd = []
-            if len(cmd_found) > 0:
+            if len(cmd_found) == 0: # Not found, look for alias
+                alias_found = [
+                    (command.aliases, command.func)
+                    for command in COMMANDS if response[1:] in command.aliases
+                ]
+                if len(alias_found) == 0: # Not found, set to None
+                    cmd = None
+                else:
+                    cmd = alias_found[0]
+            else:
                 cmd = cmd_found[0]
-            elif len(alias_found) > 0:
-                cmd = alias_found[0]
 
             if cmd:
                 res = cmd[1](screen, prevkey)
