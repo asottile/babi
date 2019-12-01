@@ -1012,7 +1012,7 @@ EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV EDIT')
 class Command(NamedTuple):
     name: str
     description: str
-    binds: List[str]
+    binds: List[bytes]
     func: Callable[[Screen, Key], EditResult]
     aliases: List[str] = []
 
@@ -1023,7 +1023,7 @@ COMMANDS: List[Command] = []
 def command(
     name: str,
     description: str,
-    binds: List[str] = [],
+    binds: List[bytes] = [],
     aliases: List[str] = [],
 ) -> Callable[[Callable[[Screen, Key], EditResult]], None]:
     def inner(func: Callable[[Screen, Key], EditResult]) -> None:
@@ -1032,7 +1032,6 @@ def command(
                 name, description, binds, func, aliases=aliases,
             ),
         )
-        return func
     return inner
 
 
@@ -1170,7 +1169,8 @@ def _edit(screen: Screen) -> EditResult:
             [command.binds, command.func]
             for command in COMMANDS if key.keyname in command.binds
         ]
-        cmd = []
+
+        cmd: List[Any] = []
         if len(bind_found) > 0:
             cmd = bind_found[0]
 
@@ -1196,15 +1196,19 @@ def _edit(screen: Screen) -> EditResult:
                 [command.aliases, command.func]
                 for command in COMMANDS if response[1:] in command.aliases
             ]
+
             cmd = []
             if len(cmd_found) > 0:
                 cmd = cmd_found[0]
             elif len(alias_found) > 0:
                 cmd = alias_found[0]
+
             if cmd:
-                return cmd[1](screen, prevkey)
+                res = cmd[1](screen, prevkey)
             elif response != '':  # noop / cancel
                 screen.status.update(f'invalid command: {response}')
+                res = EditResult.EDIT
+
         elif key.keyname == b'kLFT3':
             res = EditResult.PREV
         elif key.keyname == b'kRIT3':
@@ -1214,8 +1218,10 @@ def _edit(screen: Screen) -> EditResult:
             os.kill(os.getpid(), signal.SIGSTOP)
             screen.stdscr = _init_screen()
             screen.resize()
+            res = EditResult.EDIT
         elif isinstance(key.wch, str) and key.wch.isprintable():
             screen.file.c(key.wch, screen.margin)
+            res = EditResult.EDIT
         else:
             screen.status.update(f'unknown key: {key}')
 
