@@ -1176,12 +1176,15 @@ def _edit(screen: Screen) -> EditResult:
 
         if key.key == curses.KEY_RESIZE:
             screen.resize()
+            res = EditResult.EDIT
         elif key.key in File.DISPATCH:
             screen.file.DISPATCH[key.key](screen.file, screen.margin)
+            res = EditResult.EDIT
         elif key.keyname in File.DISPATCH_KEY:
             screen.file.DISPATCH_KEY[key.keyname](
                 screen.file, screen.margin,
             )
+            res = EditResult.EDIT
         elif cmd:
             if key.keyname in cmd[0]:
                 res = cmd[1](screen, prevkey)
@@ -1208,6 +1211,8 @@ def _edit(screen: Screen) -> EditResult:
             elif response != '':  # noop / cancel
                 screen.status.update(f'invalid command: {response}')
                 res = EditResult.EDIT
+            else:
+                res = EditResult.EDIT
 
         elif key.keyname == b'kLFT3':
             res = EditResult.PREV
@@ -1224,6 +1229,7 @@ def _edit(screen: Screen) -> EditResult:
             res = EditResult.EDIT
         else:
             screen.status.update(f'unknown key: {key}')
+            res = EditResult.EDIT
 
         if not res == EditResult.EDIT:
             return res
