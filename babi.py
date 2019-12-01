@@ -206,7 +206,8 @@ class Status:
         self._status = ''
         self._action_counter = -1
         self._history: Dict[str, List[str]] = collections.defaultdict(list)
-        self._history_orig_len: Dict[str, int] = {}
+        self._history_orig_len: Dict[str, int] = collections.defaultdict(int)
+        self._history_prev: Dict[str, str] = {}
 
     @contextlib.contextmanager
     def save_history(self) -> Generator[None, None, None]:
@@ -260,11 +261,14 @@ class Status:
             prompt: str,
             *,
             history: Optional[str] = None,
+            default_prev: bool = False,
     ) -> str:
         self.clear()
         if history is not None:
             lst = [*self._history[history], '']
             lst_pos = len(lst) - 1
+            if history in self._history_prev:
+                prompt = f'{prompt} [{self._history_prev[history]}]'
         else:
             lst = ['']
             lst_pos = 0
@@ -276,11 +280,25 @@ class Status:
         def set_buf(s: str) -> None:
             lst[lst_pos] = s
 
-        def _save_history_entry() -> None:
+        def _save_history_and_get_retv() -> str:
             if history is not None:
-                history_lst = self._history[history]
-                if not history_lst or history_lst[-1] != lst[lst_pos]:
-                    history_lst.append(lst[lst_pos])
+                prev = self._history_prev.get(history)
+                entry = buf()
+                if entry:  # only put non-empty things in history
+                    history_lst = self._history[history]
+                    if not history_lst or history_lst[-1] != entry:
+                        history_lst.append(entry)
+                    self._history_prev[history] = entry
+
+                if (
+                        default_prev and
+                        prev is not None and
+                        lst_pos == len(lst) - 1 and
+                        not lst[lst_pos]
+                ):
+                    return prev
+
+            return buf()
 
         def _render_prompt(*, base: str = prompt) -> None:
             if not base or curses.COLS < 7:
@@ -358,16 +376,16 @@ class Status:
                     elif key.keyname == b'^C':
                         return ''
                     elif key.key == ord('\r'):
-                        _save_history_entry()
-                        return lst[lst_pos]
+                        return _save_history_and_get_retv()
                     else:
-                        break
+                        # python3.8+ optimizes this out
+                        # https://github.com/nedbat/coveragepy/issues/772
+                        break  # pragma: no cover
 
             elif key.keyname == b'^C':
                 return ''
             elif key.key == ord('\r'):
-                _save_history_entry()
-                return lst[lst_pos]
+                return _save_history_and_get_retv()
 
 
 def _restore_lines_eof_invariant(lines: MutableSequenceNoSlice) -> None:
@@ -1138,7 +1156,9 @@ def go_to_line_command(screen: Screen, prevkey: Key) -> EditResult:
     aliases=['s'],
 )
 def search_command(screen: Screen, prevkey: Key) -> EditResult:
-    response = screen.status.prompt(screen, 'search', history='search')
+    response = screen.status.prompt(
+        screen, 'search', history='search', default_prev=True,
+    )
     if response == '':
         screen.status.update('cancelled')
     else:
