@@ -1010,11 +1010,11 @@ EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV EDIT')
 
 
 class Command(NamedTuple):
-        name: str
-        description: str
-        binds: List[str]
-        func: Callable[[Screen, Key], EditResult]
-        aliases: List[str] = []
+    name: str
+    description: str
+    binds: List[str]
+    func: Callable[[Screen, Key], EditResult]
+    aliases: List[str] = []
 
 
 COMMANDS: List[Command] = []
@@ -1061,11 +1061,94 @@ def write_quit_command(screen: Screen, prevkey: Key) -> EditResult:
 @command(
     'lineno',
     'Shows the line and column number for the current buffer.',
-    [b'^C'],
+    binds=[b'^C'],
     aliases=['ln'],
 )
 def lineno_command(screen: Screen, prevkey: Key) -> EditResult:
     screen.file.current_position(screen.status)
+    return EditResult.EDIT
+
+
+@command(
+    'cut',
+    'Cuts the current line of text from the buffer',
+    binds=[b'^K'],
+)
+def cut_command(screen: Screen, prevkey: Key) -> EditResult:
+    if prevkey.keyname == b'^K':
+        cut_buffer = screen.cut_buffer
+    else:
+        cut_buffer = ()
+        screen.cut_buffer = screen.file.cut(cut_buffer)
+    return EditResult.EDIT
+
+
+@command(
+    'uncut',
+    'Uncuts the currently cut text into the buffer',
+    binds=[b'^U'],
+)
+def uncut_command(screen: Screen, prevkey: Key) -> EditResult:
+    screen.file.uncut(screen.cut_buffer, screen.margin)
+    return EditResult.EDIT
+
+
+@command(
+    'undo',
+    'Undoes your last action.',
+    binds=[b'M-u']
+)
+def undo_command(screen: Screen, prevkey: Key) -> EditResult:
+    screen.file.undo(screen.status, screen.margin)
+    return EditResult.EDIT
+
+
+@command(
+    'redo',
+    'Redoes your last action.',
+    binds=[b'M-U']
+)
+def undo_command(screen: Screen, prevkey: Key) -> EditResult:
+    screen.file.redo(screen.status, screen.margin)
+    return EditResult.EDIT
+
+
+@command(
+    'go-to-line',
+    'Jumps to a specific line in the current buffer',
+    binds=[b'^_']
+)
+def go_to_line_command(screen: Screen, prevkey: Key) -> EditResult:
+    response = screen.status.prompt(screen, 'enter line number')
+    if response == '':
+        screen.status.update('cancelled')
+    else:
+        try:
+            lineno = int(response)
+        except ValueError:
+            screen.status.update(f'not an integer: {response!r}')
+        else:
+            screen.file.go_to_line(lineno, screen.margin)
+    return EditResult.EDIT
+
+
+@command(
+    'search',
+    'Searches the current buffer',
+    binds=[b'^W'],
+    aliases=['s']
+)
+def search_command(screen: Screen, prevkey: Key) -> EditResult:
+    response = screen.status.prompt(screen, 'search', history='search')
+    if response == '':
+        screen.status.update('cancelled')
+    else:
+        try:
+            regex = re.compile(response)
+        except re.error:
+            screen.status.update(f'invalid regex: {response!r}')
+        else:
+            screen.file.search(regex, screen.status, screen.margin)
     return EditResult.EDIT
 
 
@@ -1083,11 +1166,12 @@ def _edit(screen: Screen) -> EditResult:
 
         res = None
 
-        bind_found = [[command.binds, command.func] for command in COMMANDS if key.keyname in command.binds]
+        bind_found = [[command.binds, command.func]
+                      for command in COMMANDS if key.keyname in command.binds]
         cmd = []
         if len(bind_found) > 0:
             cmd = bind_found[0]
-            
+
         if key.key == curses.KEY_RESIZE:
             screen.resize()
         elif key.key in File.DISPATCH:
@@ -1100,44 +1184,12 @@ def _edit(screen: Screen) -> EditResult:
             if key.keyname in cmd[0]:
                 res = cmd[1](screen, prevkey)
                 prevkey = key
-        elif key.keyname == b'^K':
-            if prevkey.keyname == b'^K':
-                cut_buffer = screen.cut_buffer
-            else:
-                cut_buffer = ()
-                screen.cut_buffer = screen.file.cut(cut_buffer)
-        elif key.keyname == b'^U':
-            screen.file.uncut(screen.cut_buffer, screen.margin)
-        elif key.keyname == b'M-u':
-            screen.file.undo(screen.status, screen.margin)
-        elif key.keyname == b'M-U':
-            screen.file.redo(screen.status, screen.margin)
-        elif key.keyname == b'^_':
-            response = screen.status.prompt(screen, 'enter line number')
-            if response == '':
-                screen.status.update('cancelled')
-            else:
-                try:
-                    lineno = int(response)
-                except ValueError:
-                    screen.status.update(f'not an integer: {response!r}')
-                else:
-                    screen.file.go_to_line(lineno, screen.margin)
-        elif key.keyname == b'^W':
-            response = screen.status.prompt(screen, 'search', history='search')
-            if response == '':
-                screen.status.update('cancelled')
-            else:
-                try:
-                    regex = re.compile(response)
-                except re.error:
-                    screen.status.update(f'invalid regex: {response!r}')
-                else:
-                    screen.file.search(regex, screen.status, screen.margin)
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '', history='command')
-            cmd_found = [[command.name, command.func] for command in COMMANDS if response[1:] == command.name]
-            alias_found = [[command.aliases, command.func] for command in COMMANDS if response[1:] in command.aliases]
+            cmd_found = [[command.name, command.func]
+                         for command in COMMANDS if response[1:] == command.name]
+            alias_found = [[command.aliases, command.func]
+                           for command in COMMANDS if response[1:] in command.aliases]
             cmd = []
             if len(cmd_found) > 0:
                 cmd = cmd_found[0]
