@@ -707,6 +707,20 @@ def test_search_cancel(ten_lines, key):
         h.await_text('cancelled')
 
 
+def test_search_repeated_search(ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^W')
+        h.press('line')
+        h.await_text('search: line')
+        h.press('Enter')
+        h.await_cursor_position(x=0, y=2)
+
+        h.press('^W')
+        h.await_text('search [line]:')
+        h.press('Enter')
+        h.await_cursor_position(x=0, y=3)
+
+
 def test_search_history_recorded():
     with run() as h, and_exit(h):
         h.press('^W')
@@ -716,10 +730,10 @@ def test_search_history_recorded():
 
         h.press('^W')
         h.press('Up')
-        h.await_text('search: asdf')
+        h.await_text('search [asdf]: asdf')
         h.press('BSpace')
         h.press('test')
-        h.await_text('search: asdtest')
+        h.await_text('search [asdf]: asdtest')
         h.press('Down')
         h.await_text_missing('asdtest')
         h.press('Down')  # can't go past the end
@@ -732,9 +746,9 @@ def test_search_history_recorded():
 
         h.press('^W')
         h.press('Up')
-        h.await_text('search: asdtest')
+        h.await_text('search [asdtest]: asdtest')
         h.press('Up')
-        h.await_text('search: asdf')
+        h.await_text('search [asdtest]: asdf')
         h.press('^C')
 
 
@@ -746,14 +760,12 @@ def test_search_history_duplicates_dont_repeat():
         h.await_text('no matches')
 
         h.press('^W')
-        h.press('search2')
-        h.await_text('search:')
+        h.await_text('search [search1]:')
         h.press_and_enter('search2')
         h.await_text('no matches')
 
         h.press('^W')
-        h.press('search2')
-        h.await_text('search:')
+        h.await_text('search [search2]:')
         h.press_and_enter('search2')
         h.await_text('no matches')
 
@@ -856,7 +868,7 @@ def test_search_reverse_search_enter_saves_entry(xdg_data_home, ten_lines):
         h.press('Enter')
         h.press('^W')
         h.press('Up')
-        h.await_text('search: line_1')
+        h.await_text('search [line_1]: line_1')
         h.press('^C')
 
 
