@@ -206,7 +206,7 @@ class Status:
         self._status = ''
         self._action_counter = -1
         self._history: Dict[str, List[str]] = collections.defaultdict(list)
-        self._history_orig_len: Dict[str, int] = {}
+        self._history_orig_len: Dict[str, int] = collections.defaultdict(int)
 
     @contextlib.contextmanager
     def save_history(self) -> Generator[None, None, None]:
