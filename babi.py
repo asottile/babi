@@ -267,7 +267,7 @@ class Status:
         if history is not None:
             lst = [*self._history[history], '']
             lst_pos = len(lst) - 1
-            if history in self._history_prev:
+            if default_prev and history in self._history_prev:
                 prompt = f'{prompt} [{self._history_prev[history]}]'
         else:
             lst = ['']

@@ -1541,6 +1541,18 @@ def test_save_via_command_mode(tmpdir):
     assert f.read() == 'hello world\n'
 
 
+def test_repeated_command_mode_does_not_show_previous_command(tmpdir):
+    f = tmpdir.join('f')
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('ohai')
+        trigger_command_mode(h)
+        h.press_and_enter(':w')
+        trigger_command_mode(h)
+        h.await_text_missing(':w')
+        h.press('Enter')
+
+
 def test_write_and_quit(tmpdir):
     f = tmpdir.join('f')
 
