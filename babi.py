@@ -262,7 +262,7 @@ class Status:
             *,
             history: Optional[str] = None,
             default_prev: bool = False,
-    ) -> str:
+    ) -> Optional[str]:
         self.clear()
         if history is not None:
             lst = [*self._history[history], '']
@@ -374,7 +374,7 @@ class Status:
                     elif key.keyname == b'^R':
                         reverse_idx = max(0, reverse_idx - 1)
                     elif key.keyname == b'^C':
-                        return ''
+                        return None
                     elif key.key == ord('\r'):
                         return _save_history_and_get_retv()
                     else:
@@ -383,7 +383,7 @@ class Status:
                         break  # pragma: no cover
 
             elif key.keyname == b'^C':
-                return ''
+                return None
             elif key.key == ord('\r'):
                 return _save_history_and_get_retv()
 
@@ -1059,7 +1059,7 @@ def _edit(screen: Screen) -> EditResult:
             screen.file.redo(screen.status, screen.margin)
         elif key.keyname == b'^_':
             response = screen.status.prompt(screen, 'enter line number')
-            if response == '':
+            if not response:
                 screen.status.update('cancelled')
             else:
                 try:
@@ -1072,7 +1072,7 @@ def _edit(screen: Screen) -> EditResult:
             response = screen.status.prompt(
                 screen, 'search', history='search', default_prev=True,
             )
-            if response == '':
+            if not response:
                 screen.status.update('cancelled')
             else:
                 try:
@@ -1092,7 +1092,7 @@ def _edit(screen: Screen) -> EditResult:
             elif response == ':wq':
                 screen.file.save(screen, screen.status)
                 return EditResult.EXIT
-            elif response != '':  # noop / cancel
+            elif response:  # noop / cancel
                 screen.status.update(f'invalid command: {response}')
         elif key.keyname == b'^S':
             screen.file.save(screen, screen.status)
