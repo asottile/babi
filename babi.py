@@ -14,10 +14,12 @@ from typing import Any
 from typing import Callable
 from typing import cast
 from typing import Dict
+from typing import FrozenSet
 from typing import Generator
 from typing import IO
 from typing import Iterator
 from typing import List
+from typing import Match
 from typing import NamedTuple
 from typing import Optional
 from typing import Pattern
@@ -387,6 +389,31 @@ class Status:
             elif key.key == ord('\r'):
                 return _save_history_and_get_retv()
 
+    def quick_prompt(
+            self,
+            screen: 'Screen',
+            prompt: str,
+            options: FrozenSet[str],
+            resize: Callable[[], None],
+    ) -> Optional[str]:
+        while True:
+            s = prompt.ljust(curses.COLS)
+            if len(s) > curses.COLS:
+                s = f'{s[:curses.COLS - 1]}…'
+            screen.stdscr.insstr(curses.LINES - 1, 0, s, curses.A_REVERSE)
+            x = min(curses.COLS - 1, len(prompt) + 1)
+            screen.stdscr.move(curses.LINES - 1, x)
+
+            key = _get_char(screen.stdscr)
+            if key.key == curses.KEY_RESIZE:
+                screen.resize()
+                resize()
+            elif key.keyname == b'^C':
+                return None
+            elif key.wch in options:
+                assert isinstance(key.wch, str)  # mypy doesn't know
+                return key.wch
+
 
 def _restore_lines_eof_invariant(lines: MutableSequenceNoSlice) -> None:
     """The file lines will always contain a blank empty string at the end to
@@ -421,6 +448,7 @@ class Action:
             self, *, name: str, spy: ListSpy,
             start_x: int, start_y: int, start_modified: bool,
             end_x: int, end_y: int, end_modified: bool,
+            final: bool,
     ):
         self.name = name
         self.spy = spy
@@ -430,7 +458,7 @@ class Action:
         self.end_x = end_x
         self.end_y = end_y
         self.end_modified = end_modified
-        self.final = False
+        self.final = final
 
     def apply(self, file: 'File') -> 'Action':
         spy = ListSpy(file.lines)
@@ -440,6 +468,7 @@ class Action:
             start_modified=self.end_modified,
             end_x=self.start_x, end_y=self.start_y,
             end_modified=self.start_modified,
+            final=True,
         )
 
         self.spy.undo(spy)
@@ -454,52 +483,85 @@ def action(func: TCallable) -> TCallable:
     @functools.wraps(func)
     def action_inner(self: 'File', *args: Any, **kwargs: Any) -> Any:
         assert not isinstance(self.lines, ListSpy), 'nested edit/movement'
-        if self.undo_stack:
-            self.undo_stack[-1].final = True
+        self.mark_previous_action_as_final()
         return func(self, *args, **kwargs)
     return cast(TCallable, action_inner)
 
 
-def edit_action(name: str) -> Callable[[TCallable], TCallable]:
+def edit_action(
+        name: str,
+        *,
+        final: bool,
+) -> Callable[[TCallable], TCallable]:
     def edit_action_decorator(func: TCallable) -> TCallable:
         @functools.wraps(func)
         def edit_action_inner(self: 'File', *args: Any, **kwargs: Any) -> Any:
-            continue_last = (
-                self.undo_stack and
-                self.undo_stack[-1].name == name and
-                not self.undo_stack[-1].final
-            )
-            if continue_last:
-                spy = self.undo_stack[-1].spy
-            else:
-                if self.undo_stack:
-                    self.undo_stack[-1].final = True
-                spy = ListSpy(self.lines)
-
-            before_x, before_line = self.x, self.cursor_y
-            before_modified = self.modified
-            assert not isinstance(self.lines, ListSpy), 'recursive action?'
-            orig, self.lines = self.lines, spy
-            try:
+            with self.edit_action_context(name, final=final):
                 return func(self, *args, **kwargs)
-            finally:
-                self.lines = orig
-                self.redo_stack.clear()
-                if continue_last:
-                    self.undo_stack[-1].end_x = self.x
-                    self.undo_stack[-1].end_y = self.cursor_y
-                    self.undo_stack[-1].end_modified = self.modified
-                elif spy.has_modifications:
-                    action = Action(
-                        name=name, spy=spy,
-                        start_x=before_x, start_y=before_line,
-                        start_modified=before_modified,
-                        end_x=self.x, end_y=self.cursor_y,
-                        end_modified=self.modified,
-                    )
-                    self.undo_stack.append(action)
         return cast(TCallable, edit_action_inner)
     return edit_action_decorator
+
+
+class Found(NamedTuple):
+    y: int
+    match: Match[str]
+
+
+class _SearchIter:
+    def __init__(
+            self,
+            file: 'File',
+            reg: Pattern[str],
+            *,
+            offset: int,
+    ) -> None:
+        self.file = file
+        self.reg = reg
+        self.offset = offset
+        self.wrapped = False
+        self._start_x = file.x + offset
+        self._start_y = file.cursor_y
+
+    def __iter__(self) -> '_SearchIter':
+        return self
+
+    def _stop_if_past_original(self, y: int, match: Match[str]) -> Found:
+        if (
+                self.wrapped and (
+                    y > self._start_y or
+                    y == self._start_y and match.start() >= self._start_x
+                )
+        ):
+            raise StopIteration()
+        return Found(y, match)
+
+    def __next__(self) -> Tuple[int, Match[str]]:
+        x = self.file.x + self.offset
+        y = self.file.cursor_y
+
+        match = self.reg.search(self.file.lines[y], x)
+        if match:
+            return self._stop_if_past_original(y, match)
+
+        if self.wrapped:
+            for line_y in range(y + 1, self._start_y + 1):
+                match = self.reg.search(self.file.lines[line_y])
+                if match:
+                    return self._stop_if_past_original(line_y, match)
+        else:
+            for line_y in range(y + 1, len(self.file.lines)):
+                match = self.reg.search(self.file.lines[line_y])
+                if match:
+                    return self._stop_if_past_original(line_y, match)
+
+            self.wrapped = True
+
+            for line_y in range(0, self._start_y + 1):
+                match = self.reg.search(self.file.lines[line_y])
+                if match:
+                    return self._stop_if_past_original(line_y, match)
+
+        raise StopIteration()
 
 
 class File:
@@ -649,28 +711,73 @@ class File:
             status: Status,
             margin: Margin,
     ) -> None:
-        line_y = self.cursor_y
-        match = reg.search(self.lines[self.cursor_y], self.x + 1)
-        if not match:
-            for line_y in range(self.cursor_y + 1, len(self.lines)):
-                match = reg.search(self.lines[line_y])
-                if match:
-                    break
+        search = _SearchIter(self, reg, offset=1)
+        try:
+            line_y, match = next(iter(search))
+        except StopIteration:
+            status.update('no matches')
+        else:
+            if line_y == self.cursor_y and match.start() == self.x:
+                status.update('this is the only occurrence')
             else:
-                status.update('search wrapped')
-                for line_y in range(0, self.cursor_y + 1):
-                    match = reg.search(self.lines[line_y])
-                    if match:
-                        break
+                if search.wrapped:
+                    status.update('search wrapped')
+                self.cursor_y = line_y
+                self.x = match.start()
+                self._scroll_screen_if_needed(margin)
 
-        if match and line_y == self.cursor_y and match.start() == self.x:
-            status.update('this is the only occurrence')
-        elif match:
+    def replace(
+            self,
+            screen: 'Screen',
+            reg: Pattern[str],
+            replace: str,
+    ) -> None:
+        self.mark_previous_action_as_final()
+
+        def highlight() -> None:
+            y = screen.file.rendered_y(screen.margin)
+            x = screen.file.rendered_x()
+            maxlen = curses.COLS - x
+            s = match[0]
+            if len(s) >= maxlen:
+                s = _scrolled_line(match[0], 0, maxlen, current=True)
+            screen.stdscr.addstr(y, x, s, curses.A_REVERSE)
+
+        count = 0
+        res: Optional[str] = ''
+        search = _SearchIter(self, reg, offset=0)
+        for line_y, match in search:
             self.cursor_y = line_y
             self.x = match.start()
-            self._scroll_screen_if_needed(margin)
+            self._scroll_screen_if_needed(screen.margin)
+            if res != 'a':  # make `a` replace the rest of them
+                screen.draw()
+                highlight()
+                res = screen.status.quick_prompt(
+                    screen, 'replace [y(es), n(o), a(ll)]?',
+                    frozenset('yna'), highlight,
+                )
+            if res in {'y', 'a'}:
+                count += 1
+                with self.edit_action_context('replace', final=True):
+                    replaced = match.expand(replace)
+                    line = screen.file.lines[line_y]
+                    line = line[:match.start()] + replaced + line[match.end():]
+                    screen.file.lines[line_y] = line
+                    screen.file.modified = True
+                search.offset = len(replaced)
+            elif res == 'n':
+                search.offset = 1
+            else:
+                assert res is None
+                screen.status.update('cancelled')
+                return
+
+        if res == '':  # we never went through the loop
+            screen.status.update('no matches')
         else:
-            status.update('no matches')
+            occurrences = 'occurrence' if count == 1 else 'occurrences'
+            screen.status.update(f'replaced {count} {occurrences}')
 
     @action
     def page_up(self, margin: Margin) -> None:
@@ -692,7 +799,7 @@ class File:
 
     # editing
 
-    @edit_action('backspace text')
+    @edit_action('backspace text', final=False)
     def backspace(self, margin: Margin) -> None:
         # backspace at the beginning of the file does nothing
         if self.cursor_y == 0 and self.x == 0:
@@ -715,7 +822,7 @@ class File:
             self.x = self.x_hint = self.x - 1
             self.modified = True
 
-    @edit_action('delete text')
+    @edit_action('delete text', final=False)
     def delete(self, margin: Margin) -> None:
         # noop at end of the file
         if self.cursor_y == len(self.lines) - 1:
@@ -730,7 +837,7 @@ class File:
             self.lines[self.cursor_y] = s[:self.x] + s[self.x + 1:]
             self.modified = True
 
-    @edit_action('line break')
+    @edit_action('line break', final=False)
     def enter(self, margin: Margin) -> None:
         s = self.lines[self.cursor_y]
         self.lines[self.cursor_y] = s[:self.x]
@@ -740,7 +847,7 @@ class File:
         self.x = self.x_hint = 0
         self.modified = True
 
-    @edit_action('cut')
+    @edit_action('cut', final=False)
     def cut(self, cut_buffer: Tuple[str, ...]) -> Tuple[str, ...]:
         if self.cursor_y == len(self.lines) - 1:
             return ()
@@ -750,7 +857,7 @@ class File:
             self.modified = True
             return cut_buffer + (victim,)
 
-    @edit_action('uncut')
+    @edit_action('uncut', final=True)
     def uncut(self, cut_buffer: Tuple[str, ...], margin: Margin) -> None:
         for cut_line in cut_buffer:
             line = self.lines[self.cursor_y]
@@ -788,13 +895,59 @@ class File:
         b'kDN5': ctrl_down,
     }
 
-    @edit_action('text')
+    @edit_action('text', final=False)
     def c(self, wch: str, margin: Margin) -> None:
         s = self.lines[self.cursor_y]
         self.lines[self.cursor_y] = s[:self.x] + wch + s[self.x:]
         self.x = self.x_hint = self.x + 1
         self.modified = True
         _restore_lines_eof_invariant(self.lines)
+
+    def mark_previous_action_as_final(self) -> None:
+        if self.undo_stack:
+            self.undo_stack[-1].final = True
+
+    @contextlib.contextmanager
+    def edit_action_context(
+            self, name: str,
+            *,
+            final: bool,
+    ) -> Generator[None, None, None]:
+        continue_last = (
+            self.undo_stack and
+            self.undo_stack[-1].name == name and
+            not self.undo_stack[-1].final
+        )
+        if continue_last:
+            spy = self.undo_stack[-1].spy
+        else:
+            if self.undo_stack:
+                self.undo_stack[-1].final = True
+            spy = ListSpy(self.lines)
+
+        before_x, before_line = self.x, self.cursor_y
+        before_modified = self.modified
+        assert not isinstance(self.lines, ListSpy), 'recursive action?'
+        orig, self.lines = self.lines, spy
+        try:
+            yield
+        finally:
+            self.lines = orig
+            self.redo_stack.clear()
+            if continue_last:
+                self.undo_stack[-1].end_x = self.x
+                self.undo_stack[-1].end_y = self.cursor_y
+                self.undo_stack[-1].end_modified = self.modified
+            elif spy.has_modifications:
+                action = Action(
+                    name=name, spy=spy,
+                    start_x=before_x, start_y=before_line,
+                    start_modified=before_modified,
+                    end_x=self.x, end_y=self.cursor_y,
+                    end_modified=self.modified,
+                    final=final,
+                )
+                self.undo_stack.append(action)
 
     def _undo_redo(
             self,
@@ -869,14 +1022,18 @@ class File:
 
     # positioning
 
+    def rendered_y(self, margin: Margin) -> int:
+        return self.cursor_y - self.file_y + margin.header
+
+    def rendered_x(self) -> int:
+        return self.x - _line_x(self.x, curses.COLS)
+
     def move_cursor(
             self,
             stdscr: 'curses._CursesWindow',
             margin: Margin,
     ) -> None:
-        y = self.cursor_y - self.file_y + margin.header
-        x = self.x - _line_x(self.x, curses.COLS)
-        stdscr.move(y, x)
+        stdscr.move(self.rendered_y(margin), self.rendered_x())
 
     def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
         to_display = min(len(self.lines) - self.file_y, margin.body_lines)
@@ -1081,6 +1238,26 @@ def _edit(screen: Screen) -> EditResult:
                     screen.status.update(f'invalid regex: {response!r}')
                 else:
                     screen.file.search(regex, screen.status, screen.margin)
+        elif key.keyname == b'^\\':
+            response = screen.status.prompt(
+                screen, 'search (to replace)',
+                history='search', default_prev=True,
+            )
+            if not response:
+                screen.status.update('cancelled')
+            else:
+                try:
+                    regex = re.compile(response)
+                except re.error:
+                    screen.status.update(f'invalid regex: {response!r}')
+                else:
+                    response = screen.status.prompt(
+                        screen, 'replace with', history='replace',
+                    )
+                    if response is None:
+                        screen.status.update('cancelled')
+                    else:
+                        screen.file.replace(screen, regex, response)
         elif key.keyname == b'^C':
             screen.file.current_position(screen.status)
         elif key.keyname == b'^[':  # escape
