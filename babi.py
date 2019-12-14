@@ -227,8 +227,10 @@ class Status:
             yield
         finally:
             for k, v in self._history.items():
-                with open(os.path.join(history_dir, k), 'a+') as f:
-                    f.write('\n'.join(v[self._history_orig_len[k]:]) + '\n')
+                new_history = v[self._history_orig_len[k]:]
+                if new_history:
+                    with open(os.path.join(history_dir, k), 'a+') as f:
+                        f.write('\n'.join(new_history) + '\n')
 
     def update(self, status: str) -> None:
         self._status = status

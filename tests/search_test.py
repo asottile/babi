@@ -296,3 +296,13 @@ def test_search_reverse_search_keeps_current_text_displayed():
         h.press('^R')
         h.await_text('search(reverse-search)``: ohai')
         h.press('^C')
+
+
+def test_search_history_extra_blank_lines(xdg_data_home):
+    with run() as h, and_exit(h):
+        h.press('^W')
+        h.press_and_enter('hello')
+    with run() as h, and_exit(h):
+        pass
+    contents = xdg_data_home.join('babi/history/search').read()
+    assert contents == 'hello\n'
