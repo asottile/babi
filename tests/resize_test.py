@@ -67,7 +67,7 @@ def test_resize_scrolls_up(ten_lines):
         # but a resize to smaller should
         with h.resize(80, 9):
             h.await_text_missing('line_0')
-            h.await_cursor_position(x=0, y=3)
+            h.await_cursor_position(x=0, y=4)
             # make sure we're still on the same line
             assert h.get_cursor_line() == 'line_7'
 
@@ -82,7 +82,7 @@ def test_resize_scroll_does_not_go_negative(ten_lines):
             h.await_text_missing('line_9')
         h.await_text('line_9')
 
-        for _ in range(2):
+        for _ in range(3):
             h.press('Up')
 
         assert h.get_screen_line(1) == 'line_0'
