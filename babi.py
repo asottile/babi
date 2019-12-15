@@ -694,6 +694,58 @@ class File:
         self._set_x_after_vertical_movement()
 
     @action
+    def ctrl_right(self, margin: Margin) -> None:
+        line = self.lines[self.cursor_y]
+        # if we're at the second to last character, jump to end of line
+        if self.x == len(line) - 1:
+            self.x = self.x_hint = self.x + 1
+        # if we're at the end of the line, jump forward to the next non-ws
+        elif self.x == len(line):
+            while (
+                    self.cursor_y < len(self.lines) - 1 and (
+                        self.x == len(self.lines[self.cursor_y]) or
+                        self.lines[self.cursor_y][self.x].isspace()
+                    )
+            ):
+                if self.x == len(self.lines[self.cursor_y]):
+                    self.cursor_y += 1
+                    self.maybe_scroll_down(margin)
+                    self.x = self.x_hint = 0
+                else:
+                    self.x = self.x_hint = self.x + 1
+        # if we're inside the line, jump to next position that's not our type
+        else:
+            self.x = self.x_hint = self.x + 1
+            isalnum = line[self.x].isalnum()
+            while self.x < len(line) and isalnum == line[self.x].isalnum():
+                self.x = self.x_hint = self.x + 1
+
+    @action
+    def ctrl_left(self, margin: Margin) -> None:
+        line = self.lines[self.cursor_y]
+        # if we're at position 1 and it's not a space, go to the beginning
+        if self.x == 1 and not line[:self.x].isspace():
+            self.x = self.x_hint = 0
+        # if we're at the beginning or it's all space up to here jump to the
+        # end of the previous non-space line
+        elif self.x == 0 or line[:self.x].isspace():
+            self.x = self.x_hint = 0
+            while (
+                    self.cursor_y > 0 and (
+                        self.x == 0 or
+                        not self.lines[self.cursor_y]
+                    )
+            ):
+                self.cursor_y -= 1
+                self._maybe_scroll_up(margin)
+                self.x = self.x_hint = len(self.lines[self.cursor_y])
+        else:
+            self.x = self.x_hint = self.x - 1
+            isalnum = line[self.x - 1].isalnum()
+            while self.x > 0 and isalnum == line[self.x - 1].isalnum():
+                self.x = self.x_hint = self.x - 1
+
+    @action
     def go_to_line(self, lineno: int, margin: Margin) -> None:
         self.x = self.x_hint = 0
         if lineno == 0:
@@ -725,7 +777,7 @@ class File:
                 if search.wrapped:
                     status.update('search wrapped')
                 self.cursor_y = line_y
-                self.x = match.start()
+                self.x = self.x_hint = match.start()
                 self._scroll_screen_if_needed(margin)
 
     def replace(
@@ -750,7 +802,7 @@ class File:
         search = _SearchIter(self, reg, offset=0)
         for line_y, match in search:
             self.cursor_y = line_y
-            self.x = match.start()
+            self.x = self.x_hint = match.start()
             self._scroll_screen_if_needed(screen.margin)
             if res != 'a':  # make `a` replace the rest of them
                 screen.draw()
@@ -895,6 +947,8 @@ class File:
         b'kEND5': ctrl_end,
         b'kUP5': ctrl_up,
         b'kDN5': ctrl_down,
+        b'kRIT5': ctrl_right,
+        b'kLFT5': ctrl_left,
     }
 
     @edit_action('text', final=False)
@@ -1146,6 +1200,8 @@ SEQUENCE_KEYNAME = {
     '\x1b[1;3D': b'kLFT3',  # M-Left
     '\x1b[1;5A': b'kUP5',  # ^Up
     '\x1b[1;5B': b'kDN5',  # ^Down
+    '\x1b[1;5C': b'kRIT5',  # ^Right
+    '\x1b[1;5D': b'kLFT5',  # ^Left
 }
 
 

@@ -49,6 +49,24 @@ def test_search_only_one_match_already_at_that_match(ten_lines):
         h.await_cursor_position(x=0, y=2)
 
 
+def test_search_sets_x_hint_properly(tmpdir):
+    f = tmpdir.join('f')
+    contents = '''\
+beginning_line
+
+match me!
+'''
+    f.write(contents)
+    with run(str(f)) as h, and_exit(h):
+        h.press('^W')
+        h.await_text('search:')
+        h.press_and_enter('me!')
+        h.await_cursor_position(x=6, y=3)
+        h.press('Up')
+        h.press('Up')
+        h.await_cursor_position(x=6, y=1)
+
+
 def test_search_not_found(ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^W')

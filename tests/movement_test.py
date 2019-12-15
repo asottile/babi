@@ -267,3 +267,83 @@ def test_page_up_does_not_go_negative(ten_lines):
         h.press('^Y')
         h.await_cursor_position(x=0, y=1)
         assert h.get_cursor_line() == 'line_0'
+
+
+@pytest.fixture
+def jump_word_file(tmpdir):
+    f = tmpdir.join('f')
+    contents = '''\
+hello world
+
+hi
+
+    this(is_some_code)  # comment
+'''
+    f.write(contents)
+    yield f
+
+
+def test_ctrl_right_jump_by_word(jump_word_file):
+    with run(str(jump_word_file)) as h, and_exit(h):
+        h.press('^Right')
+        h.await_cursor_position(x=5, y=1)
+        h.press('^Right')
+        h.await_cursor_position(x=11, y=1)
+        h.press('Left')
+        h.await_cursor_position(x=10, y=1)
+        h.press('^Right')
+        h.await_cursor_position(x=11, y=1)
+        h.press('^Right')
+        h.await_cursor_position(x=0, y=3)
+        h.press('^Right')
+        h.await_cursor_position(x=2, y=3)
+        h.press('^Right')
+        h.await_cursor_position(x=4, y=5)
+        h.press('^Right')
+        h.await_cursor_position(x=8, y=5)
+        h.press('^Right')
+        h.await_cursor_position(x=11, y=5)
+        h.press('Down')
+        h.press('^Right')
+        h.await_cursor_position(x=0, y=6)
+
+
+def test_ctrl_left_jump_by_word(jump_word_file):
+    with run(str(jump_word_file)) as h, and_exit(h):
+        h.press('^Left')
+        h.await_cursor_position(x=0, y=1)
+        h.press('Right')
+        h.await_cursor_position(x=1, y=1)
+        h.press('^Left')
+        h.await_cursor_position(x=0, y=1)
+        h.press('PageDown')
+        h.await_cursor_position(x=0, y=6)
+        h.press('^Left')
+        h.await_cursor_position(x=33, y=5)
+        h.press('^Left')
+        h.await_cursor_position(x=26, y=5)
+        h.press('Home')
+        h.press('Right')
+        h.await_cursor_position(x=1, y=5)
+        h.press('^Left')
+        h.await_cursor_position(x=2, y=3)
+
+
+def test_ctrl_right_triggering_scroll(jump_word_file):
+    with run(str(jump_word_file), height=4) as h, and_exit(h):
+        h.press('Down')
+        h.await_cursor_position(x=0, y=2)
+        h.press('^Right')
+        h.await_cursor_position(x=0, y=1)
+        assert h.get_cursor_line() == 'hi'
+
+
+def test_ctrl_left_triggering_scroll(jump_word_file):
+    with run(str(jump_word_file)) as h, and_exit(h):
+        h.press('Down')
+        h.await_cursor_position(x=0, y=2)
+        h.press('^Down')
+        h.await_cursor_position(x=0, y=1)
+        h.press('^Left')
+        h.await_cursor_position(x=11, y=1)
+        assert h.get_cursor_line() == 'hello world'

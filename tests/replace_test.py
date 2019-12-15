@@ -46,6 +46,28 @@ def test_replace_actual_contents(ten_lines):
         h.await_text('replaced 1 occurrence')
 
 
+def test_replace_sets_x_hint_properly(tmpdir):
+    f = tmpdir.join('f')
+    contents = '''\
+beginning_line
+
+match me!
+'''
+    f.write(contents)
+    with run(str(f)) as h, and_exit(h):
+        h.press('^\\')
+        h.await_text('search (to replace):')
+        h.press_and_enter('me!')
+        h.await_text('replace with:')
+        h.press_and_enter('youuuu')
+        h.await_text('replace [y(es), n(o), a(ll)]?')
+        h.press('y')
+        h.await_cursor_position(x=6, y=3)
+        h.press('Up')
+        h.press('Up')
+        h.await_cursor_position(x=6, y=1)
+
+
 def test_replace_cancel_at_individual_replace(ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^\\')
