@@ -159,3 +159,13 @@ def test_window_width_1(tmpdir):
                 h.press('Right')
         h.await_text('hello')
         h.await_cursor_position(x=3, y=1)
+
+
+def test_resize_while_cursor_at_bottom(tmpdir):
+    f = tmpdir.join('f')
+    f.write('x\n' * 35)
+    with run(str(f), height=40) as h, and_exit(h):
+        h.press('^End')
+        h.await_cursor_position(x=0, y=36)
+        with h.resize(width=80, height=5):
+            h.await_cursor_position(x=0, y=2)

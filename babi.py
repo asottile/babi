@@ -604,7 +604,7 @@ class File:
 
     # movement
 
-    def _scroll_screen_if_needed(self, margin: Margin) -> None:
+    def scroll_screen_if_needed(self, margin: Margin) -> None:
         # if the `cursor_y` is not on screen, make it so
         if self.file_y <= self.cursor_y < self.file_y + margin.body_lines:
             return
@@ -617,7 +617,7 @@ class File:
     def _set_x_after_vertical_movement(self) -> None:
         self.x = min(len(self.lines[self.cursor_y]), self.x_hint)
 
-    def maybe_scroll_down(self, margin: Margin) -> None:
+    def _maybe_scroll_down(self, margin: Margin) -> None:
         if self.cursor_y >= self.file_y + margin.body_lines:
             self.file_y += self._scroll_amount()
 
@@ -625,7 +625,7 @@ class File:
     def down(self, margin: Margin) -> None:
         if self.cursor_y < len(self.lines) - 1:
             self.cursor_y += 1
-            self.maybe_scroll_down(margin)
+            self._maybe_scroll_down(margin)
             self._set_x_after_vertical_movement()
 
     def _maybe_scroll_up(self, margin: Margin) -> None:
@@ -646,7 +646,7 @@ class File:
             if self.cursor_y < len(self.lines) - 1:
                 self.x = 0
                 self.cursor_y += 1
-                self.maybe_scroll_down(margin)
+                self._maybe_scroll_down(margin)
         else:
             self.x += 1
         self.x_hint = self.x
@@ -679,7 +679,7 @@ class File:
     def ctrl_end(self, margin: Margin) -> None:
         self.x = self.x_hint = 0
         self.cursor_y = len(self.lines) - 1
-        self._scroll_screen_if_needed(margin)
+        self.scroll_screen_if_needed(margin)
 
     @action
     def ctrl_up(self, margin: Margin) -> None:
@@ -709,7 +709,7 @@ class File:
             ):
                 if self.x == len(self.lines[self.cursor_y]):
                     self.cursor_y += 1
-                    self.maybe_scroll_down(margin)
+                    self._maybe_scroll_down(margin)
                     self.x = self.x_hint = 0
                 else:
                     self.x = self.x_hint = self.x + 1
@@ -756,7 +756,7 @@ class File:
             self.cursor_y = max(0, lineno + len(self.lines))
         else:
             self.cursor_y = lineno - 1
-        self._scroll_screen_if_needed(margin)
+        self.scroll_screen_if_needed(margin)
 
     @action
     def search(
@@ -778,7 +778,7 @@ class File:
                     status.update('search wrapped')
                 self.cursor_y = line_y
                 self.x = self.x_hint = match.start()
-                self._scroll_screen_if_needed(margin)
+                self.scroll_screen_if_needed(margin)
 
     def replace(
             self,
@@ -803,7 +803,7 @@ class File:
         for line_y, match in search:
             self.cursor_y = line_y
             self.x = self.x_hint = match.start()
-            self._scroll_screen_if_needed(screen.margin)
+            self.scroll_screen_if_needed(screen.margin)
             if res != 'a':  # make `a` replace the rest of them
                 screen.draw()
                 highlight()
@@ -897,7 +897,7 @@ class File:
         self.lines[self.cursor_y] = s[:self.x]
         self.lines.insert(self.cursor_y + 1, s[self.x:])
         self.cursor_y += 1
-        self.maybe_scroll_down(margin)
+        self._maybe_scroll_down(margin)
         self.x = self.x_hint = 0
         self.modified = True
 
@@ -920,7 +920,7 @@ class File:
             self.lines.insert(self.cursor_y + 1, after)
             self.cursor_y += 1
             self.x = self.x_hint = 0
-            self.maybe_scroll_down(margin)
+            self._maybe_scroll_down(margin)
 
     DISPATCH = {
         # movement
@@ -1018,7 +1018,7 @@ class File:
         else:
             action = from_stack.pop()
             to_stack.append(action.apply(self))
-            self._scroll_screen_if_needed(margin)
+            self.scroll_screen_if_needed(margin)
             status.update(f'{op}: {action.name}')
 
     def undo(self, status: Status, margin: Margin) -> None:
@@ -1151,7 +1151,7 @@ class Screen:
     def resize(self) -> None:
         curses.update_lines_cols()
         self.margin = Margin.from_screen(self.stdscr)
-        self.file.maybe_scroll_down(self.margin)
+        self.file.scroll_screen_if_needed(self.margin)
         self.draw()
 
 
