@@ -225,7 +225,7 @@ def test_ctrl_up_causing_cursor_movement_should_fix_x(tmpdir):
         h.press('Right')
         h.await_text('line_3')
         h.press('^Up')
-        h.await_text_missing('3')
+        h.await_text_missing('line_3')
         h.await_cursor_position(x=0, y=3)
 
 
