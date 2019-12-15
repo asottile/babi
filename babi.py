@@ -617,27 +617,27 @@ class File:
     def _set_x_after_vertical_movement(self) -> None:
         self.x = min(len(self.lines[self.cursor_y]), self.x_hint)
 
-    def _maybe_scroll_down(self, margin: Margin) -> None:
+    def _increment_y(self, margin: Margin) -> None:
+        self.cursor_y += 1
         if self.cursor_y >= self.file_y + margin.body_lines:
             self.file_y += self._scroll_amount()
 
-    @action
-    def down(self, margin: Margin) -> None:
-        if self.cursor_y < len(self.lines) - 1:
-            self.cursor_y += 1
-            self._maybe_scroll_down(margin)
-            self._set_x_after_vertical_movement()
-
-    def _maybe_scroll_up(self, margin: Margin) -> None:
+    def _decrement_y(self, margin: Margin) -> None:
+        self.cursor_y -= 1
         if self.cursor_y < self.file_y:
             self.file_y -= self._scroll_amount()
             self.file_y = max(self.file_y, 0)
 
     @action
+    def down(self, margin: Margin) -> None:
+        if self.cursor_y < len(self.lines) - 1:
+            self._increment_y(margin)
+            self._set_x_after_vertical_movement()
+
+    @action
     def up(self, margin: Margin) -> None:
         if self.cursor_y > 0:
-            self.cursor_y -= 1
-            self._maybe_scroll_up(margin)
+            self._decrement_y(margin)
             self._set_x_after_vertical_movement()
 
     @action
@@ -645,8 +645,7 @@ class File:
         if self.x >= len(self.lines[self.cursor_y]):
             if self.cursor_y < len(self.lines) - 1:
                 self.x = 0
-                self.cursor_y += 1
-                self._maybe_scroll_down(margin)
+                self._increment_y(margin)
         else:
             self.x += 1
         self.x_hint = self.x
@@ -655,9 +654,8 @@ class File:
     def left(self, margin: Margin) -> None:
         if self.x == 0:
             if self.cursor_y > 0:
-                self.cursor_y -= 1
+                self._decrement_y(margin)
                 self.x = len(self.lines[self.cursor_y])
-                self._maybe_scroll_up(margin)
         else:
             self.x -= 1
         self.x_hint = self.x
@@ -708,8 +706,7 @@ class File:
                     )
             ):
                 if self.x == len(self.lines[self.cursor_y]):
-                    self.cursor_y += 1
-                    self._maybe_scroll_down(margin)
+                    self._increment_y(margin)
                     self.x = self.x_hint = 0
                 else:
                     self.x = self.x_hint = self.x + 1
@@ -736,8 +733,7 @@ class File:
                         not self.lines[self.cursor_y]
                     )
             ):
-                self.cursor_y -= 1
-                self._maybe_scroll_up(margin)
+                self._decrement_y(margin)
                 self.x = self.x_hint = len(self.lines[self.cursor_y])
         else:
             self.x = self.x_hint = self.x - 1
@@ -864,8 +860,7 @@ class File:
             victim = self.lines.pop(self.cursor_y)
             new_x = len(self.lines[self.cursor_y - 1])
             self.lines[self.cursor_y - 1] += victim
-            self.cursor_y -= 1
-            self._maybe_scroll_up(margin)
+            self._decrement_y(margin)
             self.x = self.x_hint = new_x
             # deleting the fake end-of-file doesn't cause modification
             self.modified |= self.cursor_y < len(self.lines) - 1
@@ -896,8 +891,7 @@ class File:
         s = self.lines[self.cursor_y]
         self.lines[self.cursor_y] = s[:self.x]
         self.lines.insert(self.cursor_y + 1, s[self.x:])
-        self.cursor_y += 1
-        self._maybe_scroll_down(margin)
+        self._increment_y(margin)
         self.x = self.x_hint = 0
         self.modified = True
 
@@ -918,9 +912,8 @@ class File:
             before, after = line[:self.x], line[self.x:]
             self.lines[self.cursor_y] = before + cut_line
             self.lines.insert(self.cursor_y + 1, after)
-            self.cursor_y += 1
+            self._increment_y(margin)
             self.x = self.x_hint = 0
-            self._maybe_scroll_down(margin)
 
     DISPATCH = {
         # movement
