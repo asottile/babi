@@ -101,3 +101,35 @@ def test_save_file_when_it_did_not_exist(tmpdir):
         h.await_text_missing('*')
 
     assert f.read() == 'hello world\n'
+
+
+def test_save_via_ctrl_o(tmpdir):
+    f = tmpdir.join('f')
+    with run(str(f)) as h, and_exit(h):
+        h.press('hello world')
+        h.press('^O')
+        h.await_text(f'enter filename: {f}')
+        h.press('Enter')
+        h.await_text('saved! (1 line written)')
+        assert f.read() == 'hello world\n'
+
+
+def test_save_via_ctrl_o_set_filename(tmpdir):
+    f = tmpdir.join('f')
+    with run() as h, and_exit(h):
+        h.press('hello world')
+        h.press('^O')
+        h.await_text('enter filename:')
+        h.press_and_enter(str(f))
+        h.await_text('saved! (1 line written)')
+        assert f.read() == 'hello world\n'
+
+
+@pytest.mark.parametrize('key', ('^C', 'Enter'))
+def test_save_via_ctrl_o_cancelled(tmpdir, key):
+    with run() as h, and_exit(h):
+        h.press('hello world')
+        h.press('^O')
+        h.await_text('enter filename:')
+        h.press(key)
+        h.await_text('cancelled')

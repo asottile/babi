@@ -266,15 +266,17 @@ class Status:
             *,
             history: Optional[str] = None,
             default_prev: bool = False,
+            default: Optional[str] = None,
     ) -> Optional[str]:
         self.clear()
+        default = default or ''
         if history is not None:
-            lst = [*self._history[history], '']
+            lst = [*self._history[history], default]
             lst_pos = len(lst) - 1
             if default_prev and history in self._history_prev:
                 prompt = f'{prompt} [{self._history_prev[history]}]'
         else:
-            lst = ['']
+            lst = [default]
             lst_pos = 0
         pos = 0
 
@@ -1324,6 +1326,15 @@ def _edit(screen: Screen) -> EditResult:
                 screen.status.update(f'invalid command: {response}')
         elif key.keyname == b'^S':
             screen.file.save(screen, screen.status)
+        elif key.keyname == b'^O':
+            response = screen.status.prompt(
+                screen, 'enter filename', default=screen.file.filename,
+            )
+            if not response:
+                screen.status.update('cancelled')
+            else:
+                screen.file.filename = response
+                screen.file.save(screen, screen.status)
         elif key.keyname == b'^X':
             return EditResult.EXIT
         elif key.keyname == b'kLFT3':
