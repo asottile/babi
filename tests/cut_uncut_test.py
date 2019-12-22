@@ -44,6 +44,7 @@ def test_cut_uncut_multiple_file_buffers(tmpdir):
         h.press('^K')
         h.await_text_missing('hello')
         h.press('^X')
+        h.press('n')
         h.await_text_missing('world')
         h.press('^U')
         h.await_text('hello\ngood\nbye\n')

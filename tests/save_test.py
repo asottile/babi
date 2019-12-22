@@ -133,3 +133,38 @@ def test_save_via_ctrl_o_cancelled(tmpdir, key):
         h.await_text('enter filename:')
         h.press(key)
         h.await_text('cancelled')
+
+
+def test_save_on_exit_cancel_yn():
+    with run() as h, and_exit(h):
+        h.press('hello')
+        h.await_text('hello')
+        h.press('^X')
+        h.await_text('file is modified - save [y(es), n(o)]?')
+        h.press('^C')
+        h.await_text('cancelled')
+
+
+def test_save_on_exit_cancel_filename():
+    with run() as h, and_exit(h):
+        h.press('hello')
+        h.await_text('hello')
+        h.press('^X')
+        h.await_text('file is modified - save [y(es), n(o)]?')
+        h.press('y')
+        h.await_text('enter filename:')
+        h.press('^C')
+        h.await_text('cancelled')
+
+
+def test_save_on_exit_save(tmpdir):
+    f = tmpdir.join('f')
+    with run(str(f)) as h:
+        h.press('hello')
+        h.await_text('hello')
+        h.press('^X')
+        h.await_text('file is modified - save [y(es), n(o)]?')
+        h.press('y')
+        h.await_text(f'enter filename: {f}')
+        h.press('Enter')
+        h.await_exit()

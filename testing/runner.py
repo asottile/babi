@@ -139,4 +139,7 @@ def and_exit(h):
     yield
     # only try and exit in non-exceptional cases
     h.press('^X')
+    # dismiss the save prompt
+    if ' *' in h.get_screen_line(0):
+        h.press('n')
     h.await_exit()
