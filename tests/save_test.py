@@ -168,3 +168,16 @@ def test_save_on_exit_save(tmpdir):
         h.await_text(f'enter filename: {f}')
         h.press('Enter')
         h.await_exit()
+
+
+def test_save_on_exit_resize(tmpdir):
+    with run() as h, and_exit(h):
+        h.press('hello')
+        h.await_text('hello')
+        h.press('^X')
+        h.await_text('file is modified - save [y(es), n(o)]?')
+        with h.resize(width=10, height=24):
+            h.await_text('file is m…')
+        h.await_text('file is modified - save [y(es), n(o)]?')
+        h.press('^C')
+        h.await_text('cancelled')
