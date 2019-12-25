@@ -360,6 +360,8 @@ class Status:
             elif isinstance(key.wch, str) and key.wch.isprintable():
                 set_buf(buf()[:pos] + key.wch + buf()[pos:])
                 pos += 1
+            elif key.keyname == b'^K':
+                set_buf(buf()[:pos])
             elif key.keyname == b'^R':
                 reverse_s = ''
                 reverse_idx = lst_pos

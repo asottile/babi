@@ -63,6 +63,18 @@ def test_key_navigation_in_command_mode():
         h.press('Enter')
 
 
+def test_command_mode_ctrl_k(tmpdir):
+    with run() as h, and_exit(h):
+        trigger_command_mode(h)
+        h.press('hello world')
+        h.await_text('\nhello world\n')
+        for _ in range(6):  # TODO: ^Left
+            h.press('Left')
+        h.press('^K')
+        h.await_text('\nhello\n')
+        h.press('Enter')
+
+
 def test_save_via_command_mode(tmpdir):
     f = tmpdir.join('f')
 
