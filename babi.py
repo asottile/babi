@@ -139,6 +139,12 @@ class ListSpy(MutableSequenceNoSlice):
         return bool(self._undo)
 
 
+class Key(NamedTuple):
+    wch: Union[int, str]
+    key: int
+    keyname: bytes
+
+
 class Margin(NamedTuple):
     header: bool
     footer: bool
@@ -155,7 +161,7 @@ class Margin(NamedTuple):
             return self.body_lines - 2
 
     @classmethod
-    def from_screen(cls, screen: 'curses._CursesWindow') -> 'Margin':
+    def from_current_screen(cls) -> 'Margin':
         if curses.LINES == 1:
             return cls(header=False, footer=False)
         elif curses.LINES == 2:
@@ -1013,32 +1019,6 @@ class File:
                 )
                 self.undo_stack.append(action)
 
-    def _undo_redo(
-            self,
-            op: str,
-            from_stack: List[Action],
-            to_stack: List[Action],
-            status: Status,
-            margin: Margin,
-    ) -> None:
-        if not from_stack:
-            status.update(f'nothing to {op}!')
-        else:
-            action = from_stack.pop()
-            to_stack.append(action.apply(self))
-            self.scroll_screen_if_needed(margin)
-            status.update(f'{op}: {action.name}')
-
-    def undo(self, status: Status, margin: Margin) -> None:
-        self._undo_redo(
-            'undo', self.undo_stack, self.redo_stack, status, margin,
-        )
-
-    def redo(self, status: Status, margin: Margin) -> None:
-        self._undo_redo(
-            'redo', self.redo_stack, self.undo_stack, status, margin,
-        )
-
     # positioning
 
     def rendered_y(self, margin: Margin) -> int:
@@ -1077,7 +1057,8 @@ class Screen:
         self.files = files
         self.i = 0
         self.status = Status()
-        self.margin = Margin.from_screen(self.stdscr)
+        self.margin = Margin.from_current_screen()
+        self.prevkey = Key('', 0, b'')
         self.cut_buffer: Tuple[str, ...] = ()
 
     @property
@@ -1106,7 +1087,7 @@ class Screen:
 
     def resize(self) -> None:
         curses.update_lines_cols()
-        self.margin = Margin.from_screen(self.stdscr)
+        self.margin = Margin.from_current_screen()
         self.file.scroll_screen_if_needed(self.margin)
         self.draw()
 
@@ -1127,6 +1108,16 @@ class Screen:
         lines_word = 'line' if line_count == 1 else 'lines'
         self.status.update(f'{line}, {col} (of {line_count} {lines_word})')
 
+    def cut(self) -> None:
+        if self.prevkey.keyname == b'^K':
+            cut_buffer = self.cut_buffer
+        else:
+            cut_buffer = ()
+        self.cut_buffer = self.file.cut(cut_buffer)
+
+    def uncut(self) -> None:
+        self.file.uncut(self.cut_buffer, self.margin)
+
     def _get_search_re(self, prompt: str) -> Union[Pattern[str], PromptResult]:
         response = self.status.prompt(
             self, prompt, history='search', default_prev=True,
@@ -1138,6 +1129,26 @@ class Screen:
         except re.error:
             self.status.update(f'invalid regex: {response!r}')
             return PromptResult.CANCELLED
+
+    def _undo_redo(
+            self,
+            op: str,
+            from_stack: List[Action],
+            to_stack: List[Action],
+    ) -> None:
+        if not from_stack:
+            self.status.update(f'nothing to {op}!')
+        else:
+            action = from_stack.pop()
+            to_stack.append(action.apply(self.file))
+            self.file.scroll_screen_if_needed(self.margin)
+            self.status.update(f'{op}: {action.name}')
+
+    def undo(self) -> None:
+        self._undo_redo('undo', self.file.undo_stack, self.file.redo_stack)
+
+    def redo(self) -> None:
+        self._undo_redo('redo', self.file.redo_stack, self.file.undo_stack)
 
     def search(self) -> None:
         response = self._get_search_re('search')
@@ -1153,11 +1164,119 @@ class Screen:
             if response is not PromptResult.CANCELLED:
                 self.file.replace(self, search_response, response)
 
+    def command(self) -> Optional[EditResult]:
+        response = self.status.prompt(self, '', history='command')
+        if response == ':q':
+            return EditResult.EXIT
+        elif response == ':w':
+            self.save()
+        elif response == ':wq':
+            self.save()
+            return EditResult.EXIT
+        elif response is not PromptResult.CANCELLED:
+            self.status.update(f'invalid command: {response}')
+        return None
+
+    def save(self) -> Optional[PromptResult]:
+        self.file.mark_previous_action_as_final()
+
+        # TODO: make directories if they don't exist
+        # TODO: maybe use mtime / stat as a shortcut for hashing below
+        # TODO: strip trailing whitespace?
+        # TODO: save atomically?
+        if self.file.filename is None:
+            filename = self.status.prompt(self, 'enter filename')
+            if filename is PromptResult.CANCELLED:
+                return PromptResult.CANCELLED
+            else:
+                self.file.filename = filename
+
+        if os.path.isfile(self.file.filename):
+            with open(self.file.filename) as f:
+                *_, sha256 = _get_lines(f)
+        else:
+            sha256 = hashlib.sha256(b'').hexdigest()
+
+        contents = self.file.nl.join(self.file.lines)
+        sha256_to_save = hashlib.sha256(contents.encode()).hexdigest()
+
+        # the file on disk is the same as when we opened it
+        if sha256 not in (self.file.sha256, sha256_to_save):
+            self.status.update('(file changed on disk, not implemented)')
+            return PromptResult.CANCELLED
+
+        with open(self.file.filename, 'w') as f:
+            f.write(contents)
+
+        self.file.modified = False
+        self.file.sha256 = sha256_to_save
+        num_lines = len(self.file.lines) - 1
+        lines = 'lines' if num_lines != 1 else 'line'
+        self.status.update(f'saved! ({num_lines} {lines} written)')
+
+        # fix up modified state in undo / redo stacks
+        for stack in (self.file.undo_stack, self.file.redo_stack):
+            first = True
+            for action in reversed(stack):
+                action.end_modified = not first
+                action.start_modified = True
+                first = False
+        return None
+
+    def save_filename(self) -> Optional[PromptResult]:
+        response = self.status.prompt(
+            self, 'enter filename', default=self.file.filename,
+        )
+        if response is PromptResult.CANCELLED:
+            return PromptResult.CANCELLED
+        else:
+            self.file.filename = response
+            return self.save()
+
+    def quit_save_modified(self) -> Optional[EditResult]:
+        if self.file.modified:
+            response = self.status.quick_prompt(
+                self,
+                'file is modified - save [y(es), n(o)]?', frozenset('yn'),
+            )
+            if response == 'y':
+                if self.save_filename() is not PromptResult.CANCELLED:
+                    return EditResult.EXIT
+                else:
+                    return None
+            elif response == 'n':
+                return EditResult.EXIT
+            else:
+                assert response is PromptResult.CANCELLED
+                return None
+        return EditResult.EXIT
+
     def background(self) -> None:
         curses.endwin()
         os.kill(os.getpid(), signal.SIGSTOP)
         self.stdscr = _init_screen()
         self.resize()
+
+    DISPATCH = {
+        curses.KEY_RESIZE: resize,
+    }
+    DISPATCH_KEY = {
+        b'^_': go_to_line,
+        b'^C': current_position,
+        b'^K': cut,
+        b'^U': uncut,
+        b'M-u': undo,
+        b'M-U': redo,
+        b'^W': search,
+        b'^\\': replace,
+        b'^[': command,
+        b'^S': save,
+        b'^O': save_filename,
+        b'^X': quit_save_modified,
+        b'kLFT3': lambda screen: EditResult.PREV,
+        b'kRIT3': lambda screen: EditResult.NEXT,
+        b'^Z': background,
+    }
 
 
 def _color_test(stdscr: 'curses._CursesWindow') -> None:
@@ -1181,12 +1300,6 @@ def _color_test(stdscr: 'curses._CursesWindow') -> None:
             x += 4
         y += 1
     stdscr.get_wch()
-
-
-class Key(NamedTuple):
-    wch: Union[int, str]
-    key: int
-    keyname: bytes
 
 
 # TODO: find a place to populate these, surely there's a database somewhere
@@ -1244,152 +1357,33 @@ def _get_char(stdscr: 'curses._CursesWindow') -> Key:
     return Key(wch, key, keyname)
 
 
-def _save(screen: Screen) -> Optional[PromptResult]:
-    screen.file.mark_previous_action_as_final()
-
-    # TODO: make directories if they don't exist
-    # TODO: maybe use mtime / stat as a shortcut for hashing below
-    # TODO: strip trailing whitespace?
-    # TODO: save atomically?
-    if screen.file.filename is None:
-        filename = screen.status.prompt(screen, 'enter filename')
-        if filename is PromptResult.CANCELLED:
-            return PromptResult.CANCELLED
-        else:
-            screen.file.filename = filename
-
-    if os.path.isfile(screen.file.filename):
-        with open(screen.file.filename) as f:
-            *_, sha256 = _get_lines(f)
-    else:
-        sha256 = hashlib.sha256(b'').hexdigest()
-
-    contents = screen.file.nl.join(screen.file.lines)
-    sha256_to_save = hashlib.sha256(contents.encode()).hexdigest()
-
-    # the file on disk is the same as when we opened it
-    if sha256 not in (screen.file.sha256, sha256_to_save):
-        screen.status.update('(file changed on disk, not implemented)')
-        return PromptResult.CANCELLED
-
-    with open(screen.file.filename, 'w') as f:
-        f.write(contents)
-
-    screen.file.modified = False
-    screen.file.sha256 = sha256_to_save
-    num_lines = len(screen.file.lines) - 1
-    lines = 'lines' if num_lines != 1 else 'line'
-    screen.status.update(f'saved! ({num_lines} {lines} written)')
-
-    # fix up modified state in undo / redo stacks
-    for stack in (screen.file.undo_stack, screen.file.redo_stack):
-        first = True
-        for action in reversed(stack):
-            action.end_modified = not first
-            action.start_modified = True
-            first = False
-    return None
-
-
-def _save_filename(screen: Screen) -> Optional[PromptResult]:
-    response = screen.status.prompt(
-        screen, 'enter filename', default=screen.file.filename,
-    )
-    if response is PromptResult.CANCELLED:
-        return PromptResult.CANCELLED
-    else:
-        screen.file.filename = response
-        return _save(screen)
-
-
-def _quit(screen: Screen) -> Optional[EditResult]:
-    if screen.file.modified:
-        response = screen.status.quick_prompt(
-            screen, 'file is modified - save [y(es), n(o)]?', frozenset('yn'),
-        )
-        if response == 'y':
-            if _save_filename(screen) is not PromptResult.CANCELLED:
-                return EditResult.EXIT
-            else:
-                return None
-        elif response == 'n':
-            return EditResult.EXIT
-        else:
-            assert response is PromptResult.CANCELLED
-            return None
-    return EditResult.EXIT
-
-
-ScreenFunc = Callable[[Screen], Union[None, PromptResult, EditResult]]
-DISPATCH: Dict[int, ScreenFunc] = {
-    curses.KEY_RESIZE: Screen.resize,
-}
-DISPATCH_KEY: Dict[bytes, ScreenFunc] = {
-    b'^_': Screen.go_to_line,
-    b'^C': Screen.current_position,
-    b'^W': Screen.search,
-    b'^\\': Screen.replace,
-    b'^S': _save,
-    b'^O': _save_filename,
-    b'^X': _quit,
-    b'kLFT3': lambda screen: EditResult.PREV,
-    b'kRIT3': lambda screen: EditResult.NEXT,
-    b'^Z': Screen.background,
-}
-
-
 def _edit(screen: Screen) -> EditResult:
-    prevkey = Key('', 0, b'')
+    screen.prevkey = Key('', 0, b'')
     screen.file.ensure_loaded(screen.status)
 
     while True:
         screen.status.tick(screen.margin)
-
         screen.draw()
         screen.file.move_cursor(screen.stdscr, screen.margin)
 
         key = _get_char(screen.stdscr)
 
         if key.key in File.DISPATCH:
-            screen.file.DISPATCH[key.key](screen.file, screen.margin)
+            File.DISPATCH[key.key](screen.file, screen.margin)
         elif key.keyname in File.DISPATCH_KEY:
-            screen.file.DISPATCH_KEY[key.keyname](screen.file, screen.margin)
-        elif key.keyname == b'^K':
-            if prevkey.keyname == b'^K':
-                cut_buffer = screen.cut_buffer
-            else:
-                cut_buffer = ()
-            screen.cut_buffer = screen.file.cut(cut_buffer)
-        elif key.keyname == b'^U':
-            screen.file.uncut(screen.cut_buffer, screen.margin)
-        elif key.keyname == b'M-u':
-            screen.file.undo(screen.status, screen.margin)
-        elif key.keyname == b'M-U':
-            screen.file.redo(screen.status, screen.margin)
-        elif key.keyname == b'^[':  # escape
-            response = screen.status.prompt(screen, '', history='command')
-            if response == ':q':
-                return EditResult.EXIT
-            elif response == ':w':
-                _save(screen)
-            elif response == ':wq':
-                _save(screen)
-                return EditResult.EXIT
-            elif response is not PromptResult.CANCELLED:
-                screen.status.update(f'invalid command: {response}')
-        elif key.key in DISPATCH:
-            fn_res = DISPATCH[key.key](screen)
-            assert not isinstance(fn_res, EditResult), fn_res
-        elif key.keyname in DISPATCH_KEY:
-            fn_res = DISPATCH_KEY[key.keyname](screen)
-            if isinstance(fn_res, EditResult):
-                return fn_res
+            File.DISPATCH_KEY[key.keyname](screen.file, screen.margin)
+        elif key.key in Screen.DISPATCH:
+            Screen.DISPATCH[key.key](screen)
+        elif key.keyname in Screen.DISPATCH_KEY:
+            ret = Screen.DISPATCH_KEY[key.keyname](screen)
+            if isinstance(ret, EditResult):
+                return ret
         elif isinstance(key.wch, str) and key.wch.isprintable():
             screen.file.c(key.wch, screen.margin)
         else:
             screen.status.update(f'unknown key: {key}')
 
-        prevkey = key
+        screen.prevkey = key
 
 
 def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
