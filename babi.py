@@ -1066,13 +1066,6 @@ class File:
         for i in range(to_display, margin.body_lines):
             stdscr.insstr(i + margin.header, 0, blankline)
 
-    def current_position(self, status: Status) -> None:
-        line = f'line {self.cursor_y + 1}'
-        col = f'col {self.x + 1}'
-        line_count = max(len(self.lines) - 1, 1)
-        lines_word = 'line' if line_count == 1 else 'lines'
-        status.update(f'{line}, {col} (of {line_count} {lines_word})')
-
 
 class Screen:
     def __init__(
@@ -1116,6 +1109,55 @@ class Screen:
         self.margin = Margin.from_screen(self.stdscr)
         self.file.scroll_screen_if_needed(self.margin)
         self.draw()
+
+    def go_to_line(self) -> None:
+        response = self.status.prompt(self, 'enter line number')
+        if response is not PromptResult.CANCELLED:
+            try:
+                lineno = int(response)
+            except ValueError:
+                self.status.update(f'not an integer: {response!r}')
+            else:
+                self.file.go_to_line(lineno, self.margin)
+
+    def current_position(self) -> None:
+        line = f'line {self.file.cursor_y + 1}'
+        col = f'col {self.file.x + 1}'
+        line_count = max(len(self.file.lines) - 1, 1)
+        lines_word = 'line' if line_count == 1 else 'lines'
+        self.status.update(f'{line}, {col} (of {line_count} {lines_word})')
+
+    def _get_search_re(self, prompt: str) -> Union[Pattern[str], PromptResult]:
+        response = self.status.prompt(
+            self, prompt, history='search', default_prev=True,
+        )
+        if response is PromptResult.CANCELLED:
+            return response
+        try:
+            return re.compile(response)
+        except re.error:
+            self.status.update(f'invalid regex: {response!r}')
+            return PromptResult.CANCELLED
+
+    def search(self) -> None:
+        response = self._get_search_re('search')
+        if response is not PromptResult.CANCELLED:
+            self.file.search(response, self.status, self.margin)
+
+    def replace(self) -> None:
+        search_response = self._get_search_re('search (to replace)')
+        if search_response is not PromptResult.CANCELLED:
+            response = self.status.prompt(
+                self, 'replace with', history='replace', allow_empty=True,
+            )
+            if response is not PromptResult.CANCELLED:
+                self.file.replace(self, search_response, response)
+
+    def background(self) -> None:
+        curses.endwin()
+        os.kill(os.getpid(), signal.SIGSTOP)
+        self.stdscr = _init_screen()
+        self.resize()
 
 
 def _color_test(stdscr: 'curses._CursesWindow') -> None:
@@ -1279,12 +1321,20 @@ def _quit(screen: Screen) -> Optional[EditResult]:
 
 
 ScreenFunc = Callable[[Screen], Union[None, PromptResult, EditResult]]
-DISPATCH: Dict[bytes, ScreenFunc] = {
+DISPATCH: Dict[int, ScreenFunc] = {
+    curses.KEY_RESIZE: Screen.resize,
+}
+DISPATCH_KEY: Dict[bytes, ScreenFunc] = {
+    b'^_': Screen.go_to_line,
+    b'^C': Screen.current_position,
+    b'^W': Screen.search,
+    b'^\\': Screen.replace,
     b'^S': _save,
     b'^O': _save_filename,
     b'^X': _quit,
     b'kLFT3': lambda screen: EditResult.PREV,
     b'kRIT3': lambda screen: EditResult.NEXT,
+    b'^Z': Screen.background,
 }
 
 
@@ -1300,9 +1350,7 @@ def _edit(screen: Screen) -> EditResult:
 
         key = _get_char(screen.stdscr)
 
-        if key.key == curses.KEY_RESIZE:
-            screen.resize()
-        elif key.key in File.DISPATCH:
+        if key.key in File.DISPATCH:
             screen.file.DISPATCH[key.key](screen.file, screen.margin)
         elif key.keyname in File.DISPATCH_KEY:
             screen.file.DISPATCH_KEY[key.keyname](screen.file, screen.margin)
@@ -1318,45 +1366,6 @@ def _edit(screen: Screen) -> EditResult:
             screen.file.undo(screen.status, screen.margin)
         elif key.keyname == b'M-U':
             screen.file.redo(screen.status, screen.margin)
-        elif key.keyname == b'^_':
-            response = screen.status.prompt(screen, 'enter line number')
-            if response is not PromptResult.CANCELLED:
-                try:
-                    lineno = int(response)
-                except ValueError:
-                    screen.status.update(f'not an integer: {response!r}')
-                else:
-                    screen.file.go_to_line(lineno, screen.margin)
-        elif key.keyname == b'^W':
-            response = screen.status.prompt(
-                screen, 'search', history='search', default_prev=True,
-            )
-            if response is not PromptResult.CANCELLED:
-                try:
-                    regex = re.compile(response)
-                except re.error:
-                    screen.status.update(f'invalid regex: {response!r}')
-                else:
-                    screen.file.search(regex, screen.status, screen.margin)
-        elif key.keyname == b'^\\':
-            response = screen.status.prompt(
-                screen, 'search (to replace)',
-                history='search', default_prev=True,
-            )
-            if response is not PromptResult.CANCELLED:
-                try:
-                    regex = re.compile(response)
-                except re.error:
-                    screen.status.update(f'invalid regex: {response!r}')
-                else:
-                    response = screen.status.prompt(
-                        screen, 'replace with', history='replace',
-                        allow_empty=True,
-                    )
-                    if response is not PromptResult.CANCELLED:
-                        screen.file.replace(screen, regex, response)
-        elif key.keyname == b'^C':
-            screen.file.current_position(screen.status)
         elif key.keyname == b'^[':  # escape
             response = screen.status.prompt(screen, '', history='command')
             if response == ':q':
@@ -1368,15 +1377,13 @@ def _edit(screen: Screen) -> EditResult:
                 return EditResult.EXIT
             elif response is not PromptResult.CANCELLED:
                 screen.status.update(f'invalid command: {response}')
-        elif key.keyname in DISPATCH:
-            fn_res = DISPATCH[key.keyname](screen)
+        elif key.key in DISPATCH:
+            fn_res = DISPATCH[key.key](screen)
+            assert not isinstance(fn_res, EditResult), fn_res
+        elif key.keyname in DISPATCH_KEY:
+            fn_res = DISPATCH_KEY[key.keyname](screen)
             if isinstance(fn_res, EditResult):
                 return fn_res
-        elif key.keyname == b'^Z':
-            curses.endwin()
-            os.kill(os.getpid(), signal.SIGSTOP)
-            screen.stdscr = _init_screen()
-            screen.resize()
         elif isinstance(key.wch, str) and key.wch.isprintable():
             screen.file.c(key.wch, screen.margin)
         else:
