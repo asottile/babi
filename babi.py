@@ -267,7 +267,7 @@ class Status:
         if self._action_counter < 0:
             self.clear()
 
-    def _cancel(self) -> Union[str, PromptResult]:
+    def cancelled(self) -> Union[str, PromptResult]:
         self.update('cancelled')
         return PromptResult.CANCELLED
 
@@ -318,7 +318,7 @@ class Status:
                     return prev
 
             if not allow_empty and not buf():
-                return self._cancel()
+                return self.cancelled()
             else:
                 return buf()
 
@@ -398,7 +398,7 @@ class Status:
                     elif key.keyname == b'^R':
                         reverse_idx = max(0, reverse_idx - 1)
                     elif key.keyname == b'^C':
-                        return self._cancel()
+                        return self.cancelled()
                     elif key.key == ord('\r'):
                         return _save_history_and_get_retv()
                     else:
@@ -407,36 +407,9 @@ class Status:
                         break  # pragma: no cover
 
             elif key.keyname == b'^C':
-                return self._cancel()
+                return self.cancelled()
             elif key.key == ord('\r'):
                 return _save_history_and_get_retv()
-
-    def quick_prompt(
-            self,
-            screen: 'Screen',
-            prompt: str,
-            options: FrozenSet[str],
-            *,
-            resize: Optional[Callable[[], None]] = None,
-    ) -> Union[str, PromptResult]:
-        while True:
-            s = prompt.ljust(curses.COLS)
-            if len(s) > curses.COLS:
-                s = f'{s[:curses.COLS - 1]}…'
-            screen.stdscr.insstr(curses.LINES - 1, 0, s, curses.A_REVERSE)
-            x = min(curses.COLS - 1, len(prompt) + 1)
-            screen.stdscr.move(curses.LINES - 1, x)
-
-            key = _get_char(screen.stdscr)
-            if key.key == curses.KEY_RESIZE:
-                screen.resize()
-                if resize is not None:
-                    resize()
-            elif key.keyname == b'^C':
-                return self._cancel()
-            elif key.wch in options:
-                assert isinstance(key.wch, str)  # mypy doesn't know
-                return key.wch
 
 
 def _restore_lines_eof_invariant(lines: MutableSequenceNoSlice) -> None:
@@ -825,10 +798,10 @@ class File:
             if res != 'a':  # make `a` replace the rest of them
                 screen.draw()
                 highlight()
-                res = screen.status.quick_prompt(
-                    screen, 'replace [y(es), n(o), a(ll)]?',
-                    frozenset('yna'), resize=highlight,
-                )
+                with screen.resize_cb(highlight):
+                    res = screen.quick_prompt(
+                        'replace [y(es), n(o), a(ll)]?', frozenset('yna'),
+                    )
             if res in {'y', 'a'}:
                 count += 1
                 with self.edit_action_context('replace', final=True):
@@ -1060,6 +1033,7 @@ class Screen:
         self.margin = Margin.from_current_screen()
         self.prevkey = Key('', 0, b'')
         self.cut_buffer: Tuple[str, ...] = ()
+        self._resize_cb: Optional[Callable[[], None]] = None
 
     @property
     def file(self) -> File:
@@ -1085,11 +1059,44 @@ class Screen:
         self.file.draw(self.stdscr, self.margin)
         self.status.draw(self.stdscr, self.margin)
 
+    @contextlib.contextmanager
+    def resize_cb(self, f: Callable[[], None]) -> Generator[None, None, None]:
+        assert self._resize_cb is None, self._resize_cb
+        self._resize_cb = f
+        try:
+            yield
+        finally:
+            self._resize_cb = None
+
     def resize(self) -> None:
         curses.update_lines_cols()
         self.margin = Margin.from_current_screen()
         self.file.scroll_screen_if_needed(self.margin)
         self.draw()
+        if self._resize_cb is not None:
+            self._resize_cb()
+
+    def quick_prompt(
+            self,
+            prompt: str,
+            options: FrozenSet[str],
+    ) -> Union[str, PromptResult]:
+        while True:
+            s = prompt.ljust(curses.COLS)
+            if len(s) > curses.COLS:
+                s = f'{s[:curses.COLS - 1]}…'
+            self.stdscr.insstr(curses.LINES - 1, 0, s, curses.A_REVERSE)
+            x = min(curses.COLS - 1, len(prompt) + 1)
+            self.stdscr.move(curses.LINES - 1, x)
+
+            key = _get_char(self.stdscr)
+            if key.key == curses.KEY_RESIZE:
+                self.resize()
+            elif key.keyname == b'^C':
+                return self.status.cancelled()
+            elif key.wch in options:
+                assert isinstance(key.wch, str)  # mypy doesn't know
+                return key.wch
 
     def go_to_line(self) -> None:
         response = self.status.prompt(self, 'enter line number')
@@ -1235,8 +1242,7 @@ class Screen:
 
     def quit_save_modified(self) -> Optional[EditResult]:
         if self.file.modified:
-            response = self.status.quick_prompt(
-                self,
+            response = self.quick_prompt(
                 'file is modified - save [y(es), n(o)]?', frozenset('yn'),
             )
             if response == 'y':
