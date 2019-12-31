@@ -63,16 +63,54 @@ def test_key_navigation_in_command_mode():
         h.press('Enter')
 
 
-def test_command_mode_ctrl_k(tmpdir):
+def test_command_mode_ctrl_k():
     with run() as h, and_exit(h):
         trigger_command_mode(h)
         h.press('hello world')
         h.await_text('\nhello world\n')
-        for _ in range(6):  # TODO: ^Left
-            h.press('Left')
+        h.press('^Left')
+        h.press('Left')
         h.press('^K')
         h.await_text('\nhello\n')
         h.press('Enter')
+
+
+def test_command_mode_control_left():
+    with run() as h, and_exit(h):
+        trigger_command_mode(h)
+        h.press('hello world')
+        h.await_cursor_position(x=11, y=23)
+        h.press('^Left')
+        h.await_cursor_position(x=6, y=23)
+        h.press('^Left')
+        h.await_cursor_position(x=0, y=23)
+        h.press('^Left')
+        h.await_cursor_position(x=0, y=23)
+        h.press('Right')
+        h.await_cursor_position(x=1, y=23)
+        h.press('^Left')
+        h.await_cursor_position(x=0, y=23)
+        h.press('^C')
+
+
+def test_command_mode_control_right():
+    with run() as h, and_exit(h):
+        trigger_command_mode(h)
+        h.press('hello world')
+        h.await_cursor_position(x=11, y=23)
+        h.press('^Right')
+        h.await_cursor_position(x=11, y=23)
+        h.press('Left')
+        h.await_cursor_position(x=10, y=23)
+        h.press('^Right')
+        h.await_cursor_position(x=11, y=23)
+        h.press('^A')
+        h.await_cursor_position(x=0, y=23)
+        h.press('^Right')
+        h.await_cursor_position(x=5, y=23)
+        h.press('^Right')
+        h.await_cursor_position(x=11, y=23)
+        h.press('^C')
 
 
 def test_save_via_command_mode(tmpdir):

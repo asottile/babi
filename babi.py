@@ -302,6 +302,24 @@ class Prompt:
     def _end(self) -> None:
         self._x = len(self._s)
 
+    def _ctrl_left(self) -> None:
+        if self._x <= 1:
+            self._x = 0
+        else:
+            self._x -= 1
+            tp = self._s[self._x - 1].isalnum()
+            while self._x > 0 and tp == self._s[self._x - 1].isalnum():
+                self._x -= 1
+
+    def _ctrl_right(self) -> None:
+        if self._x >= len(self._s) - 1:
+            self._x = len(self._s)
+        else:
+            self._x += 1
+            tp = self._s[self._x].isalnum()
+            while self._x < len(self._s) and tp == self._s[self._x].isalnum():
+                self._x += 1
+
     def _backspace(self) -> None:
         if self._x > 0:
             self._s = self._s[:self._x - 1] + self._s[self._x:]
@@ -371,6 +389,8 @@ class Prompt:
     DISPATCH_KEY = {
         b'^A': _home,
         b'^E': _end,
+        b'kRIT5': _ctrl_right,
+        b'kLFT5': _ctrl_left,
         b'^K': _cut_to_end,
         b'^R': _reverse_search,
         b'^C': _cancel,
@@ -721,8 +741,8 @@ class File:
         # if we're inside the line, jump to next position that's not our type
         else:
             self.x = self.x_hint = self.x + 1
-            isalnum = line[self.x].isalnum()
-            while self.x < len(line) and isalnum == line[self.x].isalnum():
+            tp = line[self.x].isalnum()
+            while self.x < len(line) and tp == line[self.x].isalnum():
                 self.x = self.x_hint = self.x + 1
 
     @action
@@ -745,8 +765,8 @@ class File:
                 self.x = self.x_hint = len(self.lines[self.cursor_y])
         else:
             self.x = self.x_hint = self.x - 1
-            isalnum = line[self.x - 1].isalnum()
-            while self.x > 0 and isalnum == line[self.x - 1].isalnum():
+            tp = line[self.x - 1].isalnum()
+            while self.x > 0 and tp == line[self.x - 1].isalnum():
                 self.x = self.x_hint = self.x - 1
 
     @action
