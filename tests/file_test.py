@@ -10,7 +10,7 @@ def test_position_repr():
         '    lines=[],\n'
         "    nl='\\n',\n"
         '    file_y=0,\n'
-        '    cursor_y=0,\n'
+        '    y=0,\n'
         '    x=0,\n'
         '    x_hint=0,\n'
         '    sha256=None,\n'
