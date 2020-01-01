@@ -508,8 +508,7 @@ class Action:
 def action(func: TCallable) -> TCallable:
     @functools.wraps(func)
     def action_inner(self: 'File', *args: Any, **kwargs: Any) -> Any:
-        assert not isinstance(self.lines, ListSpy), 'nested edit/movement'
-        self.mark_previous_action_as_final()
+        self.finalize_previous_action()
         return func(self, *args, **kwargs)
     return cast(TCallable, action_inner)
 
@@ -526,6 +525,23 @@ def edit_action(
                 return func(self, *args, **kwargs)
         return cast(TCallable, edit_action_inner)
     return edit_action_decorator
+
+
+def keep_selection(func: TCallable) -> TCallable:
+    @functools.wraps(func)
+    def keep_selection_inner(self: 'File', *args: Any, **kwargs: Any) -> Any:
+        with self.select():
+            return func(self, *args, **kwargs)
+    return cast(TCallable, keep_selection_inner)
+
+
+def clear_selection(func: TCallable) -> TCallable:
+    @functools.wraps(func)
+    def clear_selection_inner(self: 'File', *args: Any, **kwargs: Any) -> Any:
+        ret = func(self, *args, **kwargs)
+        self.select_start = None
+        return ret
+    return cast(TCallable, clear_selection_inner)
 
 
 class Found(NamedTuple):
@@ -600,6 +616,7 @@ class File:
         self.sha256: Optional[str] = None
         self.undo_stack: List[Action] = []
         self.redo_stack: List[Action] = []
+        self.select_start: Optional[Tuple[int, int]] = None
 
     def ensure_loaded(self, status: Status) -> None:
         if self.lines:
@@ -795,18 +812,22 @@ class File:
                 self.x = self.x_hint = match.start()
                 self.scroll_screen_if_needed(margin)
 
+    @clear_selection
     def replace(
             self,
             screen: 'Screen',
             reg: Pattern[str],
             replace: str,
     ) -> None:
-        self.mark_previous_action_as_final()
+        self.finalize_previous_action()
 
         def highlight() -> None:
-            y = screen.file.rendered_y(screen.margin)
-            x = screen.file.rendered_x()
-            screen.stdscr.chgat(y, x, len(match[0]), curses.A_REVERSE)
+            self.highlight(
+                screen.stdscr, screen.margin,
+                y=self.y, x=self.x, n=len(match[0]),
+                color=curses.A_REVERSE,
+                include_edge=True,
+            )
 
         count = 0
         res: Union[str, PromptResult] = ''
@@ -863,6 +884,7 @@ class File:
     # editing
 
     @edit_action('backspace text', final=False)
+    @clear_selection
     def backspace(self, margin: Margin) -> None:
         # backspace at the beginning of the file does nothing
         if self.y == 0 and self.x == 0:
@@ -885,6 +907,7 @@ class File:
             self.x = self.x_hint = self.x - 1
 
     @edit_action('delete text', final=False)
+    @clear_selection
     def delete(self, margin: Margin) -> None:
         # noop at end of the file
         if self.y == len(self.lines) - 1:
@@ -898,6 +921,7 @@ class File:
             self.lines[self.y] = s[:self.x] + s[self.x + 1:]
 
     @edit_action('line break', final=False)
+    @clear_selection
     def enter(self, margin: Margin) -> None:
         s = self.lines[self.y]
         self.lines[self.y] = s[:self.x]
@@ -905,13 +929,31 @@ class File:
         self._increment_y(margin)
         self.x = self.x_hint = 0
 
+    @edit_action('cut selection', final=True)
+    @clear_selection
+    def cut_selection(self, margin: Margin) -> Tuple[str, ...]:
+        ret = []
+        (s_y, s_x), (e_y, e_x) = self._get_selection()
+        if s_y == e_y:
+            ret.append(self.lines[s_y][s_x:e_x])
+            self.lines[s_y] = self.lines[s_y][:s_x] + self.lines[s_y][e_x:]
+        else:
+            ret.append(self.lines[s_y][s_x:])
+            for l_y in range(s_y + 1, e_y):
+                ret.append(self.lines[l_y])
+            ret.append(self.lines[e_y][:e_x])
+
+            self.lines[s_y] = self.lines[s_y][:s_x] + self.lines[e_y][e_x:]
+            for _ in range(s_y + 1, e_y + 1):
+                self.lines.pop(s_y + 1)
+        self.y = s_y
+        self.x = self.x_hint = s_x
+        self.scroll_screen_if_needed(margin)
+        return tuple(ret)
+
     def cut(self, cut_buffer: Tuple[str, ...]) -> Tuple[str, ...]:
         # only continue a cut if the last action is a non-final cut
-        if (
-                not self.undo_stack or
-                self.undo_stack[-1].name != 'cut' or
-                self.undo_stack[-1].final
-        ):
+        if not self._continue_last_action('cut'):
             cut_buffer = ()
 
         with self.edit_action_context('cut', final=False):
@@ -922,8 +964,7 @@ class File:
                 self.x = self.x_hint = 0
                 return cut_buffer + (victim,)
 
-    @edit_action('uncut', final=True)
-    def uncut(self, cut_buffer: Tuple[str, ...], margin: Margin) -> None:
+    def _uncut(self, cut_buffer: Tuple[str, ...], margin: Margin) -> None:
         for cut_line in cut_buffer:
             line = self.lines[self.y]
             before, after = line[:self.x], line[self.x:]
@@ -931,6 +972,22 @@ class File:
             self.lines.insert(self.y + 1, after)
             self._increment_y(margin)
             self.x = self.x_hint = 0
+
+    @edit_action('uncut', final=True)
+    @clear_selection
+    def uncut(self, cut_buffer: Tuple[str, ...], margin: Margin) -> None:
+        self._uncut(cut_buffer, margin)
+
+    @edit_action('uncut selection', final=True)
+    @clear_selection
+    def uncut_selection(
+            self,
+            cut_buffer: Tuple[str, ...], margin: Margin,
+    ) -> None:
+        self._uncut(cut_buffer, margin)
+        self._decrement_y(margin)
+        self.x = self.x_hint = len(self.lines[self.y])
+        self.lines[self.y] += self.lines.pop(self.y + 1)
 
     DISPATCH = {
         # movement
@@ -956,18 +1013,41 @@ class File:
         b'KEY_BACKSPACE': backspace,
         b'KEY_DC': delete,
         b'^M': enter,
+        # selection (shift + movement)
+        b'KEY_SR': keep_selection(up),
+        b'KEY_SF': keep_selection(down),
+        b'KEY_SLEFT': keep_selection(left),
+        b'KEY_SRIGHT': keep_selection(right),
+        b'KEY_SHOME': keep_selection(home),
+        b'KEY_SEND': keep_selection(end),
+        b'KEY_SPREVIOUS': keep_selection(page_up),
+        b'KEY_SNEXT': keep_selection(page_down),
+        b'kRIT6': keep_selection(ctrl_right),
+        b'kLFT6': keep_selection(ctrl_left),
+        b'kHOM6': keep_selection(ctrl_home),
+        b'kEND6': keep_selection(ctrl_end),
     }
 
     @edit_action('text', final=False)
+    @clear_selection
     def c(self, wch: str, margin: Margin) -> None:
         s = self.lines[self.y]
         self.lines[self.y] = s[:self.x] + wch + s[self.x:]
         self.x = self.x_hint = self.x + 1
         _restore_lines_eof_invariant(self.lines)
 
-    def mark_previous_action_as_final(self) -> None:
+    def finalize_previous_action(self) -> None:
+        assert not isinstance(self.lines, ListSpy), 'nested edit/movement'
+        self.select_start = None
         if self.undo_stack:
             self.undo_stack[-1].final = True
+
+    def _continue_last_action(self, name: str) -> bool:
+        return (
+            bool(self.undo_stack) and
+            self.undo_stack[-1].name == name and
+            not self.undo_stack[-1].final
+        )
 
     @contextlib.contextmanager
     def edit_action_context(
@@ -975,11 +1055,7 @@ class File:
             *,
             final: bool,
     ) -> Generator[None, None, None]:
-        continue_last = (
-            self.undo_stack and
-            self.undo_stack[-1].name == name and
-            not self.undo_stack[-1].final
-        )
+        continue_last = self._continue_last_action(name)
         if continue_last:
             spy = self.undo_stack[-1].spy
         else:
@@ -1011,6 +1087,17 @@ class File:
                 )
                 self.undo_stack.append(action)
 
+    @contextlib.contextmanager
+    def select(self) -> Generator[None, None, None]:
+        if self.select_start is None:
+            select_start = (self.y, self.x)
+        else:
+            select_start = self.select_start
+        try:
+            yield
+        finally:
+            self.select_start = select_start
+
     # positioning
 
     def rendered_y(self, margin: Margin) -> int:
@@ -1026,6 +1113,14 @@ class File:
     ) -> None:
         stdscr.move(self.rendered_y(margin), self.rendered_x())
 
+    def _get_selection(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+        assert self.select_start is not None
+        select_end = (self.y, self.x)
+        if select_end < self.select_start:
+            return select_end, self.select_start
+        else:
+            return self.select_start, select_end
+
     def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
         to_display = min(len(self.lines) - self.file_y, margin.body_lines)
         for i in range(to_display):
@@ -1037,6 +1132,63 @@ class File:
         blankline = ' ' * curses.COLS
         for i in range(to_display, margin.body_lines):
             stdscr.insstr(i + margin.header, 0, blankline)
+
+        if self.select_start is not None:
+            (s_y, s_x), (e_y, e_x) = self._get_selection()
+
+            if s_y == e_y:
+                self.highlight(
+                    stdscr, margin,
+                    y=s_y, x=s_x, n=e_x - s_x, color=curses.A_REVERSE,
+                    include_edge=True,
+                )
+            else:
+                self.highlight(
+                    stdscr, margin,
+                    y=s_y, x=s_x, n=-1, color=curses.A_REVERSE,
+                    include_edge=True,
+                )
+                for l_y in range(s_y + 1, e_y):
+                    self.highlight(
+                        stdscr, margin,
+                        y=l_y, x=0, n=-1, color=curses.A_REVERSE,
+                        include_edge=True,
+                    )
+                self.highlight(
+                    stdscr, margin,
+                    y=e_y, x=0, n=e_x, color=curses.A_REVERSE,
+                    include_edge=True,
+                )
+
+    def highlight(
+            self,
+            stdscr: 'curses._CursesWindow', margin: Margin,
+            *,
+            y: int, x: int, n: int, color: int,
+            include_edge: bool,
+    ) -> None:
+        h_y = y - self.file_y + margin.header
+        if y == self.y:
+            line_x = _line_x(self.x, curses.COLS)
+            if x < line_x:
+                h_x = 0
+                n -= line_x - x
+            else:
+                h_x = x - line_x
+        else:
+            line_x = 0
+            h_x = x
+        if not include_edge and len(self.lines[y]) > line_x + curses.COLS:
+            raise NotImplementedError('h_n = min(curses.COLS - h_x - 1, n)')
+        else:
+            h_n = n
+        if (
+                h_y < margin.header or
+                h_y > margin.header + margin.body_lines or
+                h_x >= curses.COLS
+        ):
+            return
+        stdscr.chgat(h_y, h_x, h_n, color)
 
 
 class Screen:
@@ -1052,6 +1204,7 @@ class Screen:
         self.status = Status()
         self.margin = Margin.from_current_screen()
         self.cut_buffer: Tuple[str, ...] = ()
+        self.cut_selection = False
         self._resize_cb: Optional[Callable[[], None]] = None
 
     @property
@@ -1169,10 +1322,18 @@ class Screen:
         self.status.update(f'{line}, {col} (of {line_count} {lines_word})')
 
     def cut(self) -> None:
-        self.cut_buffer = self.file.cut(self.cut_buffer)
+        if self.file.select_start:
+            self.cut_buffer = self.file.cut_selection(self.margin)
+            self.cut_selection = True
+        else:
+            self.cut_buffer = self.file.cut(self.cut_buffer)
+            self.cut_selection = False
 
     def uncut(self) -> None:
-        self.file.uncut(self.cut_buffer, self.margin)
+        if self.cut_selection:
+            self.file.uncut_selection(self.cut_buffer, self.margin)
+        else:
+            self.file.uncut(self.cut_buffer, self.margin)
 
     def _get_search_re(self, prompt: str) -> Union[Pattern[str], PromptResult]:
         response = self.prompt(prompt, history='search', default_prev=True)
@@ -1232,7 +1393,7 @@ class Screen:
         return None
 
     def save(self) -> Optional[PromptResult]:
-        self.file.mark_previous_action_as_final()
+        self.file.finalize_previous_action()
 
         # TODO: make directories if they don't exist
         # TODO: maybe use mtime / stat as a shortcut for hashing below
@@ -1355,6 +1516,14 @@ def _color_test(stdscr: 'curses._CursesWindow') -> None:
 SEQUENCE_KEYNAME = {
     '\x1bOH': b'KEY_HOME',
     '\x1bOF': b'KEY_END',
+    '\x1b[1;2A': b'KEY_SR',
+    '\x1b[1;2B': b'KEY_SF',
+    '\x1b[1;2C': b'KEY_SRIGHT',
+    '\x1b[1;2D': b'KEY_SLEFT',
+    '\x1b[1;2H': b'KEY_SHOME',
+    '\x1b[1;2F': b'KEY_SEND',
+    '\x1b[5;2~': b'KEY_SPREVIOUS',
+    '\x1b[6;2~': b'KEY_SNEXT',
     '\x1b[1;3A': b'kUP3',  # M-Up
     '\x1b[1;3B': b'kDN3',  # M-Down
     '\x1b[1;3C': b'kRIT3',  # M-Right
@@ -1365,6 +1534,10 @@ SEQUENCE_KEYNAME = {
     '\x1b[1;5D': b'kLFT5',  # ^Left
     '\x1b[1;5H': b'kHOM5',  # ^Home
     '\x1b[1;5F': b'kEND5',  # ^End
+    '\x1b[1;6C': b'kRIT6',  # Shift + ^Right
+    '\x1b[1;6D': b'kLFT6',  # Shift + ^Left
+    '\x1b[1;6H': b'kHOM6',  # Shift + ^Home
+    '\x1b[1;6F': b'kEND6',  # Shift + ^End
 }
 
 

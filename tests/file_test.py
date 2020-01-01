@@ -16,5 +16,6 @@ def test_position_repr():
         '    sha256=None,\n'
         '    undo_stack=[],\n'
         '    redo_stack=[],\n'
+        '    select_start=None,\n'
         ')'
     )
