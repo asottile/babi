@@ -909,15 +909,23 @@ class File:
         self.x = self.x_hint = 0
         self.modified = True
 
-    @edit_action('cut', final=False)
     def cut(self, cut_buffer: Tuple[str, ...]) -> Tuple[str, ...]:
-        if self.y == len(self.lines) - 1:
-            return ()
-        else:
-            victim = self.lines.pop(self.y)
-            self.x = self.x_hint = 0
-            self.modified = True
-            return cut_buffer + (victim,)
+        # only continue a cut if the last action is a non-final cut
+        if (
+                not self.undo_stack or
+                self.undo_stack[-1].name != 'cut' or
+                self.undo_stack[-1].final
+        ):
+            cut_buffer = ()
+
+        with self.edit_action_context('cut', final=False):
+            if self.y == len(self.lines) - 1:
+                return ()
+            else:
+                victim = self.lines.pop(self.y)
+                self.x = self.x_hint = 0
+                self.modified = True
+                return cut_buffer + (victim,)
 
     @edit_action('uncut', final=True)
     def uncut(self, cut_buffer: Tuple[str, ...], margin: Margin) -> None:
@@ -1049,7 +1057,6 @@ class Screen:
         self.history = History()
         self.status = Status()
         self.margin = Margin.from_current_screen()
-        self.prevkey = Key('', b'')
         self.cut_buffer: Tuple[str, ...] = ()
         self._resize_cb: Optional[Callable[[], None]] = None
 
@@ -1168,11 +1175,7 @@ class Screen:
         self.status.update(f'{line}, {col} (of {line_count} {lines_word})')
 
     def cut(self) -> None:
-        if self.prevkey.keyname == b'^K':
-            cut_buffer = self.cut_buffer
-        else:
-            cut_buffer = ()
-        self.cut_buffer = self.file.cut(cut_buffer)
+        self.cut_buffer = self.file.cut(self.cut_buffer)
 
     def uncut(self) -> None:
         self.file.uncut(self.cut_buffer, self.margin)
@@ -1404,7 +1407,6 @@ def _get_char(stdscr: 'curses._CursesWindow') -> Key:
 
 
 def _edit(screen: Screen) -> EditResult:
-    screen.prevkey = Key('', b'')
     screen.file.ensure_loaded(screen.status)
 
     while True:
@@ -1424,8 +1426,6 @@ def _edit(screen: Screen) -> EditResult:
             screen.file.c(key.wch, screen.margin)
         else:
             screen.status.update(f'unknown key: {key}')
-
-        screen.prevkey = key
 
 
 def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
