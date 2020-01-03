@@ -54,9 +54,9 @@ def _line_x(x: int, width: int) -> int:
         )
 
 
-def _scrolled_line(s: str, x: int, width: int, *, current: bool) -> str:
+def _scrolled_line(s: str, x: int, width: int) -> str:
     line_x = _line_x(x, width)
-    if current and line_x:
+    if line_x:
         s = f'«{s[line_x + 1:]}'
         if line_x and len(s) > width:
             return f'{s[:width - 1]}»'
@@ -273,7 +273,7 @@ class Prompt:
         else:
             prompt_s = f'{base}: '
         width = curses.COLS - len(prompt_s)
-        line = _scrolled_line(self._s, self._x, width, current=True)
+        line = _scrolled_line(self._s, self._x, width)
         cmd = f'{prompt_s}{line}'
         self._screen.stdscr.insstr(curses.LINES - 1, 0, cmd, curses.A_REVERSE)
         x = len(prompt_s) + self._x - _line_x(self._x, width)
@@ -813,7 +813,7 @@ class File:
             maxlen = curses.COLS - x
             s = match[0]
             if len(s) >= maxlen:
-                s = _scrolled_line(match[0], 0, maxlen, current=True)
+                s = _scrolled_line(match[0], 0, maxlen)
             screen.stdscr.addstr(y, x, s, curses.A_REVERSE)
 
         count = 0
@@ -1040,8 +1040,8 @@ class File:
         for i in range(to_display):
             line_idx = self.file_y + i
             line = self.lines[line_idx]
-            current = line_idx == self.y
-            line = _scrolled_line(line, self.x, curses.COLS, current=current)
+            x = self.x if line_idx == self.y else 0
+            line = _scrolled_line(line, x, curses.COLS)
             stdscr.insstr(i + margin.header, 0, line)
         blankline = ' ' * curses.COLS
         for i in range(to_display, margin.body_lines):
