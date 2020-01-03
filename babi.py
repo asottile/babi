@@ -829,7 +829,6 @@ class File:
                     line = screen.file.lines[line_y]
                     line = line[:match.start()] + replaced + line[match.end():]
                     screen.file.lines[line_y] = line
-                    screen.file.modified = True
                 search.offset = len(replaced)
             elif res == 'n':
                 search.offset = 1
@@ -868,6 +867,10 @@ class File:
         # backspace at the beginning of the file does nothing
         if self.y == 0 and self.x == 0:
             pass
+        # backspace at the end of the file does not change the contents
+        elif self.y == len(self.lines) - 1:
+            self._decrement_y(margin)
+            self.x = self.x_hint = len(self.lines[self.y])
         # at the beginning of the line, we join the current line and
         # the previous line
         elif self.x == 0:
@@ -876,14 +879,10 @@ class File:
             self.lines[self.y - 1] += victim
             self._decrement_y(margin)
             self.x = self.x_hint = new_x
-            # deleting the fake end-of-file doesn't cause modification
-            self.modified |= self.y < len(self.lines) - 1
-            _restore_lines_eof_invariant(self.lines)
         else:
             s = self.lines[self.y]
             self.lines[self.y] = s[:self.x - 1] + s[self.x:]
             self.x = self.x_hint = self.x - 1
-            self.modified = True
 
     @edit_action('delete text', final=False)
     def delete(self, margin: Margin) -> None:
@@ -894,11 +893,9 @@ class File:
         elif self.x == len(self.lines[self.y]):
             victim = self.lines.pop(self.y + 1)
             self.lines[self.y] += victim
-            self.modified = True
         else:
             s = self.lines[self.y]
             self.lines[self.y] = s[:self.x] + s[self.x + 1:]
-            self.modified = True
 
     @edit_action('line break', final=False)
     def enter(self, margin: Margin) -> None:
@@ -907,7 +904,6 @@ class File:
         self.lines.insert(self.y + 1, s[self.x:])
         self._increment_y(margin)
         self.x = self.x_hint = 0
-        self.modified = True
 
     def cut(self, cut_buffer: Tuple[str, ...]) -> Tuple[str, ...]:
         # only continue a cut if the last action is a non-final cut
@@ -924,7 +920,6 @@ class File:
             else:
                 victim = self.lines.pop(self.y)
                 self.x = self.x_hint = 0
-                self.modified = True
                 return cut_buffer + (victim,)
 
     @edit_action('uncut', final=True)
@@ -968,7 +963,6 @@ class File:
         s = self.lines[self.y]
         self.lines[self.y] = s[:self.x] + wch + s[self.x:]
         self.x = self.x_hint = self.x + 1
-        self.modified = True
         _restore_lines_eof_invariant(self.lines)
 
     def mark_previous_action_as_final(self) -> None:
@@ -1005,14 +999,14 @@ class File:
             if continue_last:
                 self.undo_stack[-1].end_x = self.x
                 self.undo_stack[-1].end_y = self.y
-                self.undo_stack[-1].end_modified = self.modified
             elif spy.has_modifications:
+                self.modified = True
                 action = Action(
                     name=name, spy=spy,
                     start_x=before_x, start_y=before_line,
                     start_modified=before_modified,
                     end_x=self.x, end_y=self.y,
-                    end_modified=self.modified,
+                    end_modified=True,
                     final=final,
                 )
                 self.undo_stack.append(action)
