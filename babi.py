@@ -141,7 +141,6 @@ class ListSpy(MutableSequenceNoSlice):
 
 class Key(NamedTuple):
     wch: Union[int, str]
-    key: int
     keyname: bytes
 
 
@@ -279,15 +278,6 @@ class Prompt:
         x = len(prompt_s) + self._x - _line_x(self._x, width)
         self._screen.stdscr.move(curses.LINES - 1, x)
 
-    def _resize(self) -> None:
-        self._screen.resize()
-
-    def _left(self) -> None:
-        self._x = max(0, self._x - 1)
-
-    def _right(self) -> None:
-        self._x = min(len(self._s), self._x + 1)
-
     def _up(self) -> None:
         self._y = max(0, self._y - 1)
         self._x = len(self._s)
@@ -295,6 +285,12 @@ class Prompt:
     def _down(self) -> None:
         self._y = min(len(self._lst) - 1, self._y + 1)
         self._x = len(self._s)
+
+    def _right(self) -> None:
+        self._x = min(len(self._s), self._x + 1)
+
+    def _left(self) -> None:
+        self._x = max(0, self._x - 1)
 
     def _home(self) -> None:
         self._x = 0
@@ -332,6 +328,9 @@ class Prompt:
     def _cut_to_end(self) -> None:
         self._s = self._s[:self._x]
 
+    def _resize(self) -> None:
+        self._screen.resize()
+
     def _reverse_search(self) -> Union[None, str, PromptResult]:
         reverse_s = ''
         reverse_idx = self._y
@@ -353,9 +352,9 @@ class Prompt:
             self._render_prompt(base=base)
             key = _get_char(self._screen.stdscr)
 
-            if key.key == curses.KEY_RESIZE:
+            if key.keyname == b'KEY_RESIZE':
                 self._screen.resize()
-            elif key.key == curses.KEY_BACKSPACE:
+            elif key.keyname == b'KEY_BACKSPACE':
                 reverse_s = reverse_s[:-1]
             elif isinstance(key.wch, str) and key.wch.isprintable():
                 reverse_s += key.wch
@@ -363,7 +362,7 @@ class Prompt:
                 reverse_idx = max(0, reverse_idx - 1)
             elif key.keyname == b'^C':
                 return self._screen.status.cancelled()
-            elif key.key == ord('\r'):
+            elif key.keyname == b'^M':
                 return self._s
             else:
                 return None
@@ -375,24 +374,25 @@ class Prompt:
         return self._s
 
     DISPATCH = {
-        curses.KEY_RESIZE: _resize,
-        curses.KEY_LEFT: _left,
-        curses.KEY_RIGHT: _right,
-        curses.KEY_UP: _up,
-        curses.KEY_DOWN: _down,
-        curses.KEY_HOME: _home,
-        curses.KEY_END: _end,
-        curses.KEY_BACKSPACE: _backspace,
-        curses.KEY_DC: _delete,
-        ord('\r'): _submit,
-    }
-    DISPATCH_KEY = {
+        # movement
+        b'KEY_UP': _up,
+        b'KEY_DOWN': _down,
+        b'KEY_RIGHT': _right,
+        b'KEY_LEFT': _left,
+        b'KEY_HOME': _home,
         b'^A': _home,
+        b'KEY_END': _end,
         b'^E': _end,
         b'kRIT5': _ctrl_right,
         b'kLFT5': _ctrl_left,
+        # editing
+        b'KEY_BACKSPACE': _backspace,
+        b'KEY_DC': _delete,
         b'^K': _cut_to_end,
+        # misc
+        b'KEY_RESIZE': _resize,
         b'^R': _reverse_search,
+        b'^M': _submit,
         b'^C': _cancel,
     }
 
@@ -405,16 +405,12 @@ class Prompt:
             self._render_prompt()
             key = _get_char(self._screen.stdscr)
 
-            ret: Union[None, str, PromptResult] = None
-            if key.key in Prompt.DISPATCH:
-                ret = Prompt.DISPATCH[key.key](self)
-            elif key.keyname in Prompt.DISPATCH_KEY:
-                ret = Prompt.DISPATCH_KEY[key.keyname](self)
+            if key.keyname in Prompt.DISPATCH:
+                ret = Prompt.DISPATCH[key.keyname](self)
+                if ret is not None:
+                    return ret
             elif isinstance(key.wch, str) and key.wch.isprintable():
                 self._c(key.wch)
-
-            if ret is not None:
-                return ret
 
 
 class History:
@@ -657,15 +653,15 @@ class File:
             self.file_y = max(self.file_y, 0)
 
     @action
-    def down(self, margin: Margin) -> None:
-        if self.y < len(self.lines) - 1:
-            self._increment_y(margin)
-            self._set_x_after_vertical_movement()
-
-    @action
     def up(self, margin: Margin) -> None:
         if self.y > 0:
             self._decrement_y(margin)
+            self._set_x_after_vertical_movement()
+
+    @action
+    def down(self, margin: Margin) -> None:
+        if self.y < len(self.lines) - 1:
+            self._increment_y(margin)
             self._set_x_after_vertical_movement()
 
     @action
@@ -695,17 +691,6 @@ class File:
     @action
     def end(self, margin: Margin) -> None:
         self.x = self.x_hint = len(self.lines[self.y])
-
-    @action
-    def ctrl_home(self, margin: Margin) -> None:
-        self.x = self.x_hint = 0
-        self.y = self.file_y = 0
-
-    @action
-    def ctrl_end(self, margin: Margin) -> None:
-        self.x = self.x_hint = 0
-        self.y = len(self.lines) - 1
-        self.scroll_screen_if_needed(margin)
 
     @action
     def ctrl_up(self, margin: Margin) -> None:
@@ -763,6 +748,17 @@ class File:
             tp = line[self.x - 1].isalnum()
             while self.x > 0 and tp == line[self.x - 1].isalnum():
                 self.x = self.x_hint = self.x - 1
+
+    @action
+    def ctrl_home(self, margin: Margin) -> None:
+        self.x = self.x_hint = 0
+        self.y = self.file_y = 0
+
+    @action
+    def ctrl_end(self, margin: Margin) -> None:
+        self.x = self.x_hint = 0
+        self.y = len(self.lines) - 1
+        self.scroll_screen_if_needed(margin)
 
     @action
     def go_to_line(self, lineno: int, margin: Margin) -> None:
@@ -939,31 +935,28 @@ class File:
 
     DISPATCH = {
         # movement
-        curses.KEY_DOWN: down,
-        curses.KEY_UP: up,
-        curses.KEY_LEFT: left,
-        curses.KEY_RIGHT: right,
-        curses.KEY_HOME: home,
-        curses.KEY_END: end,
-        curses.KEY_PPAGE: page_up,
-        curses.KEY_NPAGE: page_down,
-        # editing
-        curses.KEY_BACKSPACE: backspace,
-        curses.KEY_DC: delete,
-        ord('\r'): enter,
-    }
-    DISPATCH_KEY = {
-        # movement
+        b'KEY_UP': up,
+        b'KEY_DOWN': down,
+        b'KEY_RIGHT': right,
+        b'KEY_LEFT': left,
+        b'KEY_HOME': home,
         b'^A': home,
+        b'KEY_END': end,
         b'^E': end,
+        b'KEY_PPAGE': page_up,
         b'^Y': page_up,
+        b'KEY_NPAGE': page_down,
         b'^V': page_down,
-        b'kHOM5': ctrl_home,
-        b'kEND5': ctrl_end,
         b'kUP5': ctrl_up,
         b'kDN5': ctrl_down,
         b'kRIT5': ctrl_right,
         b'kLFT5': ctrl_left,
+        b'kHOM5': ctrl_home,
+        b'kEND5': ctrl_end,
+        # editing
+        b'KEY_BACKSPACE': backspace,
+        b'KEY_DC': delete,
+        b'^M': enter,
     }
 
     @edit_action('text', final=False)
@@ -1060,7 +1053,7 @@ class Screen:
         self.history = History()
         self.status = Status()
         self.margin = Margin.from_current_screen()
-        self.prevkey = Key('', 0, b'')
+        self.prevkey = Key('', b'')
         self.cut_buffer: Tuple[str, ...] = ()
         self._resize_cb: Optional[Callable[[], None]] = None
 
@@ -1119,7 +1112,7 @@ class Screen:
             self.stdscr.move(curses.LINES - 1, x)
 
             key = _get_char(self.stdscr)
-            if key.key == curses.KEY_RESIZE:
+            if key.keyname == b'KEY_RESIZE':
                 self.resize()
             elif key.keyname == b'^C':
                 return self.status.cancelled()
@@ -1323,9 +1316,7 @@ class Screen:
         self.resize()
 
     DISPATCH = {
-        curses.KEY_RESIZE: resize,
-    }
-    DISPATCH_KEY = {
+        b'KEY_RESIZE': resize,
         b'^_': go_to_line,
         b'^C': current_position,
         b'^K': cut,
@@ -1368,13 +1359,7 @@ def _color_test(stdscr: 'curses._CursesWindow') -> None:
 
 
 # TODO: find a place to populate these, surely there's a database somewhere
-SEQUENCE_KEY = {
-    '\x1bOH': curses.KEY_HOME,
-    '\x1bOF': curses.KEY_END,
-}
 SEQUENCE_KEYNAME = {
-    '\x1b[1;5H': b'kHOM5',  # ^Home
-    '\x1b[1;5F': b'kEND5',  # ^End
     '\x1bOH': b'KEY_HOME',
     '\x1bOF': b'KEY_END',
     '\x1b[1;3A': b'kUP3',  # M-Up
@@ -1385,6 +1370,8 @@ SEQUENCE_KEYNAME = {
     '\x1b[1;5B': b'kDN5',  # ^Down
     '\x1b[1;5C': b'kRIT5',  # ^Right
     '\x1b[1;5D': b'kLFT5',  # ^Left
+    '\x1b[1;5H': b'kHOM5',  # ^Home
+    '\x1b[1;5F': b'kEND5',  # ^End
 }
 
 
@@ -1407,23 +1394,21 @@ def _get_char(stdscr: 'curses._CursesWindow') -> Key:
             stdscr.nodelay(False)
 
         if len(wch) == 2:
-            return Key(wch, -1, f'M-{wch[1]}'.encode())
+            return Key(wch, f'M-{wch[1]}'.encode())
         elif len(wch) > 1:
-            key = SEQUENCE_KEY.get(wch, -1)
             keyname = SEQUENCE_KEYNAME.get(wch, b'unknown')
-            return Key(wch, key, keyname)
+            return Key(wch, keyname)
     elif wch == '\x7f':  # pragma: no cover (macos)
-        key = curses.KEY_BACKSPACE
-        keyname = curses.keyname(key)
-        return Key(wch, key, keyname)
+        keyname = curses.keyname(curses.KEY_BACKSPACE)
+        return Key(wch, keyname)
 
     key = wch if isinstance(wch, int) else ord(wch)
     keyname = curses.keyname(key)
-    return Key(wch, key, keyname)
+    return Key(wch, keyname)
 
 
 def _edit(screen: Screen) -> EditResult:
-    screen.prevkey = Key('', 0, b'')
+    screen.prevkey = Key('', b'')
     screen.file.ensure_loaded(screen.status)
 
     while True:
@@ -1433,14 +1418,10 @@ def _edit(screen: Screen) -> EditResult:
 
         key = _get_char(screen.stdscr)
 
-        if key.key in File.DISPATCH:
-            File.DISPATCH[key.key](screen.file, screen.margin)
-        elif key.keyname in File.DISPATCH_KEY:
-            File.DISPATCH_KEY[key.keyname](screen.file, screen.margin)
-        elif key.key in Screen.DISPATCH:
-            Screen.DISPATCH[key.key](screen)
-        elif key.keyname in Screen.DISPATCH_KEY:
-            ret = Screen.DISPATCH_KEY[key.keyname](screen)
+        if key.keyname in File.DISPATCH:
+            File.DISPATCH[key.keyname](screen.file, screen.margin)
+        elif key.keyname in Screen.DISPATCH:
+            ret = Screen.DISPATCH[key.keyname](screen)
             if isinstance(ret, EditResult):
                 return ret
         elif isinstance(key.wch, str) and key.wch.isprintable():
