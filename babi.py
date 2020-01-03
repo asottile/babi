@@ -806,12 +806,7 @@ class File:
         def highlight() -> None:
             y = screen.file.rendered_y(screen.margin)
             x = screen.file.rendered_x()
-            maxlen = curses.COLS - x
-            s = match[0]
-            if len(s) >= maxlen:
-                s = _scrolled_line(match[0], 0, maxlen)
-            # TODO: probably should do this without `len(s)`
-            screen.stdscr.chgat(y, x, len(s), curses.A_REVERSE)
+            screen.stdscr.chgat(y, x, len(match[0]), curses.A_REVERSE)
 
         count = 0
         res: Union[str, PromptResult] = ''
