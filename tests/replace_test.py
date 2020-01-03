@@ -162,6 +162,23 @@ def test_replace_small_window_size(ten_lines):
         h.press('^C')
 
 
+def test_replace_height_1_highlight():
+    with run() as h, and_exit(h):
+        h.press('x' * 90)
+        h.press('^\\')
+        h.await_text('search (to replace):')
+        h.press_and_enter('^x+$')
+        h.await_text('replace with:')
+        h.press('Enter')
+        h.await_text('replace [y(es), n(o), a(ll)]?')
+
+        with h.resize(width=80, height=1):
+            h.await_text_missing('xxxxx')
+        h.await_text('xxxxx')
+
+        h.press('^C')
+
+
 def test_replace_line_goes_off_screen():
     with run() as h, and_exit(h):
         h.press(f'{"a" * 20}{"b" * 90}')

@@ -810,7 +810,8 @@ class File:
             s = match[0]
             if len(s) >= maxlen:
                 s = _scrolled_line(match[0], 0, maxlen)
-            screen.stdscr.addstr(y, x, s, curses.A_REVERSE)
+            # TODO: probably should do this without `len(s)`
+            screen.stdscr.chgat(y, x, len(s), curses.A_REVERSE)
 
         count = 0
         res: Union[str, PromptResult] = ''
