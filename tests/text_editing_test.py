@@ -1,3 +1,5 @@
+import pytest
+
 from testing.runner import and_exit
 from testing.runner import run
 
@@ -14,7 +16,7 @@ def test_basic_text_editing(tmpdir):
 
 def test_backspace_at_beginning_of_file():
     with run() as h, and_exit(h):
-        h.press('Bspace')
+        h.press('BSpace')
         h.await_text_missing('unknown key')
         assert h.screenshot().strip().splitlines()[1:] == []
         assert '*' not in h.screenshot()
@@ -27,7 +29,7 @@ def test_backspace_joins_lines(tmpdir):
     with run(str(f)) as h, and_exit(h):
         h.await_text('foo')
         h.press('Down')
-        h.press('Bspace')
+        h.press('BSpace')
         h.await_text('foobar')
         h.await_text('f *')
         h.await_cursor_position(x=3, y=1)
@@ -43,13 +45,14 @@ def test_backspace_at_end_of_file_still_allows_scrolling_down(tmpdir):
     with run(str(f)) as h, and_exit(h):
         h.await_text('hello world')
         h.press('Down')
-        h.press('Bspace')
+        h.press('BSpace')
         h.press('Down')
         h.await_cursor_position(x=0, y=2)
         assert '*' not in h.screenshot()
 
 
-def test_backspace_deletes_text(tmpdir):
+@pytest.mark.parametrize('key', ('BSpace', '^H'))
+def test_backspace_deletes_text(tmpdir, key):
     f = tmpdir.join('f')
     f.write('ohai there')
 
@@ -57,7 +60,7 @@ def test_backspace_deletes_text(tmpdir):
         h.await_text('ohai there')
         for _ in range(3):
             h.press('Right')
-        h.press('Bspace')
+        h.press(key)
         h.await_text('ohi')
         h.await_text('f *')
         h.await_cursor_position(x=2, y=1)

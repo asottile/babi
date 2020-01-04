@@ -39,7 +39,7 @@ def test_undo_redo_action_interrupts_actions():
     with run() as h, and_exit(h):
         h.press('hello')
         h.await_text('hello')
-        h.press('Bspace')
+        h.press('BSpace')
         h.await_text_missing('hello')
         h.press('M-u')
         h.await_text('hello')

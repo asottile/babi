@@ -1,3 +1,5 @@
+import pytest
+
 from testing.runner import and_exit
 from testing.runner import run
 
@@ -42,25 +44,35 @@ def test_key_navigation_in_command_mode():
         h.await_cursor_position(x=11, y=23)
         h.await_text('\nhello world\n')
 
-        h.press('Bspace')
-        h.await_cursor_position(x=10, y=23)
-        h.await_text('\nhello worl\n')
-
         h.press('Home')
-
-        h.press('Bspace')  # does nothing at beginning
-        h.await_cursor_position(x=0, y=23)
-        h.await_text('\nhello worl\n')
 
         h.press('DC')
         h.await_cursor_position(x=0, y=23)
-        h.await_text('\nello worl\n')
+        h.await_text('\nello world\n')
 
         # unknown keys don't do anything
         h.press('^J')
-        h.await_text('\nello worl\n')
+        h.await_text('\nello world\n')
 
         h.press('Enter')
+
+
+@pytest.mark.parametrize('key', ('BSpace', '^H'))
+def test_command_mode_backspace(key):
+    with run() as h, and_exit(h):
+        trigger_command_mode(h)
+        h.press('hello world')
+        h.await_text('\nhello world\n')
+
+        h.press(key)
+        h.await_text('\nhello worl\n')
+
+        h.press('Home')
+        h.press(key)  # does nothing at beginning
+        h.await_cursor_position(x=0, y=23)
+        h.await_text('\nhello worl\n')
+
+        h.press('^C')
 
 
 def test_command_mode_ctrl_k():

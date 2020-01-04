@@ -204,6 +204,24 @@ def test_search_multiple_sessions_append_to_history(xdg_data_home):
     )
 
 
+@pytest.mark.parametrize('key', ('BSpace', '^H'))
+def test_search_reverse_search_history_backspace(xdg_data_home, key):
+    xdg_data_home.join('babi/history/search').ensure().write(
+        'line_5\n'
+        'line_3\n'
+        'line_1\n',
+    )
+    with run() as h, and_exit(h):
+        h.press('^W')
+        h.press('^R')
+        h.await_text('search(reverse-search)``:')
+        h.press('linea')
+        h.await_text('search(failed reverse-search)`linea`: line_1')
+        h.press(key)
+        h.await_text('search(reverse-search)`line`: line_1')
+        h.press('^C')
+
+
 def test_search_reverse_search_history(xdg_data_home, ten_lines):
     xdg_data_home.join('babi/history/search').ensure().write(
         'line_5\n'
@@ -215,10 +233,6 @@ def test_search_reverse_search_history(xdg_data_home, ten_lines):
         h.press('^R')
         h.await_text('search(reverse-search)``:')
         h.press('line')
-        h.await_text('search(reverse-search)`line`: line_1')
-        h.press('a')
-        h.await_text('search(failed reverse-search)`linea`: line_1')
-        h.press('BSpace')
         h.await_text('search(reverse-search)`line`: line_1')
         h.press('^R')
         h.await_text('search(reverse-search)`line`: line_3')
