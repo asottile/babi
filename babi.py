@@ -354,7 +354,7 @@ class Prompt:
 
             if key.keyname == b'KEY_RESIZE':
                 self._screen.resize()
-            elif key.keyname == b'KEY_BACKSPACE':
+            elif key.keyname == b'KEY_BACKSPACE' or key.keyname == b'^H':
                 reverse_s = reverse_s[:-1]
             elif isinstance(key.wch, str) and key.wch.isprintable():
                 reverse_s += key.wch
@@ -387,6 +387,7 @@ class Prompt:
         b'kLFT5': _ctrl_left,
         # editing
         b'KEY_BACKSPACE': _backspace,
+        b'^H': _backspace,  # ^Backspace
         b'KEY_DC': _delete,
         b'^K': _cut_to_end,
         # misc
@@ -1011,6 +1012,7 @@ class File:
         b'kEND5': ctrl_end,
         # editing
         b'KEY_BACKSPACE': backspace,
+        b'^H': backspace,  # ^Backspace
         b'KEY_DC': delete,
         b'^M': enter,
         # selection (shift + movement)
