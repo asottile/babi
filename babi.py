@@ -14,7 +14,6 @@ from typing import Any
 from typing import Callable
 from typing import cast
 from typing import Dict
-from typing import FrozenSet
 from typing import Generator
 from typing import IO
 from typing import Iterator
@@ -842,7 +841,7 @@ class File:
                 highlight()
                 with screen.resize_cb(highlight):
                     res = screen.quick_prompt(
-                        'replace [y(es), n(o), a(ll)]?', frozenset('yna'),
+                        'replace [y(es), n(o), a(ll)]?', 'yna',
                     )
             if res in {'y', 'a'}:
                 count += 1
@@ -1314,11 +1313,7 @@ class Screen:
         if self._resize_cb is not None:
             self._resize_cb()
 
-    def quick_prompt(
-            self,
-            prompt: str,
-            options: FrozenSet[str],
-    ) -> Union[str, PromptResult]:
+    def quick_prompt(self, prompt: str, opts: str) -> Union[str, PromptResult]:
         while True:
             s = prompt.ljust(curses.COLS)
             if len(s) > curses.COLS:
@@ -1332,8 +1327,7 @@ class Screen:
                 self.resize()
             elif key.keyname == b'^C':
                 return self.status.cancelled()
-            elif key.wch in options:
-                assert isinstance(key.wch, str)  # mypy doesn't know
+            elif isinstance(key.wch, str) and key.wch in opts:
                 return key.wch
 
     def prompt(
@@ -1515,7 +1509,7 @@ class Screen:
     def quit_save_modified(self) -> Optional[EditResult]:
         if self.file.modified:
             response = self.quick_prompt(
-                'file is modified - save [y(es), n(o)]?', frozenset('yn'),
+                'file is modified - save [y(es), n(o)]?', 'yn',
             )
             if response == 'y':
                 if self.save_filename() is not PromptResult.CANCELLED:
