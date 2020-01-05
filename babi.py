@@ -1141,25 +1141,25 @@ class File:
             if s_y == e_y:
                 self.highlight(
                     stdscr, margin,
-                    y=s_y, x=s_x, n=e_x - s_x, color=curses.A_REVERSE,
-                    include_edge=True,
+                    y=s_y, x=s_x, n=e_x - s_x,
+                    color=curses.A_REVERSE, include_edge=True,
                 )
             else:
                 self.highlight(
                     stdscr, margin,
-                    y=s_y, x=s_x, n=-1, color=curses.A_REVERSE,
-                    include_edge=True,
+                    y=s_y, x=s_x, n=len(self.lines[s_y]) - s_x + 1,
+                    color=curses.A_REVERSE, include_edge=True,
                 )
                 for l_y in range(s_y + 1, e_y):
                     self.highlight(
                         stdscr, margin,
-                        y=l_y, x=0, n=-1, color=curses.A_REVERSE,
-                        include_edge=True,
+                        y=l_y, x=0, n=len(self.lines[l_y]) + 1,
+                        color=curses.A_REVERSE, include_edge=True,
                     )
                 self.highlight(
                     stdscr, margin,
-                    y=e_y, x=0, n=e_x, color=curses.A_REVERSE,
-                    include_edge=True,
+                    y=e_y, x=0, n=e_x,
+                    color=curses.A_REVERSE, include_edge=True,
                 )
 
     def highlight(
