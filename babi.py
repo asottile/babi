@@ -930,6 +930,68 @@ class File:
         self._increment_y(margin)
         self.x = self.x_hint = 0
 
+    @edit_action('indent selection', final=True)
+    def _indent_selection(self, margin: Margin) -> None:
+        assert self.select_start is not None
+        sel_y, sel_x = self.select_start
+        (s_y, _), (e_y, _) = self._get_selection()
+        for l_y in range(s_y, e_y + 1):
+            if self.lines[l_y]:
+                self.lines[l_y] = ' ' * 4 + self.lines[l_y]
+                if l_y == sel_y and sel_x != 0:
+                    self.select_start = (sel_y, sel_x + 4)
+                if l_y == self.y:
+                    self.x = self.x_hint = self.x + 4
+
+    @edit_action('insert tab', final=False)
+    def _tab(self, margin: Margin) -> None:
+        n = 4 - self.x % 4
+        line = self.lines[self.y]
+        self.lines[self.y] = line[:self.x] + n * ' ' + line[self.x:]
+        self.x = self.x_hint = self.x + n
+        _restore_lines_eof_invariant(self.lines)
+
+    def tab(self, margin: Margin) -> None:
+        if self.select_start:
+            self._indent_selection(margin)
+        else:
+            self._tab(margin)
+
+    @staticmethod
+    def _dedent_line(s: str) -> int:
+        bound = min(len(s), 4)
+        i = 0
+        while i < bound and s[i] == ' ':
+            i += 1
+        return i
+
+    @edit_action('dedent selection', final=True)
+    def _dedent_selection(self, margin: Margin) -> None:
+        assert self.select_start is not None
+        sel_y, sel_x = self.select_start
+        (s_y, _), (e_y, _) = self._get_selection()
+        for l_y in range(s_y, e_y + 1):
+            n = self._dedent_line(self.lines[l_y])
+            if n:
+                self.lines[l_y] = self.lines[l_y][n:]
+                if l_y == sel_y:
+                    self.select_start = (sel_y, max(sel_x - n, 0))
+                if l_y == self.y:
+                    self.x = self.x_hint = max(self.x - n, 0)
+
+    @edit_action('dedent', final=True)
+    def _dedent(self, margin: Margin) -> None:
+        n = self._dedent_line(self.lines[self.y])
+        if n:
+            self.lines[self.y] = self.lines[self.y][n:]
+            self.x = self.x_hint = self.x - n
+
+    def shift_tab(self, margin: Margin) -> None:
+        if self.select_start:
+            self._dedent_selection(margin)
+        else:
+            self._dedent(margin)
+
     @edit_action('cut selection', final=True)
     @clear_selection
     def cut_selection(self, margin: Margin) -> Tuple[str, ...]:
@@ -1015,6 +1077,8 @@ class File:
         b'^H': backspace,  # ^Backspace
         b'KEY_DC': delete,
         b'^M': enter,
+        b'^I': tab,
+        b'KEY_BTAB': shift_tab,
         # selection (shift + movement)
         b'KEY_SR': keep_selection(up),
         b'KEY_SF': keep_selection(down),
