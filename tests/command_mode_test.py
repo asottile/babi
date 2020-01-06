@@ -2,17 +2,7 @@ import pytest
 
 from testing.runner import and_exit
 from testing.runner import run
-
-
-def trigger_command_mode(h):
-    # in order to enter a steady state, trigger an unknown key first and then
-    # press escape to open the command mode.  this is necessary as `Escape` is
-    # the start of "escape sequences" and sending characters too quickly will
-    # be interpreted as a single keypress
-    h.press('^J')
-    h.await_text('unknown key')
-    h.press('Escape')
-    h.await_text_missing('unknown key')
+from testing.runner import trigger_command_mode
 
 
 def test_quit_via_colon_q():

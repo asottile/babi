@@ -6,6 +6,7 @@ import enum
 import functools
 import hashlib
 import io
+import itertools
 import os
 import re
 import signal
@@ -1051,6 +1052,27 @@ class File:
         self.x = self.x_hint = len(self.lines[self.y])
         self.lines[self.y] += self.lines.pop(self.y + 1)
 
+    def _sort(self, margin: Margin, s_y: int, e_y: int) -> None:
+        # self.lines intentionally does not support slicing so we use islice
+        lines = sorted(itertools.islice(self.lines, s_y, e_y))
+        for i, line in zip(range(s_y, e_y), lines):
+            self.lines[i] = line
+
+        self.y = s_y
+        self.x = self.x_hint = 0
+        self.scroll_screen_if_needed(margin)
+
+    @edit_action('sort', final=True)
+    def sort(self, margin: Margin) -> None:
+        self._sort(margin, 0, len(self.lines) - 1)
+
+    @edit_action('sort selection', final=True)
+    @clear_selection
+    def sort_selection(self, margin: Margin) -> None:
+        (s_y, _), (e_y, _) = self._get_selection()
+        e_y = min(e_y + 1, len(self.lines) - 1)
+        self._sort(margin, s_y, e_y)
+
     DISPATCH = {
         # movement
         b'KEY_UP': up,
@@ -1448,6 +1470,12 @@ class Screen:
         elif response == ':wq':
             self.save()
             return EditResult.EXIT
+        elif response == ':sort':
+            if self.file.select_start:
+                self.file.sort_selection(self.margin)
+            else:
+                self.file.sort(self.margin)
+            self.status.update('sorted!')
         elif response is not PromptResult.CANCELLED:
             self.status.update(f'invalid command: {response}')
         return None
