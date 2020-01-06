@@ -36,6 +36,7 @@ VERSION_STR = 'babi v0'
 TCallable = TypeVar('TCallable', bound=Callable[..., Any])
 EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 PromptResult = enum.Enum('PromptResult', 'CANCELLED')
+HIGHLIGHT = curses.A_REVERSE | curses.A_DIM
 
 
 def _line_x(x: int, width: int) -> int:
@@ -825,8 +826,7 @@ class File:
             self.highlight(
                 screen.stdscr, screen.margin,
                 y=self.y, x=self.x, n=len(match[0]),
-                color=curses.A_REVERSE,
-                include_edge=True,
+                color=HIGHLIGHT, include_edge=True,
             )
 
         count = 0
@@ -1205,24 +1205,24 @@ class File:
                 self.highlight(
                     stdscr, margin,
                     y=s_y, x=s_x, n=e_x - s_x,
-                    color=curses.A_REVERSE, include_edge=True,
+                    color=HIGHLIGHT, include_edge=True,
                 )
             else:
                 self.highlight(
                     stdscr, margin,
                     y=s_y, x=s_x, n=len(self.lines[s_y]) - s_x + 1,
-                    color=curses.A_REVERSE, include_edge=True,
+                    color=HIGHLIGHT, include_edge=True,
                 )
                 for l_y in range(s_y + 1, e_y):
                     self.highlight(
                         stdscr, margin,
                         y=l_y, x=0, n=len(self.lines[l_y]) + 1,
-                        color=curses.A_REVERSE, include_edge=True,
+                        color=HIGHLIGHT, include_edge=True,
                     )
                 self.highlight(
                     stdscr, margin,
                     y=e_y, x=0, n=e_x,
-                    color=curses.A_REVERSE, include_edge=True,
+                    color=HIGHLIGHT, include_edge=True,
                 )
 
     def highlight(
