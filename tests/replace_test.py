@@ -1,11 +1,10 @@
 import pytest
 
 from testing.runner import and_exit
-from testing.runner import run
 
 
 @pytest.mark.parametrize('key', ('^C', 'Enter'))
-def test_replace_cancel(key):
+def test_replace_cancel(run, key):
     with run() as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -13,7 +12,7 @@ def test_replace_cancel(key):
         h.await_text('cancelled')
 
 
-def test_replace_invalid_regex():
+def test_replace_invalid_regex(run):
     with run() as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -21,7 +20,7 @@ def test_replace_invalid_regex():
         h.await_text("invalid regex: '('")
 
 
-def test_replace_cancel_at_replace_string():
+def test_replace_cancel_at_replace_string(run):
     with run() as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -31,7 +30,7 @@ def test_replace_cancel_at_replace_string():
         h.await_text('cancelled')
 
 
-def test_replace_actual_contents(ten_lines):
+def test_replace_actual_contents(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -46,7 +45,7 @@ def test_replace_actual_contents(ten_lines):
         h.await_text('replaced 1 occurrence')
 
 
-def test_replace_sets_x_hint_properly(tmpdir):
+def test_replace_sets_x_hint_properly(run, tmpdir):
     f = tmpdir.join('f')
     contents = '''\
 beginning_line
@@ -68,7 +67,7 @@ match me!
         h.await_cursor_position(x=6, y=1)
 
 
-def test_replace_cancel_at_individual_replace(ten_lines):
+def test_replace_cancel_at_individual_replace(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -80,7 +79,7 @@ def test_replace_cancel_at_individual_replace(ten_lines):
         h.await_text('cancelled')
 
 
-def test_replace_unknown_characters_at_individual_replace(ten_lines):
+def test_replace_unknown_characters_at_individual_replace(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -93,7 +92,7 @@ def test_replace_unknown_characters_at_individual_replace(ten_lines):
         h.await_text('cancelled')
 
 
-def test_replace_say_no_to_individual_replace(ten_lines):
+def test_replace_say_no_to_individual_replace(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -110,7 +109,7 @@ def test_replace_say_no_to_individual_replace(ten_lines):
         h.await_text('replaced 2 occurrences')
 
 
-def test_replace_all(ten_lines):
+def test_replace_all(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -124,7 +123,7 @@ def test_replace_all(ten_lines):
         h.await_text('replaced 10 occurrences')
 
 
-def test_replace_with_empty_string(ten_lines):
+def test_replace_with_empty_string(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -136,7 +135,7 @@ def test_replace_with_empty_string(ten_lines):
         h.await_text_missing('line_1')
 
 
-def test_replace_search_not_found(ten_lines):
+def test_replace_search_not_found(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -147,7 +146,7 @@ def test_replace_search_not_found(ten_lines):
         h.await_text('no matches')
 
 
-def test_replace_small_window_size(ten_lines):
+def test_replace_small_window_size(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -162,9 +161,10 @@ def test_replace_small_window_size(ten_lines):
         h.press('^C')
 
 
-def test_replace_height_1_highlight():
-    with run() as h, and_exit(h):
-        h.press('x' * 90)
+def test_replace_height_1_highlight(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('x' * 90)
+    with run(str(f)) as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
         h.press_and_enter('^x+$')
@@ -179,7 +179,7 @@ def test_replace_height_1_highlight():
         h.press('^C')
 
 
-def test_replace_line_goes_off_screen():
+def test_replace_line_goes_off_screen(run):
     with run() as h, and_exit(h):
         h.press(f'{"a" * 20}{"b" * 90}')
         h.press('^A')
@@ -196,7 +196,7 @@ def test_replace_line_goes_off_screen():
         h.await_text('replaced 1 occurrence')
 
 
-def test_replace_undo_undoes_only_one(ten_lines):
+def test_replace_undo_undoes_only_one(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -213,7 +213,7 @@ def test_replace_undo_undoes_only_one(ten_lines):
         h.await_text_missing('line_0')
 
 
-def test_replace_multiple_occurrences_in_line():
+def test_replace_multiple_occurrences_in_line(run):
     with run() as h, and_exit(h):
         h.press('baaaaabaaaaa')
         h.press('^\\')
@@ -226,7 +226,7 @@ def test_replace_multiple_occurrences_in_line():
         h.await_text('bqbq')
 
 
-def test_replace_after_wrapping(ten_lines):
+def test_replace_after_wrapping(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('Down')
         h.press('^\\')
@@ -242,7 +242,7 @@ def test_replace_after_wrapping(ten_lines):
         h.await_text('replaced 2 occurrences')
 
 
-def test_replace_after_cursor_after_wrapping():
+def test_replace_after_cursor_after_wrapping(run):
     with run() as h, and_exit(h):
         h.press('baaab')
         h.press('Left')
@@ -258,7 +258,7 @@ def test_replace_after_cursor_after_wrapping():
         h.await_text('qaaab')
 
 
-def test_replace_separate_line_after_wrapping(ten_lines):
+def test_replace_separate_line_after_wrapping(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('Down')
         h.press('Down')

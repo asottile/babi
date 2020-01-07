@@ -1,10 +1,9 @@
 import pytest
 
 from testing.runner import and_exit
-from testing.runner import run
 
 
-def test_mixed_newlines(tmpdir):
+def test_mixed_newlines(run, tmpdir):
     f = tmpdir.join('f')
     f.write_binary(b'foo\nbar\r\n')
     with run(str(f)) as h, and_exit(h):
@@ -13,20 +12,20 @@ def test_mixed_newlines(tmpdir):
         h.await_text(r"mixed newlines will be converted to '\n'")
 
 
-def test_new_file():
+def test_new_file(run):
     with run('this_is_a_new_file') as h, and_exit(h):
         h.await_text('this_is_a_new_file')
         h.await_text('(new file)')
 
 
-def test_not_a_file(tmpdir):
+def test_not_a_file(run, tmpdir):
     d = tmpdir.join('d').ensure_dir()
     with run(str(d)) as h, and_exit(h):
         h.await_text('<<new file>>')
         h.await_text("d' is not a file")
 
 
-def test_save_no_filename_specified(tmpdir):
+def test_save_no_filename_specified(run, tmpdir):
     f = tmpdir.join('f')
 
     with run() as h, and_exit(h):
@@ -36,11 +35,11 @@ def test_save_no_filename_specified(tmpdir):
         h.press_and_enter(str(f))
         h.await_text('saved! (1 line written)')
         h.await_text_missing('*')
-        assert f.read() == 'hello world\n'
+    assert f.read() == 'hello world\n'
 
 
 @pytest.mark.parametrize('k', ('Enter', '^C'))
-def test_save_no_filename_specified_cancel(k):
+def test_save_no_filename_specified_cancel(run, k):
     with run() as h, and_exit(h):
         h.press('hello world')
         h.press('^S')
@@ -49,22 +48,22 @@ def test_save_no_filename_specified_cancel(k):
         h.await_text('cancelled')
 
 
-def test_saving_file_on_disk_changes(tmpdir):
+def test_saving_file_on_disk_changes(run, tmpdir):
     # TODO: this should show some sort of diffing thing or just allow overwrite
     f = tmpdir.join('f')
 
     with run(str(f)) as h, and_exit(h):
-        f.write('hello world')
+        h.run(lambda: f.write('hello world'))
 
         h.press('^S')
         h.await_text('file changed on disk, not implemented')
 
 
-def test_allows_saving_same_contents_as_modified_contents(tmpdir):
+def test_allows_saving_same_contents_as_modified_contents(run, tmpdir):
     f = tmpdir.join('f')
 
     with run(str(f)) as h, and_exit(h):
-        f.write('hello world\n')
+        h.run(lambda: f.write('hello world\n'))
         h.press('hello world')
         h.await_text('hello world')
 
@@ -75,7 +74,7 @@ def test_allows_saving_same_contents_as_modified_contents(tmpdir):
     assert f.read() == 'hello world\n'
 
 
-def test_allows_saving_if_file_on_disk_does_not_change(tmpdir):
+def test_allows_saving_if_file_on_disk_does_not_change(run, tmpdir):
     f = tmpdir.join('f')
     f.write('hello world\n')
 
@@ -91,7 +90,7 @@ def test_allows_saving_if_file_on_disk_does_not_change(tmpdir):
     assert f.read() == 'ohai\nhello world\n'
 
 
-def test_save_file_when_it_did_not_exist(tmpdir):
+def test_save_file_when_it_did_not_exist(run, tmpdir):
     f = tmpdir.join('f')
 
     with run(str(f)) as h, and_exit(h):
@@ -103,7 +102,7 @@ def test_save_file_when_it_did_not_exist(tmpdir):
     assert f.read() == 'hello world\n'
 
 
-def test_save_via_ctrl_o(tmpdir):
+def test_save_via_ctrl_o(run, tmpdir):
     f = tmpdir.join('f')
     with run(str(f)) as h, and_exit(h):
         h.press('hello world')
@@ -111,10 +110,10 @@ def test_save_via_ctrl_o(tmpdir):
         h.await_text(f'enter filename: {f}')
         h.press('Enter')
         h.await_text('saved! (1 line written)')
-        assert f.read() == 'hello world\n'
+    assert f.read() == 'hello world\n'
 
 
-def test_save_via_ctrl_o_set_filename(tmpdir):
+def test_save_via_ctrl_o_set_filename(run, tmpdir):
     f = tmpdir.join('f')
     with run() as h, and_exit(h):
         h.press('hello world')
@@ -122,11 +121,11 @@ def test_save_via_ctrl_o_set_filename(tmpdir):
         h.await_text('enter filename:')
         h.press_and_enter(str(f))
         h.await_text('saved! (1 line written)')
-        assert f.read() == 'hello world\n'
+    assert f.read() == 'hello world\n'
 
 
 @pytest.mark.parametrize('key', ('^C', 'Enter'))
-def test_save_via_ctrl_o_cancelled(tmpdir, key):
+def test_save_via_ctrl_o_cancelled(run, tmpdir, key):
     with run() as h, and_exit(h):
         h.press('hello world')
         h.press('^O')
@@ -135,7 +134,7 @@ def test_save_via_ctrl_o_cancelled(tmpdir, key):
         h.await_text('cancelled')
 
 
-def test_save_on_exit_cancel_yn():
+def test_save_on_exit_cancel_yn(run):
     with run() as h, and_exit(h):
         h.press('hello')
         h.await_text('hello')
@@ -145,7 +144,7 @@ def test_save_on_exit_cancel_yn():
         h.await_text('cancelled')
 
 
-def test_save_on_exit_cancel_filename():
+def test_save_on_exit_cancel_filename(run):
     with run() as h, and_exit(h):
         h.press('hello')
         h.await_text('hello')
@@ -157,7 +156,7 @@ def test_save_on_exit_cancel_filename():
         h.await_text('cancelled')
 
 
-def test_save_on_exit_save(tmpdir):
+def test_save_on_exit(run, tmpdir):
     f = tmpdir.join('f')
     with run(str(f)) as h:
         h.press('hello')
@@ -170,7 +169,7 @@ def test_save_on_exit_save(tmpdir):
         h.await_exit()
 
 
-def test_save_on_exit_resize(tmpdir):
+def test_save_on_exit_resize(run, tmpdir):
     with run() as h, and_exit(h):
         h.press('hello')
         h.await_text('hello')

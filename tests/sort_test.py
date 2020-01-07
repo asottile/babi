@@ -1,7 +1,6 @@
 import pytest
 
 from testing.runner import and_exit
-from testing.runner import run
 from testing.runner import trigger_command_mode
 
 
@@ -12,7 +11,7 @@ def unsorted(tmpdir):
     return f
 
 
-def test_sort_entire_file(unsorted):
+def test_sort_entire_file(run, unsorted):
     with run(str(unsorted)) as h, and_exit(h):
         trigger_command_mode(h)
         h.press_and_enter(':sort')
@@ -22,7 +21,7 @@ def test_sort_entire_file(unsorted):
     assert unsorted.read() == 'a\nb\nc\nd\n'
 
 
-def test_sort_selection(unsorted):
+def test_sort_selection(run, unsorted):
     with run(str(unsorted)) as h, and_exit(h):
         h.press('S-Down')
         trigger_command_mode(h)
@@ -33,7 +32,7 @@ def test_sort_selection(unsorted):
     assert unsorted.read() == 'b\nd\nc\na\n'
 
 
-def test_sort_selection_does_not_include_eof(unsorted):
+def test_sort_selection_does_not_include_eof(run, unsorted):
     with run(str(unsorted)) as h, and_exit(h):
         for _ in range(5):
             h.press('S-Down')

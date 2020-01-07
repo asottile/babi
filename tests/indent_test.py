@@ -1,8 +1,7 @@
 from testing.runner import and_exit
-from testing.runner import run
 
 
-def test_indent_at_beginning_of_line():
+def test_indent_at_beginning_of_line(run):
     with run() as h, and_exit(h):
         h.press('hello')
         h.press('Home')
@@ -11,7 +10,7 @@ def test_indent_at_beginning_of_line():
         h.await_cursor_position(x=4, y=1)
 
 
-def test_indent_not_full_tab():
+def test_indent_not_full_tab(run):
     with run() as h, and_exit(h):
         h.press('h')
         h.press('Tab')
@@ -20,14 +19,14 @@ def test_indent_not_full_tab():
         h.await_cursor_position(x=8, y=1)
 
 
-def test_indent_fixes_eof():
+def test_indent_fixes_eof(run):
     with run() as h, and_exit(h):
         h.press('Tab')
         h.press('Down')
         h.await_cursor_position(x=0, y=2)
 
 
-def test_indent_selection(ten_lines):
+def test_indent_selection(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('S-Right')
         h.press('Tab')
@@ -37,7 +36,7 @@ def test_indent_selection(ten_lines):
         h.await_text('\nine_0\n')
 
 
-def test_indent_selection_does_not_extend_mid_line_selection(ten_lines):
+def test_indent_selection_does_not_extend_mid_line_selection(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('Right')
         h.press('S-Right')
@@ -48,7 +47,7 @@ def test_indent_selection_does_not_extend_mid_line_selection(ten_lines):
         h.await_text('\n    lne_0\n')
 
 
-def test_indent_selection_leaves_blank_lines(tmpdir):
+def test_indent_selection_leaves_blank_lines(run, tmpdir):
     f = tmpdir.join('f')
     f.write('1\n\n2\n\n3\n')
     with run(str(f)) as h, and_exit(h):
@@ -59,7 +58,7 @@ def test_indent_selection_leaves_blank_lines(tmpdir):
     assert f.read() == '    1\n\n    2\n\n3\n'
 
 
-def test_dedent_no_indentation():
+def test_dedent_no_indentation(run):
     with run() as h, and_exit(h):
         h.press('a')
         h.press('BTab')
@@ -67,7 +66,7 @@ def test_dedent_no_indentation():
         h.await_cursor_position(x=1, y=1)
 
 
-def test_dedent_exactly_one_indent():
+def test_dedent_exactly_one_indent(run):
     with run() as h, and_exit(h):
         h.press('Tab')
         h.press('a')
@@ -77,7 +76,7 @@ def test_dedent_exactly_one_indent():
         h.await_cursor_position(x=1, y=1)
 
 
-def test_dedent_selection(tmpdir):
+def test_dedent_selection(run, tmpdir):
     f = tmpdir.join('f')
     f.write('1\n  2\n        3\n')
     with run(str(f)) as h, and_exit(h):
@@ -87,7 +86,7 @@ def test_dedent_selection(tmpdir):
         h.await_text('\n1\n2\n    3\n')
 
 
-def test_dedent_selection_does_not_make_selection_negative():
+def test_dedent_selection_does_not_make_selection_negative(run):
     with run() as h, and_exit(h):
         h.press('Tab')
         h.press('hello')

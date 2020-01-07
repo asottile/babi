@@ -1,8 +1,7 @@
 from testing.runner import and_exit
-from testing.runner import run
 
 
-def test_nothing_to_undo_redo():
+def test_nothing_to_undo_redo(run):
     with run() as h, and_exit(h):
         h.press('M-u')
         h.await_text('nothing to undo!')
@@ -10,7 +9,7 @@ def test_nothing_to_undo_redo():
         h.await_text('nothing to redo!')
 
 
-def test_undo_redo():
+def test_undo_redo(run):
     with run() as h, and_exit(h):
         h.press('hello')
         h.await_text('hello')
@@ -24,7 +23,7 @@ def test_undo_redo():
         h.await_text(' *')
 
 
-def test_undo_redo_movement_interrupts_actions():
+def test_undo_redo_movement_interrupts_actions(run):
     with run() as h, and_exit(h):
         h.press('hello')
         h.press('Left')
@@ -35,7 +34,7 @@ def test_undo_redo_movement_interrupts_actions():
         h.await_text('hello')
 
 
-def test_undo_redo_action_interrupts_actions():
+def test_undo_redo_action_interrupts_actions(run):
     with run() as h, and_exit(h):
         h.press('hello')
         h.await_text('hello')
@@ -50,7 +49,7 @@ def test_undo_redo_action_interrupts_actions():
         h.await_text('hello')
 
 
-def test_undo_redo_mixed_newlines(tmpdir):
+def test_undo_redo_mixed_newlines(run, tmpdir):
     f = tmpdir.join('f')
     f.write_binary(b'foo\nbar\r\n')
 
@@ -61,7 +60,7 @@ def test_undo_redo_mixed_newlines(tmpdir):
         h.await_text(' *')
 
 
-def test_undo_redo_with_save(tmpdir):
+def test_undo_redo_with_save(run, tmpdir):
     f = tmpdir.join('f').ensure()
 
     with run(str(f)) as h, and_exit(h):
@@ -80,22 +79,25 @@ def test_undo_redo_with_save(tmpdir):
         h.await_text(' *')
 
 
-def test_undo_redo_implicit_linebreak(tmpdir):
+def test_undo_redo_implicit_linebreak(run, tmpdir):
     f = tmpdir.join('f')
+
+    def _assert_contents(s):
+        assert f.read() == s
 
     with run(str(f)) as h, and_exit(h):
         h.press('hello')
         h.press('M-u')
         h.press('^S')
         h.await_text('saved!')
-        assert f.read() == ''
+        h.run(lambda: _assert_contents(''))
         h.press('M-U')
         h.press('^S')
         h.await_text('saved!')
-        assert f.read() == 'hello\n'
+        h.run(lambda: _assert_contents('hello\n'))
 
 
-def test_redo_cleared_after_action(tmpdir):
+def test_redo_cleared_after_action(run, tmpdir):
     with run() as h, and_exit(h):
         h.press('hello')
         h.press('M-u')
@@ -104,7 +106,7 @@ def test_redo_cleared_after_action(tmpdir):
         h.await_text('nothing to redo!')
 
 
-def test_undo_no_action_when_noop():
+def test_undo_no_action_when_noop(run):
     with run() as h, and_exit(h):
         h.press('hello')
         h.press('Enter')
@@ -116,7 +118,7 @@ def test_undo_no_action_when_noop():
         h.await_cursor_position(x=0, y=2)
 
 
-def test_undo_redo_causes_scroll():
+def test_undo_redo_causes_scroll(run):
     with run(height=8) as h, and_exit(h):
         for i in range(10):
             h.press('Enter')

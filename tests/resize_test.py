@@ -1,9 +1,8 @@
 import babi
 from testing.runner import and_exit
-from testing.runner import run
 
 
-def test_window_height_2(tmpdir):
+def test_window_height_2(run, tmpdir):
     # 2 tall:
     # - header is hidden, otherwise behaviour is normal
     f = tmpdir.join('f.txt')
@@ -12,16 +11,16 @@ def test_window_height_2(tmpdir):
     with run(str(f)) as h, and_exit(h):
         h.await_text('hello world')
 
-        with h.resize(80, 2):
+        with h.resize(width=80, height=2):
             h.await_text_missing(babi.VERSION_STR)
-            assert h.screenshot() == 'hello world\n\n'
+            h.assert_full_contents('hello world\n\n')
             h.press('^J')
             h.await_text('unknown key')
 
         h.await_text(babi.VERSION_STR)
 
 
-def test_window_height_1(tmpdir):
+def test_window_height_1(run, tmpdir):
     # 1 tall:
     # - only file contents as body
     # - status takes precedence over body, but cleared after single action
@@ -31,9 +30,9 @@ def test_window_height_1(tmpdir):
     with run(str(f)) as h, and_exit(h):
         h.await_text('hello world')
 
-        with h.resize(80, 1):
+        with h.resize(width=80, height=1):
             h.await_text_missing(babi.VERSION_STR)
-            assert h.screenshot() == 'hello world\n'
+            h.assert_full_contents('hello world\n')
             h.press('^J')
             h.await_text('unknown key')
             h.press('Right')
@@ -41,15 +40,15 @@ def test_window_height_1(tmpdir):
             h.press('Down')
 
 
-def test_reacts_to_resize():
+def test_reacts_to_resize(run):
     with run() as h, and_exit(h):
-        first_line = h.get_screen_line(0)
-        with h.resize(40, 20):
-            # the first line should be different after resize
-            h.await_text_missing(first_line)
+        h.await_text('<<new file>>')
+        with h.resize(width=10, height=20):
+            h.await_text_missing('<<new file>>')
+        h.await_text('<<new file>>')
 
 
-def test_resize_scrolls_up(ten_lines):
+def test_resize_scrolls_up(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.await_text('line_9')
 
@@ -58,37 +57,37 @@ def test_resize_scrolls_up(ten_lines):
         h.await_cursor_position(x=0, y=8)
 
         # a resize to a height of 10 should not scroll
-        with h.resize(80, 10):
+        with h.resize(width=80, height=10):
             h.await_text_missing('line_8')
             h.await_cursor_position(x=0, y=8)
 
         h.await_text('line_8')
 
         # but a resize to smaller should
-        with h.resize(80, 9):
+        with h.resize(width=80, height=9):
             h.await_text_missing('line_0')
             h.await_cursor_position(x=0, y=4)
             # make sure we're still on the same line
-            assert h.get_cursor_line() == 'line_7'
+            h.assert_cursor_line_equals('line_7')
 
 
-def test_resize_scroll_does_not_go_negative(ten_lines):
+def test_resize_scroll_does_not_go_negative(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         for _ in range(5):
             h.press('Down')
         h.await_cursor_position(x=0, y=6)
 
-        with h.resize(80, 7):
+        with h.resize(width=80, height=7):
             h.await_text_missing('line_9')
         h.await_text('line_9')
 
         for _ in range(3):
             h.press('Up')
 
-        assert h.get_screen_line(1) == 'line_0'
+        h.assert_screen_line_equals(1, 'line_0')
 
 
-def test_horizontal_scrolling(tmpdir):
+def test_horizontal_scrolling(run, tmpdir):
     f = tmpdir.join('f')
     lots_of_text = ''.join(
         ''.join(str(i) * 10 for i in range(10))
@@ -115,7 +114,7 @@ def test_horizontal_scrolling(tmpdir):
         h.await_text('1222»')
 
 
-def test_horizontal_scrolling_exact_width(tmpdir):
+def test_horizontal_scrolling_exact_width(run, tmpdir):
     f = tmpdir.join('f')
     f.write('0' * 80)
 
@@ -130,12 +129,12 @@ def test_horizontal_scrolling_exact_width(tmpdir):
         h.await_cursor_position(x=7, y=1)
 
 
-def test_horizontal_scrolling_narrow_window(tmpdir):
+def test_horizontal_scrolling_narrow_window(run, tmpdir):
     f = tmpdir.join('f')
     f.write(''.join(str(i) * 10 for i in range(10)))
 
     with run(str(f)) as h, and_exit(h):
-        with h.resize(5, 24):
+        with h.resize(width=5, height=24):
             h.await_text('0000»')
             for _ in range(3):
                 h.press('Right')
@@ -148,12 +147,12 @@ def test_horizontal_scrolling_narrow_window(tmpdir):
             h.await_text('«001»')
 
 
-def test_window_width_1(tmpdir):
+def test_window_width_1(run, tmpdir):
     f = tmpdir.join('f')
     f.write('hello')
 
     with run(str(f)) as h, and_exit(h):
-        with h.resize(1, 24):
+        with h.resize(width=1, height=24):
             h.await_text('»')
             for _ in range(3):
                 h.press('Right')
@@ -161,7 +160,7 @@ def test_window_width_1(tmpdir):
         h.await_cursor_position(x=3, y=1)
 
 
-def test_resize_while_cursor_at_bottom(tmpdir):
+def test_resize_while_cursor_at_bottom(run, tmpdir):
     f = tmpdir.join('f')
     f.write('x\n' * 35)
     with run(str(f), height=40) as h, and_exit(h):

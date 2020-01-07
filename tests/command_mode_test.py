@@ -1,18 +1,17 @@
 import pytest
 
 from testing.runner import and_exit
-from testing.runner import run
 from testing.runner import trigger_command_mode
 
 
-def test_quit_via_colon_q():
+def test_quit_via_colon_q(run):
     with run() as h:
         trigger_command_mode(h)
         h.press_and_enter(':q')
         h.await_exit()
 
 
-def test_key_navigation_in_command_mode():
+def test_key_navigation_in_command_mode(run):
     with run() as h, and_exit(h):
         trigger_command_mode(h)
         h.press('hello world')
@@ -48,7 +47,7 @@ def test_key_navigation_in_command_mode():
 
 
 @pytest.mark.parametrize('key', ('BSpace', '^H'))
-def test_command_mode_backspace(key):
+def test_command_mode_backspace(run, key):
     with run() as h, and_exit(h):
         trigger_command_mode(h)
         h.press('hello world')
@@ -65,7 +64,7 @@ def test_command_mode_backspace(key):
         h.press('^C')
 
 
-def test_command_mode_ctrl_k():
+def test_command_mode_ctrl_k(run):
     with run() as h, and_exit(h):
         trigger_command_mode(h)
         h.press('hello world')
@@ -77,7 +76,7 @@ def test_command_mode_ctrl_k():
         h.press('Enter')
 
 
-def test_command_mode_control_left():
+def test_command_mode_control_left(run):
     with run() as h, and_exit(h):
         trigger_command_mode(h)
         h.press('hello world')
@@ -95,7 +94,7 @@ def test_command_mode_control_left():
         h.press('^C')
 
 
-def test_command_mode_control_right():
+def test_command_mode_control_right(run):
     with run() as h, and_exit(h):
         trigger_command_mode(h)
         h.press('hello world')
@@ -115,7 +114,7 @@ def test_command_mode_control_right():
         h.press('^C')
 
 
-def test_save_via_command_mode(tmpdir):
+def test_save_via_command_mode(run, tmpdir):
     f = tmpdir.join('f')
 
     with run(str(f)) as h, and_exit(h):
@@ -126,7 +125,7 @@ def test_save_via_command_mode(tmpdir):
     assert f.read() == 'hello world\n'
 
 
-def test_repeated_command_mode_does_not_show_previous_command(tmpdir):
+def test_repeated_command_mode_does_not_show_previous_command(run, tmpdir):
     f = tmpdir.join('f')
 
     with run(str(f)) as h, and_exit(h):
@@ -138,7 +137,7 @@ def test_repeated_command_mode_does_not_show_previous_command(tmpdir):
         h.press('Enter')
 
 
-def test_write_and_quit(tmpdir):
+def test_write_and_quit(run, tmpdir):
     f = tmpdir.join('f')
 
     with run(str(f)) as h, and_exit(h):
@@ -150,7 +149,7 @@ def test_write_and_quit(tmpdir):
     assert f.read() == 'hello world\n'
 
 
-def test_resizing_and_scrolling_in_command_mode():
+def test_resizing_and_scrolling_in_command_mode(run):
     with run(width=20) as h, and_exit(h):
         h.press('a' * 15)
         h.await_text(f'\n{"a" * 15}\n')
@@ -169,14 +168,14 @@ def test_resizing_and_scrolling_in_command_mode():
         h.press('Enter')
 
 
-def test_invalid_command():
+def test_invalid_command(run):
     with run() as h, and_exit(h):
         trigger_command_mode(h)
         h.press_and_enter(':fake')
         h.await_text('invalid command: :fake')
 
 
-def test_empty_command_is_noop():
+def test_empty_command_is_noop(run):
     with run() as h, and_exit(h):
         h.press('hello ')
         trigger_command_mode(h)
@@ -186,7 +185,7 @@ def test_empty_command_is_noop():
         h.await_text_missing('invalid command')
 
 
-def test_cancel_command_mode():
+def test_cancel_command_mode(run):
     with run() as h, and_exit(h):
         h.press('hello ')
         trigger_command_mode(h)

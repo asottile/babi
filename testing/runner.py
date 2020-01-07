@@ -1,63 +1,54 @@
 import contextlib
-import shlex
-import sys
-from typing import List
 
 from hecate import Runner
-
-import babi
 
 
 class PrintsErrorRunner(Runner):
     def __init__(self, *args, **kwargs):
-        self._screenshots: List[str] = []
+        self._prev_screenshot = None
         super().__init__(*args, **kwargs)
 
     def screenshot(self, *args, **kwargs):
         ret = super().screenshot(*args, **kwargs)
-        if not self._screenshots or self._screenshots[-1] != ret:
-            self._screenshots.append(ret)
-        return ret
-
-    @contextlib.contextmanager
-    def _onerror(self):
-        try:
-            yield
-        except Exception:  # pragma: no cover
-            # take a screenshot of the final state
-            self.screenshot()
+        if ret != self._prev_screenshot:
             print('=' * 79, flush=True)
-            for screenshot in self._screenshots:
-                print(screenshot, end='', flush=True)
-                print('=' * 79, flush=True)
-            raise
-
-    def await_exit(self, *args, **kwargs):
-        with self._onerror():
-            return super().await_exit(*args, **kwargs)
+            print(ret, end='', flush=True)
+            print('=' * 79, flush=True)
+            self._prev_screenshot = ret
+        return ret
 
     def await_text(self, text, timeout=None):
         """copied from the base implementation but doesn't munge newlines"""
-        with self._onerror():
-            for _ in self.poll_until_timeout(timeout):
-                screen = self.screenshot()
-                if text in screen:  # pragma: no branch
-                    return
-            raise AssertionError(
-                f'Timeout while waiting for text {text!r} to appear',
-            )
+        for _ in self.poll_until_timeout(timeout):
+            screen = self.screenshot()
+            if text in screen:  # pragma: no branch
+                return
+        raise AssertionError(
+            f'Timeout while waiting for text {text!r} to appear',
+        )
 
     def await_text_missing(self, s):
         """largely based on await_text"""
-        with self._onerror():
-            for _ in self.poll_until_timeout():
-                screen = self.screenshot()
-                munged = screen.replace('\n', '')
-                if s not in munged:  # pragma: no branch
-                    return
-            raise AssertionError(
-                f'Timeout while waiting for text {s!r} to disappear',
-            )
+        for _ in self.poll_until_timeout():
+            screen = self.screenshot()
+            munged = screen.replace('\n', '')
+            if s not in munged:  # pragma: no branch
+                return
+        raise AssertionError(
+            f'Timeout while waiting for text {s!r} to disappear',
+        )
+
+    def assert_cursor_line_equals(self, s):
+        cursor_line = self._get_cursor_line()
+        assert cursor_line == s, (cursor_line, s)
+
+    def assert_screen_line_equals(self, n, s):
+        screen_line = self._get_screen_line(n)
+        assert screen_line == s, (screen_line, s)
+
+    def assert_full_contents(self, s):
+        contents = self.screenshot()
+        assert contents == s
 
     def get_pane_size(self):
         cmd = ('display', '-t0', '-p', '#{pane_width}\t#{pane_height}')
@@ -70,23 +61,22 @@ class PrintsErrorRunner(Runner):
         return int(x), int(y)
 
     def await_cursor_position(self, *, x, y):
-        with self._onerror():
-            for _ in self.poll_until_timeout():
-                pos = self._get_cursor_position()
-                if pos == (x, y):  # pragma: no branch
-                    return
+        for _ in self.poll_until_timeout():
+            pos = self._get_cursor_position()
+            if pos == (x, y):  # pragma: no branch
+                return
 
-            raise AssertionError(
-                f'Timeout while waiting for cursor to reach {(x, y)}\n'
-                f'Last cursor position: {pos}',
-            )
+        raise AssertionError(
+            f'Timeout while waiting for cursor to reach {(x, y)}\n'
+            f'Last cursor position: {pos}',
+        )
 
-    def get_screen_line(self, n):
+    def _get_screen_line(self, n):
         return self.screenshot().splitlines()[n]
 
-    def get_cursor_line(self):
+    def _get_cursor_line(self):
         _, y = self._get_cursor_position()
-        return self.get_screen_line(y)
+        return self._get_screen_line(y)
 
     @contextlib.contextmanager
     def resize(self, width, height):
@@ -122,16 +112,13 @@ class PrintsErrorRunner(Runner):
         self.press(s)
         self.press('Enter')
 
+    def answer_no_if_modified(self):
+        if '*' in self._get_screen_line(0):
+            self.press('n')
 
-@contextlib.contextmanager
-def run(*args, color=True, **kwargs):
-    cmd = (sys.executable, '-mcoverage', 'run', '-m', 'babi', *args)
-    quoted = ' '.join(shlex.quote(p) for p in cmd)
-    term = 'screen-256color' if color else 'screen'
-    cmd = ('bash', '-c', f'export TERM={term}; exec {quoted}')
-    with PrintsErrorRunner(*cmd, **kwargs) as h:
-        h.await_text(babi.VERSION_STR)
-        yield h
+    def run(self, callback):
+        # this is a bit of a hack, the in-process fake defers all execution
+        callback()
 
 
 @contextlib.contextmanager
@@ -139,9 +126,7 @@ def and_exit(h):
     yield
     # only try and exit in non-exceptional cases
     h.press('^X')
-    # dismiss the save prompt
-    if ' *' in h.get_screen_line(0):
-        h.press('n')
+    h.answer_no_if_modified()
     h.await_exit()
 
 

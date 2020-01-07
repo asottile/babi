@@ -1,28 +1,27 @@
 import pytest
 
 from testing.runner import and_exit
-from testing.runner import run
 
 
-def test_basic_text_editing(tmpdir):
+def test_basic_text_editing(run, tmpdir):
     with run() as h, and_exit(h):
         h.press('hello world')
         h.await_text('hello world')
         h.press('Down')
         h.press('bye!')
         h.await_text('bye!')
-        assert h.screenshot().strip().endswith('world\nbye!')
+        h.await_text('hello world\nbye!\n')
 
 
-def test_backspace_at_beginning_of_file():
+def test_backspace_at_beginning_of_file(run):
     with run() as h, and_exit(h):
         h.press('BSpace')
         h.await_text_missing('unknown key')
-        assert h.screenshot().strip().splitlines()[1:] == []
-        assert '*' not in h.screenshot()
+        h.assert_cursor_line_equals('')
+        h.await_text_missing('*')
 
 
-def test_backspace_joins_lines(tmpdir):
+def test_backspace_joins_lines(run, tmpdir):
     f = tmpdir.join('f')
     f.write('foo\nbar\nbaz\n')
 
@@ -38,7 +37,7 @@ def test_backspace_joins_lines(tmpdir):
         h.await_cursor_position(x=3, y=2)
 
 
-def test_backspace_at_end_of_file_still_allows_scrolling_down(tmpdir):
+def test_backspace_at_end_of_file_still_allows_scrolling_down(run, tmpdir):
     f = tmpdir.join('f')
     f.write('hello world')
 
@@ -48,11 +47,11 @@ def test_backspace_at_end_of_file_still_allows_scrolling_down(tmpdir):
         h.press('BSpace')
         h.press('Down')
         h.await_cursor_position(x=0, y=2)
-        assert '*' not in h.screenshot()
+        h.await_text_missing('*')
 
 
 @pytest.mark.parametrize('key', ('BSpace', '^H'))
-def test_backspace_deletes_text(tmpdir, key):
+def test_backspace_deletes_text(run, tmpdir, key):
     f = tmpdir.join('f')
     f.write('ohai there')
 
@@ -66,14 +65,14 @@ def test_backspace_deletes_text(tmpdir, key):
         h.await_cursor_position(x=2, y=1)
 
 
-def test_delete_at_end_of_file(tmpdir):
+def test_delete_at_end_of_file(run, tmpdir):
     with run() as h, and_exit(h):
         h.press('DC')
         h.await_text_missing('unknown key')
         h.await_text_missing('*')
 
 
-def test_delete_removes_character_afterwards(tmpdir):
+def test_delete_removes_character_afterwards(run, tmpdir):
     f = tmpdir.join('f')
     f.write('hello world')
 
@@ -85,7 +84,7 @@ def test_delete_removes_character_afterwards(tmpdir):
         h.await_text('f *')
 
 
-def test_delete_at_end_of_line(tmpdir):
+def test_delete_at_end_of_line(run, tmpdir):
     f = tmpdir.join('f')
     f.write('hello\nworld\n')
 
@@ -98,7 +97,7 @@ def test_delete_at_end_of_line(tmpdir):
         h.await_text('f *')
 
 
-def test_press_enter_beginning_of_file(tmpdir):
+def test_press_enter_beginning_of_file(run, tmpdir):
     f = tmpdir.join('f')
     f.write('hello world')
 
@@ -110,7 +109,7 @@ def test_press_enter_beginning_of_file(tmpdir):
         h.await_text('f *')
 
 
-def test_press_enter_mid_line(tmpdir):
+def test_press_enter_mid_line(run, tmpdir):
     f = tmpdir.join('f')
     f.write('hello world')
 

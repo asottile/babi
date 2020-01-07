@@ -1,7 +1,4 @@
-from testing.runner import run
-
-
-def test_multiple_files(tmpdir):
+def test_multiple_files(run, tmpdir):
     a = tmpdir.join('file_a')
     a.write('a text')
     b = tmpdir.join('file_b')

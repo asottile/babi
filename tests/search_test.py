@@ -1,10 +1,9 @@
 import pytest
 
 from testing.runner import and_exit
-from testing.runner import run
 
 
-def test_search_wraps(ten_lines):
+def test_search_wraps(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('Down')
         h.press('Down')
@@ -16,7 +15,7 @@ def test_search_wraps(ten_lines):
         h.await_cursor_position(x=0, y=1)
 
 
-def test_search_find_next_line(ten_lines):
+def test_search_find_next_line(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.await_cursor_position(x=0, y=1)
         h.press('^W')
@@ -25,7 +24,7 @@ def test_search_find_next_line(ten_lines):
         h.await_cursor_position(x=0, y=2)
 
 
-def test_search_find_later_in_line():
+def test_search_find_later_in_line(run):
     with run() as h, and_exit(h):
         h.press_and_enter('lol')
         h.press('Up')
@@ -38,7 +37,7 @@ def test_search_find_later_in_line():
         h.await_cursor_position(x=2, y=1)
 
 
-def test_search_only_one_match_already_at_that_match(ten_lines):
+def test_search_only_one_match_already_at_that_match(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('Down')
         h.await_cursor_position(x=0, y=2)
@@ -49,7 +48,7 @@ def test_search_only_one_match_already_at_that_match(ten_lines):
         h.await_cursor_position(x=0, y=2)
 
 
-def test_search_sets_x_hint_properly(tmpdir):
+def test_search_sets_x_hint_properly(run, tmpdir):
     f = tmpdir.join('f')
     contents = '''\
 beginning_line
@@ -67,7 +66,7 @@ match me!
         h.await_cursor_position(x=6, y=1)
 
 
-def test_search_not_found(ten_lines):
+def test_search_not_found(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^W')
         h.await_text('search:')
@@ -76,7 +75,7 @@ def test_search_not_found(ten_lines):
         h.await_cursor_position(x=0, y=1)
 
 
-def test_search_invalid_regex(ten_lines):
+def test_search_invalid_regex(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^W')
         h.await_text('search:')
@@ -85,7 +84,7 @@ def test_search_invalid_regex(ten_lines):
 
 
 @pytest.mark.parametrize('key', ('Enter', '^C'))
-def test_search_cancel(ten_lines, key):
+def test_search_cancel(run, ten_lines, key):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^W')
         h.await_text('search:')
@@ -93,7 +92,7 @@ def test_search_cancel(ten_lines, key):
         h.await_text('cancelled')
 
 
-def test_search_repeated_search(ten_lines):
+def test_search_repeated_search(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^W')
         h.press('line')
@@ -107,7 +106,7 @@ def test_search_repeated_search(ten_lines):
         h.await_cursor_position(x=0, y=3)
 
 
-def test_search_history_recorded():
+def test_search_history_recorded(run):
     with run() as h, and_exit(h):
         h.press('^W')
         h.await_text('search:')
@@ -127,7 +126,7 @@ def test_search_history_recorded():
         h.await_text('asdtest')
         h.press('Up')  # can't go past the beginning
         h.await_text('asdtest')
-        h.press('enter')
+        h.press('Enter')
         h.await_text('no matches')
 
         h.press('^W')
@@ -138,7 +137,7 @@ def test_search_history_recorded():
         h.press('^C')
 
 
-def test_search_history_duplicates_dont_repeat():
+def test_search_history_duplicates_dont_repeat(run):
     with run() as h, and_exit(h):
         h.press('^W')
         h.await_text('search:')
@@ -163,7 +162,7 @@ def test_search_history_duplicates_dont_repeat():
         h.press('Enter')
 
 
-def test_search_history_is_saved_between_sessions(xdg_data_home):
+def test_search_history_is_saved_between_sessions(run, xdg_data_home):
     with run() as h, and_exit(h):
         h.press('^W')
         h.press_and_enter('search1')
@@ -182,7 +181,7 @@ def test_search_history_is_saved_between_sessions(xdg_data_home):
         h.press('Enter')
 
 
-def test_search_multiple_sessions_append_to_history(xdg_data_home):
+def test_search_multiple_sessions_append_to_history(run, xdg_data_home):
     xdg_data_home.join('babi/history/search').ensure().write(
         'orig\n'
         'history\n',
@@ -205,7 +204,7 @@ def test_search_multiple_sessions_append_to_history(xdg_data_home):
 
 
 @pytest.mark.parametrize('key', ('BSpace', '^H'))
-def test_search_reverse_search_history_backspace(xdg_data_home, key):
+def test_search_reverse_search_history_backspace(run, xdg_data_home, key):
     xdg_data_home.join('babi/history/search').ensure().write(
         'line_5\n'
         'line_3\n'
@@ -222,7 +221,7 @@ def test_search_reverse_search_history_backspace(xdg_data_home, key):
         h.press('^C')
 
 
-def test_search_reverse_search_history(xdg_data_home, ten_lines):
+def test_search_reverse_search_history(run, xdg_data_home, ten_lines):
     xdg_data_home.join('babi/history/search').ensure().write(
         'line_5\n'
         'line_3\n'
@@ -240,7 +239,7 @@ def test_search_reverse_search_history(xdg_data_home, ten_lines):
         h.await_cursor_position(x=0, y=4)
 
 
-def test_search_reverse_search_history_pos_after(xdg_data_home, ten_lines):
+def test_search_reverse_search_pos_after(run, xdg_data_home, ten_lines):
     xdg_data_home.join('babi/history/search').ensure().write(
         'line_3\n',
     )
@@ -255,7 +254,7 @@ def test_search_reverse_search_history_pos_after(xdg_data_home, ten_lines):
         h.press('^C')
 
 
-def test_search_reverse_search_enter_saves_entry(xdg_data_home, ten_lines):
+def test_search_reverse_search_enter_appends(run, xdg_data_home, ten_lines):
     xdg_data_home.join('babi/history/search').ensure().write(
         'line_1\n'
         'line_3\n',
@@ -272,7 +271,7 @@ def test_search_reverse_search_enter_saves_entry(xdg_data_home, ten_lines):
         h.press('^C')
 
 
-def test_search_reverse_search_history_cancel():
+def test_search_reverse_search_history_cancel(run):
     with run() as h, and_exit(h):
         h.press('^W')
         h.press('^R')
@@ -281,7 +280,7 @@ def test_search_reverse_search_history_cancel():
         h.await_text('cancelled')
 
 
-def test_search_reverse_search_resizing():
+def test_search_reverse_search_resizing(run):
     with run() as h, and_exit(h):
         h.press('^W')
         h.press('^R')
@@ -290,7 +289,7 @@ def test_search_reverse_search_resizing():
             h.press('^C')
 
 
-def test_search_reverse_search_does_not_wrap_around(xdg_data_home):
+def test_search_reverse_search_does_not_wrap_around(run, xdg_data_home):
     xdg_data_home.join('babi/history/search').ensure().write(
         'line_1\n'
         'line_3\n',
@@ -305,7 +304,7 @@ def test_search_reverse_search_does_not_wrap_around(xdg_data_home):
         h.press('^C')
 
 
-def test_search_reverse_search_ctrl_r_on_failed_match(xdg_data_home):
+def test_search_reverse_search_ctrl_r_on_failed_match(run, xdg_data_home):
     xdg_data_home.join('babi/history/search').ensure().write(
         'nomatch\n'
         'line_1\n',
@@ -320,7 +319,7 @@ def test_search_reverse_search_ctrl_r_on_failed_match(xdg_data_home):
         h.press('^C')
 
 
-def test_search_reverse_search_keeps_current_text_displayed():
+def test_search_reverse_search_keeps_current_text_displayed(run):
     with run() as h, and_exit(h):
         h.press('^W')
         h.press('ohai')
@@ -330,7 +329,7 @@ def test_search_reverse_search_keeps_current_text_displayed():
         h.press('^C')
 
 
-def test_search_history_extra_blank_lines(xdg_data_home):
+def test_search_history_extra_blank_lines(run, xdg_data_home):
     with run() as h, and_exit(h):
         h.press('^W')
         h.press_and_enter('hello')

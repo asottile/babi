@@ -1,10 +1,9 @@
 import pytest
 
 from testing.runner import and_exit
-from testing.runner import run
 
 
-def test_prompt_window_width():
+def test_prompt_window_width(run):
     with run() as h, and_exit(h):
         h.press('^_')
         h.await_text('enter line number:')
@@ -20,7 +19,7 @@ def test_prompt_window_width():
         h.press('Enter')
 
 
-def test_go_to_line_line(ten_lines):
+def test_go_to_line_line(run, ten_lines):
     def _jump_to_line(n):
         h.press('^_')
         h.await_text('enter line number:')
@@ -37,19 +36,19 @@ def test_go_to_line_line(ten_lines):
         # should go to end of the file
         _jump_to_line(999)
         h.await_cursor_position(x=0, y=4)
-        assert h.get_screen_line(3) == 'line_9'
+        h.assert_screen_line_equals(3, 'line_9')
         # should also go to the end of the file
         _jump_to_line(-1)
         h.await_cursor_position(x=0, y=4)
-        assert h.get_screen_line(3) == 'line_9'
+        h.assert_screen_line_equals(3, 'line_9')
         # should go to beginning of file
         _jump_to_line(-999)
         h.await_cursor_position(x=0, y=1)
-        assert h.get_cursor_line() == 'line_0'
+        h.assert_cursor_line_equals('line_0')
 
 
 @pytest.mark.parametrize('key', ('Enter', '^C'))
-def test_go_to_line_cancel(ten_lines, key):
+def test_go_to_line_cancel(run, ten_lines, key):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('Down')
         h.await_cursor_position(x=0, y=2)
@@ -61,7 +60,7 @@ def test_go_to_line_cancel(ten_lines, key):
         h.await_text('cancelled')
 
 
-def test_go_to_line_not_an_integer():
+def test_go_to_line_not_an_integer(run):
     with run() as h, and_exit(h):
         h.press('^_')
         h.await_text('enter line number:')

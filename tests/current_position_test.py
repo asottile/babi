@@ -1,8 +1,7 @@
 from testing.runner import and_exit
-from testing.runner import run
 
 
-def test_current_position(ten_lines):
+def test_current_position(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^C')
         h.await_text('line 1, col 1 (of 10 lines)')

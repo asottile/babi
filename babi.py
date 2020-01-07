@@ -23,6 +23,7 @@ from typing import Match
 from typing import NamedTuple
 from typing import Optional
 from typing import Pattern
+from typing import Sequence
 from typing import Tuple
 from typing import TYPE_CHECKING
 from typing import TypeVar
@@ -1582,8 +1583,8 @@ def _color_test(stdscr: 'curses._CursesWindow') -> None:
     header += '<< color test >>'.center(curses.COLS)[len(header):]
     stdscr.insstr(0, 0, header, curses.A_REVERSE)
 
-    maxy, maxx = stdscr.getmaxyx()
-    if maxy < 19 or maxx < 68:  # pragma: no cover (will be deleted)
+    # will be deleted eventually
+    if curses.LINES < 19 or curses.COLS < 68:  # pragma: no cover
         raise SystemExit('--color-test needs a window of at least 68 x 19')
 
     y = 1
@@ -1735,11 +1736,11 @@ def make_stdscr() -> Generator['curses._CursesWindow', None, None]:
         curses.endwin()
 
 
-def main() -> int:
+def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--color-test', action='store_true')
     parser.add_argument('filenames', metavar='filename', nargs='*')
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     with make_stdscr() as stdscr:
         c_main(stdscr, args)
     return 0
