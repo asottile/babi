@@ -370,7 +370,7 @@ class Prompt:
             for search_idx in range(reverse_idx, -1, -1):
                 if reverse_s in self._lst[search_idx]:
                     reverse_idx = self._y = search_idx
-                    self._x = len(self._s)
+                    self._x = self._lst[search_idx].index(reverse_s)
                     break
             else:
                 reverse_failed = True
@@ -396,6 +396,7 @@ class Prompt:
             elif key.keyname == b'^M':
                 return self._s
             else:
+                self._x = len(self._s)
                 return None
 
     def _cancel(self) -> PromptResult:

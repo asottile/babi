@@ -234,7 +234,11 @@ class DeferredRunner:
     def _get_wch(self):
         while not isinstance(self._ops[self._i], KeyPress):
             self._i += 1
-            self._ops[self._i - 1](self.screen)
+            try:
+                self._ops[self._i - 1](self.screen)
+            except AssertionError:  # pragma: no cover (only on failures)
+                self.screen.screenshot()
+                raise
         self._i += 1
         print(f'KEY: {self._ops[self._i - 1].wch!r}')
         return self._ops[self._i - 1].wch
@@ -345,20 +349,10 @@ class DeferredRunner:
 
 
 @contextlib.contextmanager
-def screenshot_on_assert(h):
-    try:
-        yield h
-    except AssertionError:  # pragma: no cover
-        h.screenshot()
-        raise
-
-
-@contextlib.contextmanager
 def run_fake(*cmd, **kwargs):
     h = DeferredRunner(cmd, **kwargs)
-    with screenshot_on_assert(h):
-        h.await_text(babi.VERSION_STR)
-        yield h
+    h.await_text(babi.VERSION_STR)
+    yield h
 
 
 @contextlib.contextmanager
@@ -367,7 +361,7 @@ def run_tmux(*args, colors=256, **kwargs):
     quoted = ' '.join(shlex.quote(p) for p in cmd)
     term = 'screen-256color' if colors == 256 else 'screen'
     cmd = ('bash', '-c', f'export TERM={term}; exec {quoted}')
-    with PrintsErrorRunner(*cmd, **kwargs) as h, screenshot_on_assert(h):
+    with PrintsErrorRunner(*cmd, **kwargs) as h, h.on_error():
         # startup with coverage can be slow
         h.await_text(babi.VERSION_STR, timeout=2)
         yield h

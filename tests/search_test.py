@@ -239,6 +239,19 @@ def test_search_reverse_search_history(run, xdg_data_home, ten_lines):
         h.await_cursor_position(x=0, y=4)
 
 
+def test_search_reverse_search_pos_during(run, xdg_data_home, ten_lines):
+    xdg_data_home.join('babi/history/search').ensure().write(
+        'line_3\n',
+    )
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^W')
+        h.press('^R')
+        h.press('ne')
+        h.await_text('search(reverse-search)`ne`: line_3')
+        h.await_cursor_position(y=23, x=30)
+        h.press('^C')
+
+
 def test_search_reverse_search_pos_after(run, xdg_data_home, ten_lines):
     xdg_data_home.join('babi/history/search').ensure().write(
         'line_3\n',

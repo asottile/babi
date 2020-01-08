@@ -120,6 +120,14 @@ class PrintsErrorRunner(Runner):
         # this is a bit of a hack, the in-process fake defers all execution
         callback()
 
+    @contextlib.contextmanager
+    def on_error(self):
+        try:
+            yield
+        except AssertionError:  # pragma: no cover (only on failure)
+            self.screenshot()
+            raise
+
 
 @contextlib.contextmanager
 def and_exit(h):
