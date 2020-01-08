@@ -40,6 +40,34 @@ EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
 PromptResult = enum.Enum('PromptResult', 'CANCELLED')
 HIGHLIGHT = curses.A_REVERSE | curses.A_DIM
 
+# TODO: find a place to populate these, surely there's a database somewhere
+SEQUENCE_KEYNAME = {
+    '\x1bOH': b'KEY_HOME',
+    '\x1bOF': b'KEY_END',
+    '\x1b[1;2A': b'KEY_SR',
+    '\x1b[1;2B': b'KEY_SF',
+    '\x1b[1;2C': b'KEY_SRIGHT',
+    '\x1b[1;2D': b'KEY_SLEFT',
+    '\x1b[1;2H': b'KEY_SHOME',
+    '\x1b[1;2F': b'KEY_SEND',
+    '\x1b[5;2~': b'KEY_SPREVIOUS',
+    '\x1b[6;2~': b'KEY_SNEXT',
+    '\x1b[1;3A': b'kUP3',  # M-Up
+    '\x1b[1;3B': b'kDN3',  # M-Down
+    '\x1b[1;3C': b'kRIT3',  # M-Right
+    '\x1b[1;3D': b'kLFT3',  # M-Left
+    '\x1b[1;5A': b'kUP5',  # ^Up
+    '\x1b[1;5B': b'kDN5',  # ^Down
+    '\x1b[1;5C': b'kRIT5',  # ^Right
+    '\x1b[1;5D': b'kLFT5',  # ^Left
+    '\x1b[1;5H': b'kHOM5',  # ^Home
+    '\x1b[1;5F': b'kEND5',  # ^End
+    '\x1b[1;6C': b'kRIT6',  # Shift + ^Right
+    '\x1b[1;6D': b'kLFT6',  # Shift + ^Left
+    '\x1b[1;6H': b'kHOM6',  # Shift + ^Home
+    '\x1b[1;6F': b'kEND6',  # Shift + ^End
+}
+
 
 def _line_x(x: int, width: int) -> int:
     margin = min(width - 3, 6)
@@ -352,8 +380,8 @@ class Prompt:
                 base = f'{self._prompt}(reverse-search)`{reverse_s}`'
 
             self._render_prompt(base=base)
-            key = _get_char(self._screen.stdscr)
 
+            key = self._screen.get_char()
             if key.keyname == b'KEY_RESIZE':
                 self._screen.resize()
             elif key.keyname == b'KEY_BACKSPACE' or key.keyname == b'^H':
@@ -406,8 +434,8 @@ class Prompt:
     def run(self) -> Union[PromptResult, str]:
         while True:
             self._render_prompt()
-            key = _get_char(self._screen.stdscr)
 
+            key = self._screen.get_char()
             if key.keyname in Prompt.DISPATCH:
                 ret = Prompt.DISPATCH[key.keyname](self)
                 if ret is not None:
@@ -1313,6 +1341,37 @@ class Screen:
         s = f' {VERSION_STR} {files}{centered}{files}'
         self.stdscr.insstr(0, 0, s, curses.A_REVERSE)
 
+    def get_char(self) -> Key:
+        wch = self.stdscr.get_wch()
+        if isinstance(wch, str) and wch == '\x1b':
+            self.stdscr.nodelay(True)
+            try:
+                while True:
+                    try:
+                        new_wch = self.stdscr.get_wch()
+                        if isinstance(new_wch, str):
+                            wch += new_wch
+                        else:  # pragma: no cover (impossible?)
+                            curses.unget_wch(new_wch)
+                            break
+                    except curses.error:
+                        break
+            finally:
+                self.stdscr.nodelay(False)
+
+            if len(wch) == 2:
+                return Key(wch, f'M-{wch[1]}'.encode())
+            elif len(wch) > 1:
+                keyname = SEQUENCE_KEYNAME.get(wch, b'unknown')
+                return Key(wch, keyname)
+        elif wch == '\x7f':  # pragma: no cover (macos)
+            keyname = curses.keyname(curses.KEY_BACKSPACE)
+            return Key(wch, keyname)
+
+        key = wch if isinstance(wch, int) else ord(wch)
+        keyname = curses.keyname(key)
+        return Key(wch, keyname)
+
     def draw(self) -> None:
         if self.margin.header:
             self._draw_header()
@@ -1345,7 +1404,7 @@ class Screen:
             x = min(curses.COLS - 1, len(prompt) + 1)
             self.stdscr.move(curses.LINES - 1, x)
 
-            key = _get_char(self.stdscr)
+            key = self.get_char()
             if key.keyname == b'KEY_RESIZE':
                 self.resize()
             elif key.keyname == b'^C':
@@ -1601,67 +1660,6 @@ def _color_test(stdscr: 'curses._CursesWindow') -> None:
     stdscr.get_wch()
 
 
-# TODO: find a place to populate these, surely there's a database somewhere
-SEQUENCE_KEYNAME = {
-    '\x1bOH': b'KEY_HOME',
-    '\x1bOF': b'KEY_END',
-    '\x1b[1;2A': b'KEY_SR',
-    '\x1b[1;2B': b'KEY_SF',
-    '\x1b[1;2C': b'KEY_SRIGHT',
-    '\x1b[1;2D': b'KEY_SLEFT',
-    '\x1b[1;2H': b'KEY_SHOME',
-    '\x1b[1;2F': b'KEY_SEND',
-    '\x1b[5;2~': b'KEY_SPREVIOUS',
-    '\x1b[6;2~': b'KEY_SNEXT',
-    '\x1b[1;3A': b'kUP3',  # M-Up
-    '\x1b[1;3B': b'kDN3',  # M-Down
-    '\x1b[1;3C': b'kRIT3',  # M-Right
-    '\x1b[1;3D': b'kLFT3',  # M-Left
-    '\x1b[1;5A': b'kUP5',  # ^Up
-    '\x1b[1;5B': b'kDN5',  # ^Down
-    '\x1b[1;5C': b'kRIT5',  # ^Right
-    '\x1b[1;5D': b'kLFT5',  # ^Left
-    '\x1b[1;5H': b'kHOM5',  # ^Home
-    '\x1b[1;5F': b'kEND5',  # ^End
-    '\x1b[1;6C': b'kRIT6',  # Shift + ^Right
-    '\x1b[1;6D': b'kLFT6',  # Shift + ^Left
-    '\x1b[1;6H': b'kHOM6',  # Shift + ^Home
-    '\x1b[1;6F': b'kEND6',  # Shift + ^End
-}
-
-
-def _get_char(stdscr: 'curses._CursesWindow') -> Key:
-    wch = stdscr.get_wch()
-    if isinstance(wch, str) and wch == '\x1b':
-        stdscr.nodelay(True)
-        try:
-            while True:
-                try:
-                    new_wch = stdscr.get_wch()
-                    if isinstance(new_wch, str):
-                        wch += new_wch
-                    else:  # pragma: no cover (impossible?)
-                        curses.unget_wch(new_wch)
-                        break
-                except curses.error:
-                    break
-        finally:
-            stdscr.nodelay(False)
-
-        if len(wch) == 2:
-            return Key(wch, f'M-{wch[1]}'.encode())
-        elif len(wch) > 1:
-            keyname = SEQUENCE_KEYNAME.get(wch, b'unknown')
-            return Key(wch, keyname)
-    elif wch == '\x7f':  # pragma: no cover (macos)
-        keyname = curses.keyname(curses.KEY_BACKSPACE)
-        return Key(wch, keyname)
-
-    key = wch if isinstance(wch, int) else ord(wch)
-    keyname = curses.keyname(key)
-    return Key(wch, keyname)
-
-
 def _edit(screen: Screen) -> EditResult:
     screen.file.ensure_loaded(screen.status)
 
@@ -1670,8 +1668,7 @@ def _edit(screen: Screen) -> EditResult:
         screen.draw()
         screen.file.move_cursor(screen.stdscr, screen.margin)
 
-        key = _get_char(screen.stdscr)
-
+        key = screen.get_char()
         if key.keyname in File.DISPATCH:
             File.DISPATCH[key.keyname](screen.file, screen.margin)
         elif key.keyname in Screen.DISPATCH:
