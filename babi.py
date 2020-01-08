@@ -11,6 +11,7 @@ import os
 import re
 import signal
 import sys
+import time
 from typing import Any
 from typing import Callable
 from typing import cast
@@ -470,6 +471,43 @@ class History:
                 if new_history:
                     with open(os.path.join(history_dir, k), 'a+') as f:
                         f.write('\n'.join(new_history) + '\n')
+
+
+class Perf:
+    def __init__(self) -> None:
+        self.active = False
+        self._records: List[Tuple[str, float]] = []
+        self._name: Optional[str] = None
+        self._time: Optional[float] = None
+
+    def start(self, name: str) -> None:
+        if self.active:
+            assert self._name is None, self._name
+            self._name = name
+            self._time = time.monotonic()
+
+    def end(self) -> None:
+        if self.active:
+            assert self._name is not None
+            assert self._time is not None
+            self._records.append((self._name, time.monotonic() - self._time))
+            self._name = self._time = None
+
+    @contextlib.contextmanager
+    def log(self, filename: Optional[str]) -> Generator[None, None, None]:
+        if filename is None:
+            yield
+        else:
+            self.active = True
+            self.start('startup')
+            try:
+                yield
+            finally:
+                self.end()
+                with open(filename, 'w') as f:
+                    f.write('μs\tevent\n')
+                    for name, duration in self._records:
+                        f.write(f'{int(duration * 1000 * 1000)}\t{name}\n')
 
 
 def _restore_lines_eof_invariant(lines: MutableSequenceNoSlice) -> None:
@@ -1317,6 +1355,7 @@ class Screen:
         self.files = files
         self.i = 0
         self.history = History()
+        self.perf = Perf()
         self.status = Status()
         self.margin = Margin.from_current_screen()
         self.cut_buffer: Tuple[str, ...] = ()
@@ -1341,7 +1380,7 @@ class Screen:
         s = f' {VERSION_STR} {files}{centered}{files}'
         self.stdscr.insstr(0, 0, s, curses.A_REVERSE)
 
-    def get_char(self) -> Key:
+    def _get_char(self) -> Key:
         wch = self.stdscr.get_wch()
         if isinstance(wch, str) and wch == '\x1b':
             self.stdscr.nodelay(True)
@@ -1371,6 +1410,12 @@ class Screen:
         key = wch if isinstance(wch, int) else ord(wch)
         keyname = curses.keyname(key)
         return Key(wch, keyname)
+
+    def get_char(self) -> Key:
+        self.perf.end()
+        ret = self._get_char()
+        self.perf.start(ret.keyname.decode())
+        return ret
 
     def draw(self) -> None:
         if self.margin.header:
@@ -1685,7 +1730,7 @@ def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
     if args.color_test:
         return _color_test(stdscr)
     screen = Screen(stdscr, [File(f) for f in args.filenames or [None]])
-    with screen.history.save():
+    with screen.perf.log(args.perf_log), screen.history.save():
         while screen.files:
             screen.i = screen.i % len(screen.files)
             res = _edit(screen)
@@ -1737,6 +1782,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--color-test', action='store_true')
     parser.add_argument('filenames', metavar='filename', nargs='*')
+    parser.add_argument('--perf-log')
     args = parser.parse_args(argv)
     with make_stdscr() as stdscr:
         c_main(stdscr, args)
