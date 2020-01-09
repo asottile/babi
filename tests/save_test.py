@@ -107,7 +107,7 @@ def test_save_via_ctrl_o(run, tmpdir):
     with run(str(f)) as h, and_exit(h):
         h.press('hello world')
         h.press('^O')
-        h.await_text(f'enter filename: {f}')
+        h.await_text(f'enter filename: ')
         h.press('Enter')
         h.await_text('saved! (1 line written)')
     assert f.read() == 'hello world\n'
@@ -125,13 +125,22 @@ def test_save_via_ctrl_o_set_filename(run, tmpdir):
 
 
 @pytest.mark.parametrize('key', ('^C', 'Enter'))
-def test_save_via_ctrl_o_cancelled(run, tmpdir, key):
+def test_save_via_ctrl_o_cancelled(run, key):
     with run() as h, and_exit(h):
         h.press('hello world')
         h.press('^O')
         h.await_text('enter filename:')
         h.press(key)
         h.await_text('cancelled')
+
+
+def test_save_via_ctrl_o_position(run):
+    with run('filename') as h, and_exit(h):
+        h.press('hello world')
+        h.press('^O')
+        h.await_text('enter filename: filename')
+        h.await_cursor_position(x=24, y=23)
+        h.press('^C')
 
 
 def test_save_on_exit_cancel_yn(run):

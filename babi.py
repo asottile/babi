@@ -284,7 +284,7 @@ class Prompt:
         self._prompt = prompt
         self._lst = lst
         self._y = len(lst) - 1
-        self._x = 0
+        self._x = len(self._s)
 
     @property
     def _s(self) -> str:
