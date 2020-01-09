@@ -55,6 +55,8 @@ class Screen:
         self.lines[y] = (line[:x] + s + line[x:])[:self.width]
 
     def move(self, y, x):
+        assert 0 <= y < self.height
+        assert 0 <= x < self.width
         print(f'MOVE: y: {y}, x: {x}')
         self.y, self.x = y, x
 

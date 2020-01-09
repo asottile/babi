@@ -86,6 +86,14 @@ def test_dedent_selection(run, tmpdir):
         h.await_text('\n1\n2\n    3\n')
 
 
+def test_dedent_beginning_of_line(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('    hi\n')
+    with run(str(f)) as h, and_exit(h):
+        h.press('BTab')
+        h.await_text('\nhi\n')
+
+
 def test_dedent_selection_does_not_make_selection_negative(run):
     with run() as h, and_exit(h):
         h.press('Tab')

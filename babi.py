@@ -1052,7 +1052,7 @@ class File:
         n = self._dedent_line(self.lines[self.y])
         if n:
             self.lines[self.y] = self.lines[self.y][n:]
-            self.x = self.x_hint = self.x - n
+            self.x = self.x_hint = max(self.x - n, 0)
 
     def shift_tab(self, margin: Margin) -> None:
         if self.select_start:
