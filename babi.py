@@ -1483,7 +1483,7 @@ class Screen:
                 history_lst = self.history.data[history]
                 if not history_lst or history_lst[-1] != ret:
                     history_lst.append(ret)
-                    self.history.prev[history] = ret
+                self.history.prev[history] = ret
             elif default_prev and history in self.history.prev:
                 return self.history.prev[history]
 

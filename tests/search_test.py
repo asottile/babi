@@ -203,6 +203,19 @@ def test_search_multiple_sessions_append_to_history(run, xdg_data_home):
     )
 
 
+def test_search_default_same_as_prev_history(run, xdg_data_home, ten_lines):
+    xdg_data_home.join('babi/history/search').ensure().write('line\n')
+
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^W')
+        h.press_and_enter('line')
+        h.await_cursor_position(x=0, y=2)
+        h.press('^W')
+        h.await_text('search [line]:')
+        h.press('Enter')
+        h.await_cursor_position(x=0, y=3)
+
+
 @pytest.mark.parametrize('key', ('BSpace', '^H'))
 def test_search_reverse_search_history_backspace(run, xdg_data_home, key):
     xdg_data_home.join('babi/history/search').ensure().write(
