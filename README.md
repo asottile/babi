@@ -19,15 +19,6 @@ currently you can quit `babi` by using `^X` (or via `Esc` + `:q`).
 
 not much works yet, here's a few things
 
-### color test (`babi --color-test`)
-
-this is just to demo color support, this test mode will probably be deleted
-eventually.  it uses a little trick to invert foreground and background to
-get all of the color combinations.  there's one additional color not in this
-grid which is the "inverted default"
-
-![](https://i.fluffy.cc/rwdVdMsmZGDZrsT2qVlZHL5Z0XGj9v5v.png)
-
 ### file view
 
 this opens the file, displays it, and can be edited in some ways and can save!

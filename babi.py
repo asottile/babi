@@ -200,47 +200,6 @@ class Margin(NamedTuple):
             return cls(header=True, footer=True)
 
 
-def _get_color_pair_mapping() -> Dict[Tuple[int, int], int]:
-    ret = {}
-    i = 0
-    for bg in range(-1, 16):
-        for fg in range(bg, 16):
-            ret[(fg, bg)] = i
-            i += 1
-    return ret
-
-
-COLORS = _get_color_pair_mapping()
-del _get_color_pair_mapping
-
-
-def _has_colors() -> bool:
-    return curses.has_colors and curses.COLORS >= 16
-
-
-def _color(fg: int, bg: int) -> int:
-    if _has_colors():
-        if bg > fg:
-            return curses.A_REVERSE | curses.color_pair(COLORS[(bg, fg)])
-        else:
-            return curses.color_pair(COLORS[(fg, bg)])
-    else:
-        if bg > fg:
-            return curses.A_REVERSE | curses.color_pair(0)
-        else:
-            return curses.color_pair(0)
-
-
-def _init_colors(stdscr: 'curses._CursesWindow') -> None:
-    curses.use_default_colors()
-    if not _has_colors():
-        return
-    for (fg, bg), pair in COLORS.items():
-        if pair == 0:  # cannot reset pair 0
-            continue
-        curses.init_pair(pair, fg, bg)
-
-
 class Status:
     def __init__(self) -> None:
         self._status = ''
@@ -1683,29 +1642,6 @@ class Screen:
     }
 
 
-def _color_test(stdscr: 'curses._CursesWindow') -> None:
-    header = f' {VERSION_STR}'
-    header += '<< color test >>'.center(curses.COLS)[len(header):]
-    stdscr.insstr(0, 0, header, curses.A_REVERSE)
-
-    # will be deleted eventually
-    if curses.LINES < 19 or curses.COLS < 68:  # pragma: no cover
-        raise SystemExit('--color-test needs a window of at least 68 x 19')
-
-    y = 1
-    for fg in range(-1, 16):
-        x = 0
-        for bg in range(-1, 16):
-            if bg > fg:
-                s = f'*{COLORS[bg, fg]:3}'
-            else:
-                s = f' {COLORS[fg, bg]:3}'
-            stdscr.addstr(y, x, s, _color(fg, bg))
-            x += 4
-        y += 1
-    stdscr.get_wch()
-
-
 def _edit(screen: Screen) -> EditResult:
     screen.file.ensure_loaded(screen.status)
 
@@ -1728,8 +1664,6 @@ def _edit(screen: Screen) -> EditResult:
 
 
 def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
-    if args.color_test:
-        return _color_test(stdscr)
     screen = Screen(stdscr, [File(f) for f in args.filenames or [None]])
     with screen.perf.log(args.perf_log), screen.history.save():
         while screen.files:
@@ -1765,7 +1699,7 @@ def _init_screen() -> 'curses._CursesWindow':
     stdscr.keypad(True)
     with contextlib.suppress(curses.error):
         curses.start_color()
-    _init_colors(stdscr)
+    # TODO: colors
     return stdscr
 
 
@@ -1781,7 +1715,6 @@ def make_stdscr() -> Generator['curses._CursesWindow', None, None]:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument('--color-test', action='store_true')
     parser.add_argument('filenames', metavar='filename', nargs='*')
     parser.add_argument('--perf-log')
     args = parser.parse_args(argv)

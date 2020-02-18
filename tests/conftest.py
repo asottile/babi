@@ -46,10 +46,6 @@ class Screen:
             self._prev_screenshot = ret
         return ret
 
-    def addstr(self, y, x, s):
-        line = self.lines[y]
-        self.lines[y] = line[:x] + s + line[x + len(s):]
-
     def insstr(self, y, x, s):
         line = self.lines[y]
         self.lines[y] = (line[:x] + s + line[x:])[:self.width]
@@ -144,9 +140,6 @@ class CursesScreen:
 
     def keypad(self, val):
         pass
-
-    def addstr(self, y, x, s, attr=0):
-        self._runner.screen.addstr(y, x, s)
 
     def insstr(self, y, x, s, attr=0):
         self._runner.screen.insstr(y, x, s)
@@ -307,9 +300,6 @@ class DeferredRunner:
     _curses_use_default_colors = _curses__noop
 
     _curses_error = curses.error  # so we don't mock the exception
-
-    def _curses_color_pair(self, n):
-        return 0
 
     def _curses_keyname(self, k):
         return KEYS_CURSES.get(k, b'')
