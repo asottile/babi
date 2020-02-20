@@ -10,3 +10,4 @@ def test(run, tmpdir, ten_lines):
     assert lines[0] == 'μs\tevent'
     expected = ['startup', 'KEY_RIGHT', 'KEY_DOWN', '^X']
     assert [line.split()[-1] for line in lines[1:]] == expected
+    assert tmpdir.join('f.log.pstats').exists()
