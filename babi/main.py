@@ -29,9 +29,13 @@ from typing import Tuple
 from typing import TypeVar
 from typing import Union
 
+from babi.horizontal_scrolling import line_x
+from babi.horizontal_scrolling import scrolled_line
 from babi.list_spy import ListSpy
 from babi.list_spy import MutableSequenceNoSlice
 from babi.margin import Margin
+from babi.prompt import Prompt
+from babi.prompt import PromptResult
 
 VERSION_STR = 'babi v0'
 TCallable = TypeVar('TCallable', bound=Callable[..., Any])
@@ -66,35 +70,6 @@ SEQUENCE_KEYNAME = {
     '\x1b[1;6H': b'kHOM6',  # Shift + ^Home
     '\x1b[1;6F': b'kEND6',  # Shift + ^End
 }
-
-
-def _line_x(x: int, width: int) -> int:
-    margin = min(width - 3, 6)
-    if x + 1 < width:
-        return 0
-    elif width == 1:
-        return x
-    else:
-        return (
-            width - margin - 2 +
-            (x + 1 - width) //
-            (width - margin - 2) *
-            (width - margin - 2)
-        )
-
-
-def _scrolled_line(s: str, x: int, width: int) -> str:
-    line_x = _line_x(x, width)
-    if line_x:
-        s = f'«{s[line_x + 1:]}'
-        if line_x and len(s) > width:
-            return f'{s[:width - 1]}»'
-        else:
-            return s.ljust(width)
-    elif len(s) > width:
-        return f'{s[:width - 1]}»'
-    else:
-        return s.ljust(width)
 
 
 class Key(NamedTuple):
@@ -137,174 +112,6 @@ class Status:
     def cancelled(self) -> PromptResult:
         self.update('cancelled')
         return PromptResult.CANCELLED
-
-
-class Prompt:
-    def __init__(self, screen: 'Screen', prompt: str, lst: List[str]) -> None:
-        self._screen = screen
-        self._prompt = prompt
-        self._lst = lst
-        self._y = len(lst) - 1
-        self._x = len(self._s)
-
-    @property
-    def _s(self) -> str:
-        return self._lst[self._y]
-
-    @_s.setter
-    def _s(self, s: str) -> None:
-        self._lst[self._y] = s
-
-    def _render_prompt(self, *, base: Optional[str] = None) -> None:
-        base = base or self._prompt
-        if not base or curses.COLS < 7:
-            prompt_s = ''
-        elif len(base) > curses.COLS - 6:
-            prompt_s = f'{base[:curses.COLS - 7]}…: '
-        else:
-            prompt_s = f'{base}: '
-        width = curses.COLS - len(prompt_s)
-        line = _scrolled_line(self._s, self._x, width)
-        cmd = f'{prompt_s}{line}'
-        self._screen.stdscr.insstr(curses.LINES - 1, 0, cmd, curses.A_REVERSE)
-        x = len(prompt_s) + self._x - _line_x(self._x, width)
-        self._screen.stdscr.move(curses.LINES - 1, x)
-
-    def _up(self) -> None:
-        self._y = max(0, self._y - 1)
-        self._x = len(self._s)
-
-    def _down(self) -> None:
-        self._y = min(len(self._lst) - 1, self._y + 1)
-        self._x = len(self._s)
-
-    def _right(self) -> None:
-        self._x = min(len(self._s), self._x + 1)
-
-    def _left(self) -> None:
-        self._x = max(0, self._x - 1)
-
-    def _home(self) -> None:
-        self._x = 0
-
-    def _end(self) -> None:
-        self._x = len(self._s)
-
-    def _ctrl_left(self) -> None:
-        if self._x <= 1:
-            self._x = 0
-        else:
-            self._x -= 1
-            tp = self._s[self._x - 1].isalnum()
-            while self._x > 0 and tp == self._s[self._x - 1].isalnum():
-                self._x -= 1
-
-    def _ctrl_right(self) -> None:
-        if self._x >= len(self._s) - 1:
-            self._x = len(self._s)
-        else:
-            self._x += 1
-            tp = self._s[self._x].isalnum()
-            while self._x < len(self._s) and tp == self._s[self._x].isalnum():
-                self._x += 1
-
-    def _backspace(self) -> None:
-        if self._x > 0:
-            self._s = self._s[:self._x - 1] + self._s[self._x:]
-            self._x -= 1
-
-    def _delete(self) -> None:
-        if self._x < len(self._s):
-            self._s = self._s[:self._x] + self._s[self._x + 1:]
-
-    def _cut_to_end(self) -> None:
-        self._s = self._s[:self._x]
-
-    def _resize(self) -> None:
-        self._screen.resize()
-
-    def _reverse_search(self) -> Union[None, str, PromptResult]:
-        reverse_s = ''
-        reverse_idx = self._y
-        while True:
-            reverse_failed = False
-            for search_idx in range(reverse_idx, -1, -1):
-                if reverse_s in self._lst[search_idx]:
-                    reverse_idx = self._y = search_idx
-                    self._x = self._lst[search_idx].index(reverse_s)
-                    break
-            else:
-                reverse_failed = True
-
-            if reverse_failed:
-                base = f'{self._prompt}(failed reverse-search)`{reverse_s}`'
-            else:
-                base = f'{self._prompt}(reverse-search)`{reverse_s}`'
-
-            self._render_prompt(base=base)
-
-            key = self._screen.get_char()
-            if key.keyname == b'KEY_RESIZE':
-                self._screen.resize()
-            elif key.keyname == b'KEY_BACKSPACE' or key.keyname == b'^H':
-                reverse_s = reverse_s[:-1]
-            elif isinstance(key.wch, str) and key.wch.isprintable():
-                reverse_s += key.wch
-            elif key.keyname == b'^R':
-                reverse_idx = max(0, reverse_idx - 1)
-            elif key.keyname == b'^C':
-                return self._screen.status.cancelled()
-            elif key.keyname == b'^M':
-                return self._s
-            else:
-                self._x = len(self._s)
-                return None
-
-    def _cancel(self) -> PromptResult:
-        return self._screen.status.cancelled()
-
-    def _submit(self) -> str:
-        return self._s
-
-    DISPATCH = {
-        # movement
-        b'KEY_UP': _up,
-        b'KEY_DOWN': _down,
-        b'KEY_RIGHT': _right,
-        b'KEY_LEFT': _left,
-        b'KEY_HOME': _home,
-        b'^A': _home,
-        b'KEY_END': _end,
-        b'^E': _end,
-        b'kRIT5': _ctrl_right,
-        b'kLFT5': _ctrl_left,
-        # editing
-        b'KEY_BACKSPACE': _backspace,
-        b'^H': _backspace,  # ^Backspace
-        b'KEY_DC': _delete,
-        b'^K': _cut_to_end,
-        # misc
-        b'KEY_RESIZE': _resize,
-        b'^R': _reverse_search,
-        b'^M': _submit,
-        b'^C': _cancel,
-    }
-
-    def _c(self, c: str) -> None:
-        self._s = self._s[:self._x] + c + self._s[self._x:]
-        self._x += 1
-
-    def run(self) -> Union[PromptResult, str]:
-        while True:
-            self._render_prompt()
-
-            key = self._screen.get_char()
-            if key.keyname in Prompt.DISPATCH:
-                ret = Prompt.DISPATCH[key.keyname](self)
-                if ret is not None:
-                    return ret
-            elif isinstance(key.wch, str) and key.wch.isprintable():
-                self._c(key.wch)
 
 
 class History:
@@ -1125,7 +932,7 @@ class File:
         return self.y - self.file_y + margin.header
 
     def rendered_x(self) -> int:
-        return self.x - _line_x(self.x, curses.COLS)
+        return self.x - line_x(self.x, curses.COLS)
 
     def move_cursor(
             self,
@@ -1148,7 +955,7 @@ class File:
             line_idx = self.file_y + i
             line = self.lines[line_idx]
             x = self.x if line_idx == self.y else 0
-            line = _scrolled_line(line, x, curses.COLS)
+            line = scrolled_line(line, x, curses.COLS)
             stdscr.insstr(i + margin.header, 0, line)
         blankline = ' ' * curses.COLS
         for i in range(to_display, margin.body_lines):
@@ -1190,16 +997,16 @@ class File:
     ) -> None:
         h_y = y - self.file_y + margin.header
         if y == self.y:
-            line_x = _line_x(self.x, curses.COLS)
-            if x < line_x:
+            l_x = line_x(self.x, curses.COLS)
+            if x < l_x:
                 h_x = 0
-                n -= line_x - x
+                n -= l_x - x
             else:
-                h_x = x - line_x
+                h_x = x - l_x
         else:
-            line_x = 0
+            l_x = 0
             h_x = x
-        if not include_edge and len(self.lines[y]) > line_x + curses.COLS:
+        if not include_edge and len(self.lines[y]) > l_x + curses.COLS:
             raise NotImplementedError('h_n = min(curses.COLS - h_x - 1, n)')
         else:
             h_n = n
