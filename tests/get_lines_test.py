@@ -2,7 +2,7 @@ import io
 
 import pytest
 
-import babi
+from babi.main import _get_lines
 
 
 @pytest.mark.parametrize(
@@ -17,11 +17,11 @@ import babi
 )
 def test_get_lines(s, lines, nl, mixed):
     # sha256 tested below
-    ret_lines, ret_nl, ret_mixed, _ = babi._get_lines(io.StringIO(s))
+    ret_lines, ret_nl, ret_mixed, _ = _get_lines(io.StringIO(s))
     assert (ret_lines, ret_nl, ret_mixed) == (lines, nl, mixed)
 
 
 def test_get_lines_sha256_checksum():
-    ret = babi._get_lines(io.StringIO(''))
+    ret = _get_lines(io.StringIO(''))
     sha256 = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
     assert ret == ([''], '\n', False, sha256)

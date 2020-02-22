@@ -1,8 +1,8 @@
-import babi
+from babi.main import File
 
 
 def test_position_repr():
-    ret = repr(babi.File('f.txt'))
+    ret = repr(File('f.txt'))
     assert ret == (
         'File(\n'
         "    filename='f.txt',\n"

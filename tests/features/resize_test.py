@@ -1,4 +1,4 @@
-import babi
+from babi.main import VERSION_STR
 from testing.runner import and_exit
 
 
@@ -12,12 +12,12 @@ def test_window_height_2(run, tmpdir):
         h.await_text('hello world')
 
         with h.resize(width=80, height=2):
-            h.await_text_missing(babi.VERSION_STR)
+            h.await_text_missing(VERSION_STR)
             h.assert_full_contents('hello world\n\n')
             h.press('^J')
             h.await_text('unknown key')
 
-        h.await_text(babi.VERSION_STR)
+        h.await_text(VERSION_STR)
 
 
 def test_window_height_1(run, tmpdir):
@@ -31,7 +31,7 @@ def test_window_height_1(run, tmpdir):
         h.await_text('hello world')
 
         with h.resize(width=80, height=1):
-            h.await_text_missing(babi.VERSION_STR)
+            h.await_text_missing(VERSION_STR)
             h.assert_full_contents('hello world\n')
             h.press('^J')
             h.await_text('unknown key')
