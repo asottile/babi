@@ -11,7 +11,7 @@ from unittest import mock
 import pytest
 
 from babi.main import main
-from babi.main import VERSION_STR
+from babi.screen import VERSION_STR
 from testing.runner import PrintsErrorRunner
 
 
