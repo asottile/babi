@@ -1,14 +1,14 @@
 import pytest
 
-import babi
+from babi.list_spy import ListSpy
 
 
 def test_list_spy_repr():
-    assert repr(babi.ListSpy(['a', 'b', 'c'])) == "ListSpy(['a', 'b', 'c'])"
+    assert repr(ListSpy(['a', 'b', 'c'])) == "ListSpy(['a', 'b', 'c'])"
 
 
 def test_list_spy_item_retrieval():
-    spy = babi.ListSpy(['a', 'b', 'c'])
+    spy = ListSpy(['a', 'b', 'c'])
     assert spy[1] == 'b'
     assert spy[-1] == 'c'
     with pytest.raises(IndexError):
@@ -18,7 +18,7 @@ def test_list_spy_item_retrieval():
 def test_list_spy_del():
     lst = ['a', 'b', 'c']
 
-    spy = babi.ListSpy(lst)
+    spy = ListSpy(lst)
     del spy[1]
 
     assert lst == ['a', 'c']
@@ -31,7 +31,7 @@ def test_list_spy_del():
 def test_list_spy_del_with_negative():
     lst = ['a', 'b', 'c']
 
-    spy = babi.ListSpy(lst)
+    spy = ListSpy(lst)
     del spy[-1]
 
     assert lst == ['a', 'b']
@@ -44,7 +44,7 @@ def test_list_spy_del_with_negative():
 def test_list_spy_insert():
     lst = ['a', 'b', 'c']
 
-    spy = babi.ListSpy(lst)
+    spy = ListSpy(lst)
     spy.insert(1, 'q')
 
     assert lst == ['a', 'q', 'b', 'c']
@@ -57,7 +57,7 @@ def test_list_spy_insert():
 def test_list_spy_insert_with_negative():
     lst = ['a', 'b', 'c']
 
-    spy = babi.ListSpy(lst)
+    spy = ListSpy(lst)
     spy.insert(-1, 'q')
 
     assert lst == ['a', 'b', 'q', 'c']
@@ -70,7 +70,7 @@ def test_list_spy_insert_with_negative():
 def test_list_spy_set_value():
     lst = ['a', 'b', 'c']
 
-    spy = babi.ListSpy(lst)
+    spy = ListSpy(lst)
     spy[1] = 'hello'
 
     assert lst == ['a', 'hello', 'c']
@@ -83,7 +83,7 @@ def test_list_spy_set_value():
 def test_list_spy_multiple_modifications():
     lst = ['a', 'b', 'c']
 
-    spy = babi.ListSpy(lst)
+    spy = ListSpy(lst)
     spy[1] = 'hello'
     spy.insert(1, 'ohai')
     del spy[0]
@@ -96,7 +96,7 @@ def test_list_spy_multiple_modifications():
 
 
 def test_list_spy_iter():
-    spy = babi.ListSpy(['a', 'b', 'c'])
+    spy = ListSpy(['a', 'b', 'c'])
     spy_iter = iter(spy)
     assert next(spy_iter) == 'a'
     assert next(spy_iter) == 'b'
@@ -108,7 +108,7 @@ def test_list_spy_iter():
 def test_list_spy_append():
     lst = ['a', 'b', 'c']
 
-    spy = babi.ListSpy(lst)
+    spy = ListSpy(lst)
     spy.append('q')
 
     assert lst == ['a', 'b', 'c', 'q']
@@ -121,7 +121,7 @@ def test_list_spy_append():
 def test_list_spy_pop_default():
     lst = ['a', 'b', 'c']
 
-    spy = babi.ListSpy(lst)
+    spy = ListSpy(lst)
     spy.pop()
 
     assert lst == ['a', 'b']
@@ -134,7 +134,7 @@ def test_list_spy_pop_default():
 def test_list_spy_pop_idx():
     lst = ['a', 'b', 'c']
 
-    spy = babi.ListSpy(lst)
+    spy = ListSpy(lst)
     spy.pop(1)
 
     assert lst == ['a', 'c']

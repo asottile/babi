@@ -10,7 +10,8 @@ from unittest import mock
 
 import pytest
 
-import babi
+from babi.main import main
+from babi.screen import VERSION_STR
 from testing.runner import PrintsErrorRunner
 
 
@@ -332,7 +333,7 @@ class DeferredRunner:
 
     def await_exit(self):
         with self._patch_curses():
-            babi.main(self.command)
+            main(self.command)
         # we have already exited -- check remaining things
         # KeyPress with failing condition or error
         for i in range(self._i, len(self._ops)):
@@ -343,7 +344,7 @@ class DeferredRunner:
 @contextlib.contextmanager
 def run_fake(*cmd, **kwargs):
     h = DeferredRunner(cmd, **kwargs)
-    h.await_text(babi.VERSION_STR)
+    h.await_text(VERSION_STR)
     yield h
 
 
@@ -355,7 +356,7 @@ def run_tmux(*args, colors=256, **kwargs):
     cmd = ('bash', '-c', f'export TERM={term}; exec {quoted}')
     with PrintsErrorRunner(*cmd, **kwargs) as h, h.on_error():
         # startup with coverage can be slow
-        h.await_text(babi.VERSION_STR, timeout=2)
+        h.await_text(VERSION_STR, timeout=2)
         yield h
 
 

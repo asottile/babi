@@ -1,7 +1,7 @@
 import shlex
 import sys
 
-import babi
+from babi.screen import VERSION_STR
 from testing.runner import PrintsErrorRunner
 
 
@@ -12,7 +12,7 @@ def test_suspend(tmpdir):
     with PrintsErrorRunner('bash', '--norc') as h:
         cmd = (sys.executable, '-mcoverage', 'run', '-m', 'babi', str(f))
         h.press_and_enter(' '.join(shlex.quote(part) for part in cmd))
-        h.await_text(babi.VERSION_STR, timeout=2)
+        h.await_text(VERSION_STR, timeout=2)
         h.await_text('hello')
 
         h.press('^Z')
@@ -33,7 +33,7 @@ def test_suspend_with_resize(tmpdir):
     with PrintsErrorRunner('bash', '--norc') as h:
         cmd = (sys.executable, '-mcoverage', 'run', '-m', 'babi', str(f))
         h.press_and_enter(' '.join(shlex.quote(part) for part in cmd))
-        h.await_text(babi.VERSION_STR, timeout=2)
+        h.await_text(VERSION_STR, timeout=2)
         h.await_text('hello')
 
         h.press('^Z')

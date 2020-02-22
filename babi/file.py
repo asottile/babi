@@ -1,477 +1,39 @@
-import argparse
 import collections
 import contextlib
-import cProfile
 import curses
-import enum
 import functools
 import hashlib
 import io
 import itertools
-import os
-import re
-import signal
-import sys
-import time
+import os.path
 from typing import Any
 from typing import Callable
 from typing import cast
-from typing import Dict
 from typing import Generator
 from typing import IO
-from typing import Iterator
 from typing import List
 from typing import Match
 from typing import NamedTuple
 from typing import Optional
 from typing import Pattern
-from typing import Sequence
 from typing import Tuple
 from typing import TYPE_CHECKING
 from typing import TypeVar
 from typing import Union
 
+from babi.horizontal_scrolling import line_x
+from babi.horizontal_scrolling import scrolled_line
+from babi.list_spy import ListSpy
+from babi.list_spy import MutableSequenceNoSlice
+from babi.margin import Margin
+from babi.prompt import PromptResult
+from babi.status import Status
+
 if TYPE_CHECKING:
-    from typing import Protocol  # python3.8+
-else:
-    Protocol = object
+    from babi.main import Screen  # XXX: circular
 
-VERSION_STR = 'babi v0'
 TCallable = TypeVar('TCallable', bound=Callable[..., Any])
-EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
-PromptResult = enum.Enum('PromptResult', 'CANCELLED')
 HIGHLIGHT = curses.A_REVERSE | curses.A_DIM
-
-# TODO: find a place to populate these, surely there's a database somewhere
-SEQUENCE_KEYNAME = {
-    '\x1bOH': b'KEY_HOME',
-    '\x1bOF': b'KEY_END',
-    '\x1b[1;2A': b'KEY_SR',
-    '\x1b[1;2B': b'KEY_SF',
-    '\x1b[1;2C': b'KEY_SRIGHT',
-    '\x1b[1;2D': b'KEY_SLEFT',
-    '\x1b[1;2H': b'KEY_SHOME',
-    '\x1b[1;2F': b'KEY_SEND',
-    '\x1b[5;2~': b'KEY_SPREVIOUS',
-    '\x1b[6;2~': b'KEY_SNEXT',
-    '\x1b[1;3A': b'kUP3',  # M-Up
-    '\x1b[1;3B': b'kDN3',  # M-Down
-    '\x1b[1;3C': b'kRIT3',  # M-Right
-    '\x1b[1;3D': b'kLFT3',  # M-Left
-    '\x1b[1;5A': b'kUP5',  # ^Up
-    '\x1b[1;5B': b'kDN5',  # ^Down
-    '\x1b[1;5C': b'kRIT5',  # ^Right
-    '\x1b[1;5D': b'kLFT5',  # ^Left
-    '\x1b[1;5H': b'kHOM5',  # ^Home
-    '\x1b[1;5F': b'kEND5',  # ^End
-    '\x1b[1;6C': b'kRIT6',  # Shift + ^Right
-    '\x1b[1;6D': b'kLFT6',  # Shift + ^Left
-    '\x1b[1;6H': b'kHOM6',  # Shift + ^Home
-    '\x1b[1;6F': b'kEND6',  # Shift + ^End
-}
-
-
-def _line_x(x: int, width: int) -> int:
-    margin = min(width - 3, 6)
-    if x + 1 < width:
-        return 0
-    elif width == 1:
-        return x
-    else:
-        return (
-            width - margin - 2 +
-            (x + 1 - width) //
-            (width - margin - 2) *
-            (width - margin - 2)
-        )
-
-
-def _scrolled_line(s: str, x: int, width: int) -> str:
-    line_x = _line_x(x, width)
-    if line_x:
-        s = f'«{s[line_x + 1:]}'
-        if line_x and len(s) > width:
-            return f'{s[:width - 1]}»'
-        else:
-            return s.ljust(width)
-    elif len(s) > width:
-        return f'{s[:width - 1]}»'
-    else:
-        return s.ljust(width)
-
-
-class MutableSequenceNoSlice(Protocol):
-    def __len__(self) -> int: ...
-    def __getitem__(self, idx: int) -> str: ...
-    def __setitem__(self, idx: int, val: str) -> None: ...
-    def __delitem__(self, idx: int) -> None: ...
-    def insert(self, idx: int, val: str) -> None: ...
-
-    def __iter__(self) -> Iterator[str]:
-        for i in range(len(self)):
-            yield self[i]
-
-    def append(self, val: str) -> None:
-        self.insert(len(self), val)
-
-    def pop(self, idx: int = -1) -> str:
-        victim = self[idx]
-        del self[idx]
-        return victim
-
-
-def _del(lst: MutableSequenceNoSlice, *, idx: int) -> None:
-    del lst[idx]
-
-
-def _set(lst: MutableSequenceNoSlice, *, idx: int, val: str) -> None:
-    lst[idx] = val
-
-
-def _ins(lst: MutableSequenceNoSlice, *, idx: int, val: str) -> None:
-    lst.insert(idx, val)
-
-
-class ListSpy(MutableSequenceNoSlice):
-    def __init__(self, lst: MutableSequenceNoSlice) -> None:
-        self._lst = lst
-        self._undo: List[Callable[[MutableSequenceNoSlice], None]] = []
-
-    def __repr__(self) -> str:
-        return f'{type(self).__name__}({self._lst})'
-
-    def __len__(self) -> int:
-        return len(self._lst)
-
-    def __getitem__(self, idx: int) -> str:
-        return self._lst[idx]
-
-    def __setitem__(self, idx: int, val: str) -> None:
-        self._undo.append(functools.partial(_set, idx=idx, val=self._lst[idx]))
-        self._lst[idx] = val
-
-    def __delitem__(self, idx: int) -> None:
-        if idx < 0:
-            idx %= len(self)
-        self._undo.append(functools.partial(_ins, idx=idx, val=self._lst[idx]))
-        del self._lst[idx]
-
-    def insert(self, idx: int, val: str) -> None:
-        if idx < 0:
-            idx %= len(self)
-        self._undo.append(functools.partial(_del, idx=idx))
-        self._lst.insert(idx, val)
-
-    def undo(self, lst: MutableSequenceNoSlice) -> None:
-        for fn in reversed(self._undo):
-            fn(lst)
-
-    @property
-    def has_modifications(self) -> bool:
-        return bool(self._undo)
-
-
-class Key(NamedTuple):
-    wch: Union[int, str]
-    keyname: bytes
-
-
-class Margin(NamedTuple):
-    header: bool
-    footer: bool
-
-    @property
-    def body_lines(self) -> int:
-        return curses.LINES - self.header - self.footer
-
-    @property
-    def page_size(self) -> int:
-        if self.body_lines <= 2:
-            return 1
-        else:
-            return self.body_lines - 2
-
-    @classmethod
-    def from_current_screen(cls) -> 'Margin':
-        if curses.LINES == 1:
-            return cls(header=False, footer=False)
-        elif curses.LINES == 2:
-            return cls(header=False, footer=True)
-        else:
-            return cls(header=True, footer=True)
-
-
-class Status:
-    def __init__(self) -> None:
-        self._status = ''
-        self._action_counter = -1
-
-    def update(self, status: str) -> None:
-        self._status = status
-        self._action_counter = 25
-
-    def clear(self) -> None:
-        self._status = ''
-
-    def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
-        if margin.footer or self._status:
-            stdscr.insstr(curses.LINES - 1, 0, ' ' * curses.COLS)
-            if self._status:
-                status = f' {self._status} '
-                x = (curses.COLS - len(status)) // 2
-                if x < 0:
-                    x = 0
-                    status = status.strip()
-                stdscr.insstr(curses.LINES - 1, x, status, curses.A_REVERSE)
-
-    def tick(self, margin: Margin) -> None:
-        # when the window is only 1-tall, hide the status quicker
-        if margin.footer:
-            self._action_counter -= 1
-        else:
-            self._action_counter -= 24
-        if self._action_counter < 0:
-            self.clear()
-
-    def cancelled(self) -> PromptResult:
-        self.update('cancelled')
-        return PromptResult.CANCELLED
-
-
-class Prompt:
-    def __init__(self, screen: 'Screen', prompt: str, lst: List[str]) -> None:
-        self._screen = screen
-        self._prompt = prompt
-        self._lst = lst
-        self._y = len(lst) - 1
-        self._x = len(self._s)
-
-    @property
-    def _s(self) -> str:
-        return self._lst[self._y]
-
-    @_s.setter
-    def _s(self, s: str) -> None:
-        self._lst[self._y] = s
-
-    def _render_prompt(self, *, base: Optional[str] = None) -> None:
-        base = base or self._prompt
-        if not base or curses.COLS < 7:
-            prompt_s = ''
-        elif len(base) > curses.COLS - 6:
-            prompt_s = f'{base[:curses.COLS - 7]}…: '
-        else:
-            prompt_s = f'{base}: '
-        width = curses.COLS - len(prompt_s)
-        line = _scrolled_line(self._s, self._x, width)
-        cmd = f'{prompt_s}{line}'
-        self._screen.stdscr.insstr(curses.LINES - 1, 0, cmd, curses.A_REVERSE)
-        x = len(prompt_s) + self._x - _line_x(self._x, width)
-        self._screen.stdscr.move(curses.LINES - 1, x)
-
-    def _up(self) -> None:
-        self._y = max(0, self._y - 1)
-        self._x = len(self._s)
-
-    def _down(self) -> None:
-        self._y = min(len(self._lst) - 1, self._y + 1)
-        self._x = len(self._s)
-
-    def _right(self) -> None:
-        self._x = min(len(self._s), self._x + 1)
-
-    def _left(self) -> None:
-        self._x = max(0, self._x - 1)
-
-    def _home(self) -> None:
-        self._x = 0
-
-    def _end(self) -> None:
-        self._x = len(self._s)
-
-    def _ctrl_left(self) -> None:
-        if self._x <= 1:
-            self._x = 0
-        else:
-            self._x -= 1
-            tp = self._s[self._x - 1].isalnum()
-            while self._x > 0 and tp == self._s[self._x - 1].isalnum():
-                self._x -= 1
-
-    def _ctrl_right(self) -> None:
-        if self._x >= len(self._s) - 1:
-            self._x = len(self._s)
-        else:
-            self._x += 1
-            tp = self._s[self._x].isalnum()
-            while self._x < len(self._s) and tp == self._s[self._x].isalnum():
-                self._x += 1
-
-    def _backspace(self) -> None:
-        if self._x > 0:
-            self._s = self._s[:self._x - 1] + self._s[self._x:]
-            self._x -= 1
-
-    def _delete(self) -> None:
-        if self._x < len(self._s):
-            self._s = self._s[:self._x] + self._s[self._x + 1:]
-
-    def _cut_to_end(self) -> None:
-        self._s = self._s[:self._x]
-
-    def _resize(self) -> None:
-        self._screen.resize()
-
-    def _reverse_search(self) -> Union[None, str, PromptResult]:
-        reverse_s = ''
-        reverse_idx = self._y
-        while True:
-            reverse_failed = False
-            for search_idx in range(reverse_idx, -1, -1):
-                if reverse_s in self._lst[search_idx]:
-                    reverse_idx = self._y = search_idx
-                    self._x = self._lst[search_idx].index(reverse_s)
-                    break
-            else:
-                reverse_failed = True
-
-            if reverse_failed:
-                base = f'{self._prompt}(failed reverse-search)`{reverse_s}`'
-            else:
-                base = f'{self._prompt}(reverse-search)`{reverse_s}`'
-
-            self._render_prompt(base=base)
-
-            key = self._screen.get_char()
-            if key.keyname == b'KEY_RESIZE':
-                self._screen.resize()
-            elif key.keyname == b'KEY_BACKSPACE' or key.keyname == b'^H':
-                reverse_s = reverse_s[:-1]
-            elif isinstance(key.wch, str) and key.wch.isprintable():
-                reverse_s += key.wch
-            elif key.keyname == b'^R':
-                reverse_idx = max(0, reverse_idx - 1)
-            elif key.keyname == b'^C':
-                return self._screen.status.cancelled()
-            elif key.keyname == b'^M':
-                return self._s
-            else:
-                self._x = len(self._s)
-                return None
-
-    def _cancel(self) -> PromptResult:
-        return self._screen.status.cancelled()
-
-    def _submit(self) -> str:
-        return self._s
-
-    DISPATCH = {
-        # movement
-        b'KEY_UP': _up,
-        b'KEY_DOWN': _down,
-        b'KEY_RIGHT': _right,
-        b'KEY_LEFT': _left,
-        b'KEY_HOME': _home,
-        b'^A': _home,
-        b'KEY_END': _end,
-        b'^E': _end,
-        b'kRIT5': _ctrl_right,
-        b'kLFT5': _ctrl_left,
-        # editing
-        b'KEY_BACKSPACE': _backspace,
-        b'^H': _backspace,  # ^Backspace
-        b'KEY_DC': _delete,
-        b'^K': _cut_to_end,
-        # misc
-        b'KEY_RESIZE': _resize,
-        b'^R': _reverse_search,
-        b'^M': _submit,
-        b'^C': _cancel,
-    }
-
-    def _c(self, c: str) -> None:
-        self._s = self._s[:self._x] + c + self._s[self._x:]
-        self._x += 1
-
-    def run(self) -> Union[PromptResult, str]:
-        while True:
-            self._render_prompt()
-
-            key = self._screen.get_char()
-            if key.keyname in Prompt.DISPATCH:
-                ret = Prompt.DISPATCH[key.keyname](self)
-                if ret is not None:
-                    return ret
-            elif isinstance(key.wch, str) and key.wch.isprintable():
-                self._c(key.wch)
-
-
-class History:
-    def __init__(self) -> None:
-        self._orig_len: Dict[str, int] = collections.defaultdict(int)
-        self.data: Dict[str, List[str]] = collections.defaultdict(list)
-        self.prev: Dict[str, str] = {}
-
-    @contextlib.contextmanager
-    def save(self) -> Generator[None, None, None]:
-        history_dir = os.path.join(
-            os.environ.get('XDG_DATA_HOME') or
-            os.path.expanduser('~/.local/share'),
-            'babi/history',
-        )
-        os.makedirs(history_dir, exist_ok=True)
-        for filename in os.listdir(history_dir):
-            with open(os.path.join(history_dir, filename)) as f:
-                self.data[filename] = f.read().splitlines()
-                self._orig_len[filename] = len(self.data[filename])
-        try:
-            yield
-        finally:
-            for k, v in self.data.items():
-                new_history = v[self._orig_len[k]:]
-                if new_history:
-                    with open(os.path.join(history_dir, k), 'a+') as f:
-                        f.write('\n'.join(new_history) + '\n')
-
-
-class Perf:
-    def __init__(self) -> None:
-        self._prof: Optional[cProfile.Profile] = None
-        self._records: List[Tuple[str, float]] = []
-        self._name: Optional[str] = None
-        self._time: Optional[float] = None
-
-    def start(self, name: str) -> None:
-        if self._prof:
-            assert self._name is None, self._name
-            self._name = name
-            self._time = time.monotonic()
-            self._prof.enable()
-
-    def end(self) -> None:
-        if self._prof:
-            assert self._name is not None
-            assert self._time is not None
-            self._prof.disable()
-            self._records.append((self._name, time.monotonic() - self._time))
-            self._name = self._time = None
-
-    @contextlib.contextmanager
-    def log(self, filename: Optional[str]) -> Generator[None, None, None]:
-        if filename is None:
-            yield
-        else:
-            self._prof = cProfile.Profile()
-            self.start('startup')
-            try:
-                yield
-            finally:
-                self.end()
-                self._prof.dump_stats(f'{filename}.pstats')
-                with open(filename, 'w') as f:
-                    f.write('μs\tevent\n')
-                    for name, duration in self._records:
-                        f.write(f'{int(duration * 1000 * 1000)}\t{name}\n')
 
 
 def _restore_lines_eof_invariant(lines: MutableSequenceNoSlice) -> None:
@@ -483,7 +45,7 @@ def _restore_lines_eof_invariant(lines: MutableSequenceNoSlice) -> None:
         lines.append('')
 
 
-def _get_lines(sio: IO[str]) -> Tuple[List[str], str, bool, str]:
+def get_lines(sio: IO[str]) -> Tuple[List[str], str, bool, str]:
     sha256 = hashlib.sha256()
     lines = []
     newlines = collections.Counter({'\n': 0})  # default to `\n`
@@ -657,7 +219,7 @@ class File:
 
         if self.filename is not None and os.path.isfile(self.filename):
             with open(self.filename, newline='') as f:
-                self.lines, self.nl, mixed, self.sha256 = _get_lines(f)
+                self.lines, self.nl, mixed, self.sha256 = get_lines(f)
         else:
             if self.filename is not None:
                 if os.path.lexists(self.filename):
@@ -666,7 +228,7 @@ class File:
                 else:
                     status.update('(new file)')
             sio = io.StringIO('')
-            self.lines, self.nl, mixed, self.sha256 = _get_lines(sio)
+            self.lines, self.nl, mixed, self.sha256 = get_lines(sio)
 
         if mixed:
             status.update(f'mixed newlines will be converted to {self.nl!r}')
@@ -1224,7 +786,7 @@ class File:
         return self.y - self.file_y + margin.header
 
     def rendered_x(self) -> int:
-        return self.x - _line_x(self.x, curses.COLS)
+        return self.x - line_x(self.x, curses.COLS)
 
     def move_cursor(
             self,
@@ -1247,7 +809,7 @@ class File:
             line_idx = self.file_y + i
             line = self.lines[line_idx]
             x = self.x if line_idx == self.y else 0
-            line = _scrolled_line(line, x, curses.COLS)
+            line = scrolled_line(line, x, curses.COLS)
             stdscr.insstr(i + margin.header, 0, line)
         blankline = ' ' * curses.COLS
         for i in range(to_display, margin.body_lines):
@@ -1289,16 +851,16 @@ class File:
     ) -> None:
         h_y = y - self.file_y + margin.header
         if y == self.y:
-            line_x = _line_x(self.x, curses.COLS)
-            if x < line_x:
+            l_x = line_x(self.x, curses.COLS)
+            if x < l_x:
                 h_x = 0
-                n -= line_x - x
+                n -= l_x - x
             else:
-                h_x = x - line_x
+                h_x = x - l_x
         else:
-            line_x = 0
+            l_x = 0
             h_x = x
-        if not include_edge and len(self.lines[y]) > line_x + curses.COLS:
+        if not include_edge and len(self.lines[y]) > l_x + curses.COLS:
             raise NotImplementedError('h_n = min(curses.COLS - h_x - 1, n)')
         else:
             h_n = n
@@ -1309,425 +871,3 @@ class File:
         ):
             return
         stdscr.chgat(h_y, h_x, h_n, color)
-
-
-class Screen:
-    def __init__(
-            self,
-            stdscr: 'curses._CursesWindow',
-            files: List[File],
-    ) -> None:
-        self.stdscr = stdscr
-        self.files = files
-        self.i = 0
-        self.history = History()
-        self.perf = Perf()
-        self.status = Status()
-        self.margin = Margin.from_current_screen()
-        self.cut_buffer: Tuple[str, ...] = ()
-        self.cut_selection = False
-        self._resize_cb: Optional[Callable[[], None]] = None
-
-    @property
-    def file(self) -> File:
-        return self.files[self.i]
-
-    def _draw_header(self) -> None:
-        filename = self.file.filename or '<<new file>>'
-        if self.file.modified:
-            filename += ' *'
-        if len(self.files) > 1:
-            files = f'[{self.i + 1}/{len(self.files)}] '
-            version_width = len(VERSION_STR) + 2 + len(files)
-        else:
-            files = ''
-            version_width = len(VERSION_STR) + 2
-        centered = filename.center(curses.COLS)[version_width:]
-        s = f' {VERSION_STR} {files}{centered}{files}'
-        self.stdscr.insstr(0, 0, s, curses.A_REVERSE)
-
-    def _get_char(self) -> Key:
-        wch = self.stdscr.get_wch()
-        if isinstance(wch, str) and wch == '\x1b':
-            self.stdscr.nodelay(True)
-            try:
-                while True:
-                    try:
-                        new_wch = self.stdscr.get_wch()
-                        if isinstance(new_wch, str):
-                            wch += new_wch
-                        else:  # pragma: no cover (impossible?)
-                            curses.unget_wch(new_wch)
-                            break
-                    except curses.error:
-                        break
-            finally:
-                self.stdscr.nodelay(False)
-
-            if len(wch) == 2:
-                return Key(wch, f'M-{wch[1]}'.encode())
-            elif len(wch) > 1:
-                keyname = SEQUENCE_KEYNAME.get(wch, b'unknown')
-                return Key(wch, keyname)
-        elif wch == '\x7f':  # pragma: no cover (macos)
-            keyname = curses.keyname(curses.KEY_BACKSPACE)
-            return Key(wch, keyname)
-
-        key = wch if isinstance(wch, int) else ord(wch)
-        keyname = curses.keyname(key)
-        return Key(wch, keyname)
-
-    def get_char(self) -> Key:
-        self.perf.end()
-        ret = self._get_char()
-        self.perf.start(ret.keyname.decode())
-        return ret
-
-    def draw(self) -> None:
-        if self.margin.header:
-            self._draw_header()
-        self.file.draw(self.stdscr, self.margin)
-        self.status.draw(self.stdscr, self.margin)
-
-    @contextlib.contextmanager
-    def resize_cb(self, f: Callable[[], None]) -> Generator[None, None, None]:
-        assert self._resize_cb is None, self._resize_cb
-        self._resize_cb = f
-        try:
-            yield
-        finally:
-            self._resize_cb = None
-
-    def resize(self) -> None:
-        curses.update_lines_cols()
-        self.margin = Margin.from_current_screen()
-        self.file.scroll_screen_if_needed(self.margin)
-        self.draw()
-        if self._resize_cb is not None:
-            self._resize_cb()
-
-    def quick_prompt(self, prompt: str, opts: str) -> Union[str, PromptResult]:
-        while True:
-            s = prompt.ljust(curses.COLS)
-            if len(s) > curses.COLS:
-                s = f'{s[:curses.COLS - 1]}…'
-            self.stdscr.insstr(curses.LINES - 1, 0, s, curses.A_REVERSE)
-            x = min(curses.COLS - 1, len(prompt) + 1)
-            self.stdscr.move(curses.LINES - 1, x)
-
-            key = self.get_char()
-            if key.keyname == b'KEY_RESIZE':
-                self.resize()
-            elif key.keyname == b'^C':
-                return self.status.cancelled()
-            elif isinstance(key.wch, str) and key.wch in opts:
-                return key.wch
-
-    def prompt(
-            self,
-            prompt: str,
-            *,
-            allow_empty: bool = False,
-            history: Optional[str] = None,
-            default_prev: bool = False,
-            default: Optional[str] = None,
-    ) -> Union[str, PromptResult]:
-        default = default or ''
-        self.status.clear()
-        if history is not None:
-            history_data = [*self.history.data[history], default]
-            if default_prev and history in self.history.prev:
-                prompt = f'{prompt} [{self.history.prev[history]}]'
-        else:
-            history_data = [default]
-
-        ret = Prompt(self, prompt, history_data).run()
-
-        if ret is not PromptResult.CANCELLED and history is not None:
-            if ret:  # only put non-empty things in history
-                history_lst = self.history.data[history]
-                if not history_lst or history_lst[-1] != ret:
-                    history_lst.append(ret)
-                self.history.prev[history] = ret
-            elif default_prev and history in self.history.prev:
-                return self.history.prev[history]
-
-        if not allow_empty and not ret:
-            return self.status.cancelled()
-        else:
-            return ret
-
-    def go_to_line(self) -> None:
-        response = self.prompt('enter line number')
-        if response is not PromptResult.CANCELLED:
-            try:
-                lineno = int(response)
-            except ValueError:
-                self.status.update(f'not an integer: {response!r}')
-            else:
-                self.file.go_to_line(lineno, self.margin)
-
-    def current_position(self) -> None:
-        line = f'line {self.file.y + 1}'
-        col = f'col {self.file.x + 1}'
-        line_count = max(len(self.file.lines) - 1, 1)
-        lines_word = 'line' if line_count == 1 else 'lines'
-        self.status.update(f'{line}, {col} (of {line_count} {lines_word})')
-
-    def cut(self) -> None:
-        if self.file.select_start:
-            self.cut_buffer = self.file.cut_selection(self.margin)
-            self.cut_selection = True
-        else:
-            self.cut_buffer = self.file.cut(self.cut_buffer)
-            self.cut_selection = False
-
-    def uncut(self) -> None:
-        if self.cut_selection:
-            self.file.uncut_selection(self.cut_buffer, self.margin)
-        else:
-            self.file.uncut(self.cut_buffer, self.margin)
-
-    def _get_search_re(self, prompt: str) -> Union[Pattern[str], PromptResult]:
-        response = self.prompt(prompt, history='search', default_prev=True)
-        if response is PromptResult.CANCELLED:
-            return response
-        try:
-            return re.compile(response)
-        except re.error:
-            self.status.update(f'invalid regex: {response!r}')
-            return PromptResult.CANCELLED
-
-    def _undo_redo(
-            self,
-            op: str,
-            from_stack: List[Action],
-            to_stack: List[Action],
-    ) -> None:
-        if not from_stack:
-            self.status.update(f'nothing to {op}!')
-        else:
-            action = from_stack.pop()
-            to_stack.append(action.apply(self.file))
-            self.file.scroll_screen_if_needed(self.margin)
-            self.status.update(f'{op}: {action.name}')
-
-    def undo(self) -> None:
-        self._undo_redo('undo', self.file.undo_stack, self.file.redo_stack)
-
-    def redo(self) -> None:
-        self._undo_redo('redo', self.file.redo_stack, self.file.undo_stack)
-
-    def search(self) -> None:
-        response = self._get_search_re('search')
-        if response is not PromptResult.CANCELLED:
-            self.file.search(response, self.status, self.margin)
-
-    def replace(self) -> None:
-        search_response = self._get_search_re('search (to replace)')
-        if search_response is not PromptResult.CANCELLED:
-            response = self.prompt(
-                'replace with', history='replace', allow_empty=True,
-            )
-            if response is not PromptResult.CANCELLED:
-                self.file.replace(self, search_response, response)
-
-    def command(self) -> Optional[EditResult]:
-        response = self.prompt('', history='command')
-        if response == ':q':
-            return EditResult.EXIT
-        elif response == ':w':
-            self.save()
-        elif response == ':wq':
-            self.save()
-            return EditResult.EXIT
-        elif response == ':sort':
-            if self.file.select_start:
-                self.file.sort_selection(self.margin)
-            else:
-                self.file.sort(self.margin)
-            self.status.update('sorted!')
-        elif response is not PromptResult.CANCELLED:
-            self.status.update(f'invalid command: {response}')
-        return None
-
-    def save(self) -> Optional[PromptResult]:
-        self.file.finalize_previous_action()
-
-        # TODO: make directories if they don't exist
-        # TODO: maybe use mtime / stat as a shortcut for hashing below
-        # TODO: strip trailing whitespace?
-        # TODO: save atomically?
-        if self.file.filename is None:
-            filename = self.prompt('enter filename')
-            if filename is PromptResult.CANCELLED:
-                return PromptResult.CANCELLED
-            else:
-                self.file.filename = filename
-
-        if os.path.isfile(self.file.filename):
-            with open(self.file.filename) as f:
-                *_, sha256 = _get_lines(f)
-        else:
-            sha256 = hashlib.sha256(b'').hexdigest()
-
-        contents = self.file.nl.join(self.file.lines)
-        sha256_to_save = hashlib.sha256(contents.encode()).hexdigest()
-
-        # the file on disk is the same as when we opened it
-        if sha256 not in (self.file.sha256, sha256_to_save):
-            self.status.update('(file changed on disk, not implemented)')
-            return PromptResult.CANCELLED
-
-        with open(self.file.filename, 'w') as f:
-            f.write(contents)
-
-        self.file.modified = False
-        self.file.sha256 = sha256_to_save
-        num_lines = len(self.file.lines) - 1
-        lines = 'lines' if num_lines != 1 else 'line'
-        self.status.update(f'saved! ({num_lines} {lines} written)')
-
-        # fix up modified state in undo / redo stacks
-        for stack in (self.file.undo_stack, self.file.redo_stack):
-            first = True
-            for action in reversed(stack):
-                action.end_modified = not first
-                action.start_modified = True
-                first = False
-        return None
-
-    def save_filename(self) -> Optional[PromptResult]:
-        response = self.prompt('enter filename', default=self.file.filename)
-        if response is PromptResult.CANCELLED:
-            return PromptResult.CANCELLED
-        else:
-            self.file.filename = response
-            return self.save()
-
-    def quit_save_modified(self) -> Optional[EditResult]:
-        if self.file.modified:
-            response = self.quick_prompt(
-                'file is modified - save [y(es), n(o)]?', 'yn',
-            )
-            if response == 'y':
-                if self.save_filename() is not PromptResult.CANCELLED:
-                    return EditResult.EXIT
-                else:
-                    return None
-            elif response == 'n':
-                return EditResult.EXIT
-            else:
-                assert response is PromptResult.CANCELLED
-                return None
-        return EditResult.EXIT
-
-    def background(self) -> None:
-        curses.endwin()
-        os.kill(os.getpid(), signal.SIGSTOP)
-        self.stdscr = _init_screen()
-        self.resize()
-
-    DISPATCH = {
-        b'KEY_RESIZE': resize,
-        b'^_': go_to_line,
-        b'^C': current_position,
-        b'^K': cut,
-        b'^U': uncut,
-        b'M-u': undo,
-        b'M-U': redo,
-        b'^W': search,
-        b'^\\': replace,
-        b'^[': command,
-        b'^S': save,
-        b'^O': save_filename,
-        b'^X': quit_save_modified,
-        b'kLFT3': lambda screen: EditResult.PREV,
-        b'kRIT3': lambda screen: EditResult.NEXT,
-        b'^Z': background,
-    }
-
-
-def _edit(screen: Screen) -> EditResult:
-    screen.file.ensure_loaded(screen.status)
-
-    while True:
-        screen.status.tick(screen.margin)
-        screen.draw()
-        screen.file.move_cursor(screen.stdscr, screen.margin)
-
-        key = screen.get_char()
-        if key.keyname in File.DISPATCH:
-            File.DISPATCH[key.keyname](screen.file, screen.margin)
-        elif key.keyname in Screen.DISPATCH:
-            ret = Screen.DISPATCH[key.keyname](screen)
-            if isinstance(ret, EditResult):
-                return ret
-        elif isinstance(key.wch, str) and key.wch.isprintable():
-            screen.file.c(key.wch, screen.margin)
-        else:
-            screen.status.update(f'unknown key: {key}')
-
-
-def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
-    screen = Screen(stdscr, [File(f) for f in args.filenames or [None]])
-    with screen.perf.log(args.perf_log), screen.history.save():
-        while screen.files:
-            screen.i = screen.i % len(screen.files)
-            res = _edit(screen)
-            if res == EditResult.EXIT:
-                del screen.files[screen.i]
-                screen.status.clear()
-            elif res == EditResult.NEXT:
-                screen.i += 1
-                screen.status.clear()
-            elif res == EditResult.PREV:
-                screen.i -= 1
-                screen.status.clear()
-            else:
-                raise AssertionError(f'unreachable {res}')
-
-
-def _init_screen() -> 'curses._CursesWindow':
-    # set the escape delay so curses does not pause waiting for sequences
-    if sys.version_info >= (3, 9):  # pragma: no cover
-        curses.set_escdelay(25)
-    else:  # pragma: no cover
-        os.environ.setdefault('ESCDELAY', '25')
-
-    stdscr = curses.initscr()
-    curses.noecho()
-    curses.cbreak()
-    # <enter> is not transformed into '\n' so it can be differentiated from ^J
-    curses.nonl()
-    # ^S / ^Q / ^Z / ^\ are passed through
-    curses.raw()
-    stdscr.keypad(True)
-    with contextlib.suppress(curses.error):
-        curses.start_color()
-    # TODO: colors
-    return stdscr
-
-
-@contextlib.contextmanager
-def make_stdscr() -> Generator['curses._CursesWindow', None, None]:
-    """essentially `curses.wrapper` but split out to implement ^Z"""
-    stdscr = _init_screen()
-    try:
-        yield stdscr
-    finally:
-        curses.endwin()
-
-
-def main(argv: Optional[Sequence[str]] = None) -> int:
-    parser = argparse.ArgumentParser()
-    parser.add_argument('filenames', metavar='filename', nargs='*')
-    parser.add_argument('--perf-log')
-    args = parser.parse_args(argv)
-    with make_stdscr() as stdscr:
-        c_main(stdscr, args)
-    return 0
-
-
-if __name__ == '__main__':
-    exit(main())
