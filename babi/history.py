@@ -5,6 +5,8 @@ from typing import Dict
 from typing import Generator
 from typing import List
 
+from babi.user_data import xdg_data
+
 
 class History:
     def __init__(self) -> None:
@@ -14,11 +16,7 @@ class History:
 
     @contextlib.contextmanager
     def save(self) -> Generator[None, None, None]:
-        history_dir = os.path.join(
-            os.environ.get('XDG_DATA_HOME') or
-            os.path.expanduser('~/.local/share'),
-            'babi/history',
-        )
+        history_dir = xdg_data('history')
         os.makedirs(history_dir, exist_ok=True)
         for filename in os.listdir(history_dir):
             with open(os.path.join(history_dir, filename)) as f:
