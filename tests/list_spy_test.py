@@ -1,6 +1,6 @@
 import pytest
 
-from babi.main import ListSpy
+from babi.list_spy import ListSpy
 
 
 def test_list_spy_repr():
