@@ -1102,6 +1102,8 @@ class File:
     def sort_selection(self, margin: Margin) -> None:
         (s_y, _), (e_y, _) = self._get_selection()
         e_y = min(e_y + 1, len(self.lines) - 1)
+        if self.lines[e_y - 1] == '':
+            e_y -= 1
         self._sort(margin, s_y, e_y)
 
     DISPATCH = {
