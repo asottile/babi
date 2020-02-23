@@ -9,6 +9,8 @@ from hecate import Runner
 
 
 class Token(enum.Enum):
+    FG_ESC = re.compile(r'\x1b\[38;5;(\d+)m')
+    BG_ESC = re.compile(r'\x1b\[48;5;(\d+)m')
     RESET = re.compile(r'\x1b\[0?m')
     ESC = re.compile(r'\x1b\[(\d+)m')
     NL = re.compile(r'\n')
@@ -36,8 +38,13 @@ def to_attrs(screen, width):
     ret = [[] for _ in range(len(screen.splitlines()))]
 
     for tp, match in tokenize_colors(screen):
-        if tp is Token.RESET:
-            fg = bg = attr = 0
+        if tp is Token.FG_ESC:
+            fg = int(match[1])
+        elif tp is Token.BG_ESC:
+            bg = int(match[1])
+        elif tp is Token.RESET:
+            fg = bg = -1
+            attr = 0
         elif tp is Token.ESC:
             if match[1] == '7':
                 attr |= curses.A_REVERSE

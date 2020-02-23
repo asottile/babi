@@ -20,6 +20,7 @@ from babi.file import Action
 from babi.file import File
 from babi.file import get_lines
 from babi.history import History
+from babi.hl.syntax import Syntax
 from babi.hl.trailing_whitespace import TrailingWhitespace
 from babi.margin import Margin
 from babi.perf import Perf
@@ -73,7 +74,10 @@ class Screen:
     ) -> None:
         self.stdscr = stdscr
         color_manager = ColorManager.make()
-        hl_factories = (TrailingWhitespace(color_manager),)
+        hl_factories = (
+            Syntax.from_screen(stdscr, color_manager),
+            TrailingWhitespace(color_manager),
+        )
         self.files = [File(f, hl_factories) for f in filenames]
         self.i = 0
         self.history = History()
@@ -490,6 +494,7 @@ def _init_screen() -> 'curses._CursesWindow':
     # ^S / ^Q / ^Z / ^\ are passed through
     curses.raw()
     stdscr.keypad(True)
+
     with contextlib.suppress(curses.error):
         curses.start_color()
         curses.use_default_colors()

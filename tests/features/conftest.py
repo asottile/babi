@@ -23,6 +23,13 @@ def xdg_data_home(tmpdir):
         yield data_home
 
 
+@pytest.fixture(autouse=True)
+def xdg_config_home(tmpdir):
+    config_home = tmpdir.join('config_home')
+    with mock.patch.dict(os.environ, {'XDG_CONFIG_HOME': str(config_home)}):
+        yield config_home
+
+
 @pytest.fixture
 def ten_lines(tmpdir):
     f = tmpdir.join('f')
@@ -174,6 +181,10 @@ class CursesScreen:
                 fg, bg = self._runner.color_pairs[pair]
             attr = attr & ~(0xff << 8)
             return (fg, bg, attr)
+
+    def bkgd(self, c, attr):
+        assert c == ' '
+        self._bkgd_attr = self._to_attr(attr)
 
     def keypad(self, val):
         pass
@@ -367,6 +378,9 @@ class DeferredRunner:
 
     def _curses_start_color(self):
         curses.COLORS = self._n_colors
+
+    def _curses_can_change_color(self):
+        return self._can_change_color
 
     def _curses_init_pair(self, pair, fg, bg):
         self.color_pairs[pair] = (fg, bg)

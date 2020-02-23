@@ -35,6 +35,7 @@ if TYPE_CHECKING:
     from babi.main import Screen  # XXX: circular
 
 TCallable = TypeVar('TCallable', bound=Callable[..., Any])
+
 HIGHLIGHT = curses.A_REVERSE | curses.A_DIM
 
 
@@ -275,7 +276,7 @@ class File:
         if self.y >= self.file_y + margin.body_lines:
             self.file_y += self._scroll_amount()
 
-    def _decrement_y(self, margin: Margin) -> None:
+    def _decrement_y(self) -> None:
         self.y -= 1
         if self.y < self.file_y:
             self.file_y -= self._scroll_amount()
@@ -284,7 +285,7 @@ class File:
     @action
     def up(self, margin: Margin) -> None:
         if self.y > 0:
-            self._decrement_y(margin)
+            self._decrement_y()
             self._set_x_after_vertical_movement()
 
     @action
@@ -307,7 +308,7 @@ class File:
     def left(self, margin: Margin) -> None:
         if self.x == 0:
             if self.y > 0:
-                self._decrement_y(margin)
+                self._decrement_y()
                 self.x = len(self.lines[self.y])
         else:
             self.x -= 1
@@ -370,7 +371,7 @@ class File:
         elif self.x == 0 or line[:self.x].isspace():
             self.x = self.x_hint = 0
             while self.y > 0 and (self.x == 0 or not self.lines[self.y]):
-                self._decrement_y(margin)
+                self._decrement_y()
                 self.x = self.x_hint = len(self.lines[self.y])
         else:
             self.x = self.x_hint = self.x - 1
@@ -502,7 +503,7 @@ class File:
             pass
         # backspace at the end of the file does not change the contents
         elif self.y == len(self.lines) - 1:
-            self._decrement_y(margin)
+            self._decrement_y()
             self.x = self.x_hint = len(self.lines[self.y])
         # at the beginning of the line, we join the current line and
         # the previous line
@@ -510,7 +511,7 @@ class File:
             victim = self.lines.pop(self.y)
             new_x = len(self.lines[self.y - 1])
             self.lines[self.y - 1] += victim
-            self._decrement_y(margin)
+            self._decrement_y()
             self.x = self.x_hint = new_x
         else:
             s = self.lines[self.y]
@@ -658,7 +659,7 @@ class File:
             cut_buffer: Tuple[str, ...], margin: Margin,
     ) -> None:
         self._uncut(cut_buffer, margin)
-        self._decrement_y(margin)
+        self._decrement_y()
         self.x = self.x_hint = len(self.lines[self.y])
         self.lines[self.y] += self.lines.pop(self.y + 1)
 
@@ -886,6 +887,7 @@ class File:
         h_y = y - self.file_y + margin.header
         if y == self.y:
             l_x = line_x(self.x, curses.COLS)
+            # TODO: include edge left detection
             if x < l_x:
                 h_x = 0
                 n -= l_x - x

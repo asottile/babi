@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+import argparse
+import enum
+import json
+import os.path
+import plistlib
+import urllib.request
+from typing import NamedTuple
+
+import cson  # pip install cson
+
+
+DEFAULT_DIR = os.path.join(
+    os.environ.get('XDG_DATA_HOME') or
+    os.path.expanduser('~/.local/share'),
+    'babi/textmate_syntax',
+)
+Ext = enum.Enum('Ext', 'CSON PLIST JSON')
+
+
+def _convert_cson(src: bytes) -> str:
+    return json.dumps(cson.loads(src))
+
+
+def _convert_json(src: bytes) -> str:
+    return json.dumps(json.loads(src))
+
+
+def _convert_plist(src: bytes) -> str:
+    return json.dumps(plistlib.loads(src))
+
+
+EXT_CONVERT = {
+    Ext.CSON: _convert_cson,
+    Ext.JSON: _convert_json,
+    Ext.PLIST: _convert_plist,
+}
+
+
+class Syntax(NamedTuple):
+    name: str
+    ext: Ext
+    url: str
+
+
+SYNTAXES = (
+    Syntax('c', Ext.JSON, 'https://raw.githubusercontent.com/jeff-hykin/cpp-textmate-grammar/53e39b1c/syntaxes/c.tmLanguage.json'),  # noqa: E501
+    Syntax('css', Ext.CSON, 'https://raw.githubusercontent.com/atom/language-css/9feb69c081308b63f78bb0d6a2af2ff5eb7d869b/grammars/css.cson'),  # noqa: E501
+    Syntax('diff', Ext.PLIST, 'https://raw.githubusercontent.com/textmate/diff.tmbundle/0593bb77/Syntaxes/Diff.plist'),  # noqa: E501
+    Syntax('html', Ext.PLIST, 'https://raw.githubusercontent.com/textmate/html.tmbundle/0c3d5ee5/Syntaxes/HTML.plist'),  # noqa: E501
+    Syntax('html-derivative', Ext.PLIST, 'https://raw.githubusercontent.com/textmate/html.tmbundle/0c3d5ee54de3a993f747f54186b73a4d2d3c44a2/Syntaxes/HTML%20(Derivative).tmLanguage'),  # noqa: E501
+    Syntax('ini', Ext.PLIST, 'https://raw.githubusercontent.com/textmate/ini.tmbundle/7d8c7b55/Syntaxes/Ini.plist'),  # noqa: E501
+    Syntax('json', Ext.PLIST, 'https://raw.githubusercontent.com/microsoft/vscode-JSON.tmLanguage/d113e90937ed3ecc31ac54750aac2e8efa08d784/JSON.tmLanguage'),  # noqa: E501
+    Syntax('markdown', Ext.PLIST, 'https://raw.githubusercontent.com/microsoft/vscode-markdown-tm-grammar/59a5962/syntaxes/markdown.tmLanguage'),  # noqa: E501
+    Syntax('powershell', Ext.PLIST, 'https://raw.githubusercontent.com/PowerShell/EditorSyntax/4a0a0766/PowerShellSyntax.tmLanguage'),  # noqa: E501
+    Syntax('python', Ext.PLIST, 'https://raw.githubusercontent.com/MagicStack/MagicPython/c9b3409d/grammars/MagicPython.tmLanguage'),  # noqa: E501
+    # TODO: https://github.com/zargony/atom-language-rust/pull/149
+    Syntax('rust', Ext.CSON, 'https://raw.githubusercontent.com/asottile/atom-language-rust/e113ca67/grammars/rust.cson'),  # noqa: E501
+    Syntax('shell', Ext.CSON, 'https://raw.githubusercontent.com/atom/language-shellscript/7008ea926867d8a231003e78094091471c4fccf8/grammars/shell-unix-bash.cson'),  # noqa: E501
+    Syntax('yaml', Ext.PLIST, 'https://raw.githubusercontent.com/textmate/yaml.tmbundle/e54ceae3/Syntaxes/YAML.tmLanguage'),  # noqa: E501
+)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dest', default=DEFAULT_DIR)
+    args = parser.parse_args()
+
+    os.makedirs(args.dest, exist_ok=True)
+    for syntax in SYNTAXES:
+        print(f'downloading {syntax.name}...')
+        resp = urllib.request.urlopen(syntax.url).read()
+        converted = EXT_CONVERT[syntax.ext](resp)
+        with open(os.path.join(args.dest, f'{syntax.name}.json'), 'w') as f:
+            f.write(converted)
+
+    return 0
+
+
+if __name__ == '__main__':
+    exit(main())

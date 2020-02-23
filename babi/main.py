@@ -32,7 +32,7 @@ def _edit(screen: Screen) -> EditResult:
             screen.status.update(f'unknown key: {key}')
 
 
-def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
+def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> int:
     with perf_log(args.perf_log) as perf:
         screen = Screen(stdscr, args.filenames or [None], perf)
         with screen.history.save():
@@ -50,6 +50,7 @@ def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
                     screen.status.clear()
                 else:
                     raise AssertionError(f'unreachable {res}')
+    return 0
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -57,9 +58,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument('filenames', metavar='filename', nargs='*')
     parser.add_argument('--perf-log')
     args = parser.parse_args(argv)
+
     with make_stdscr() as stdscr:
-        c_main(stdscr, args)
-    return 0
+        return c_main(stdscr, args)
 
 
 if __name__ == '__main__':
