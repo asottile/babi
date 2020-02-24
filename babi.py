@@ -137,25 +137,37 @@ class Margin(NamedTuple):
     header: bool
     footer: bool
 
-    @property
-    def body_lines(self) -> int:
-        return curses.LINES - self.header - self.footer
 
-    @property
-    def page_size(self) -> int:
-        if self.body_lines <= 2:
-            return 1
-        else:
-            return self.body_lines - 2
+@property
+def body_lines(self) -> int:
+    return curses.LINES - self.header - self.footer
 
-    @classmethod
-    def from_screen(cls, screen: 'curses._CursesWindow') -> 'Margin':
-        if curses.LINES == 1:
-            return cls(header=False, footer=False)
-        elif curses.LINES == 2:
-            return cls(header=False, footer=True)
-        else:
-            return cls(header=True, footer=True)
+
+Margin.body_lines = body_lines
+
+
+@property
+def page_size(self) -> int:
+    if self.body_lines <= 2:
+        return 1
+    else:
+        return self.body_lines - 2
+
+
+Margin.page_size = page_size
+
+
+@classmethod
+def from_screen(cls, screen: 'curses._CursesWindow') -> 'Margin':
+    if curses.LINES == 1:
+        return cls(header=False, footer=False)
+    elif curses.LINES == 2:
+        return cls(header=False, footer=True)
+    else:
+        return cls(header=True, footer=True)
+
+
+Margin.from_screen = from_screen
 
 
 def _get_color_pair_mapping() -> Dict[Tuple[int, int], int]:
