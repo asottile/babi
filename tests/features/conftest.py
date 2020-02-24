@@ -5,20 +5,15 @@ import shlex
 import sys
 from typing import List
 from typing import NamedTuple
-from typing import TYPE_CHECKING
 from typing import Union
 from unittest import mock
 
 import pytest
 
+from babi._types import Protocol
 from babi.main import main
 from babi.screen import VERSION_STR
 from testing.runner import PrintsErrorRunner
-
-if TYPE_CHECKING:
-    from typing import Protocol
-else:
-    Protocol = object
 
 
 @pytest.fixture(autouse=True)

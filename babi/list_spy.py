@@ -2,12 +2,8 @@ import functools
 from typing import Callable
 from typing import Iterator
 from typing import List
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from typing import Protocol  # python3.8+
-else:
-    Protocol = object
+from babi._types import Protocol
 
 
 class MutableSequenceNoSlice(Protocol):
