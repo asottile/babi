@@ -3,8 +3,9 @@ import curses
 import os
 import shlex
 import sys
-from typing import Callable
+from typing import List
 from typing import NamedTuple
+from typing import TYPE_CHECKING
 from typing import Union
 from unittest import mock
 
@@ -13,6 +14,11 @@ import pytest
 from babi.main import main
 from babi.screen import VERSION_STR
 from testing.runner import PrintsErrorRunner
+
+if TYPE_CHECKING:
+    from typing import Protocol
+else:
+    Protocol = object
 
 
 @pytest.fixture(autouse=True)
@@ -69,10 +75,14 @@ class Screen:
         self.width, self.height = width, height
 
 
+class Op(Protocol):
+    def __call__(self, screen: Screen) -> None: ...
+
+
 class AwaitText(NamedTuple):
     text: str
 
-    def __call__(self, screen):
+    def __call__(self, screen: Screen) -> None:
         if self.text not in screen.screenshot():
             raise AssertionError(f'expected: {self.text!r}')
 
@@ -80,7 +90,7 @@ class AwaitText(NamedTuple):
 class AwaitTextMissing(NamedTuple):
     text: str
 
-    def __call__(self, screen):
+    def __call__(self, screen: Screen) -> None:
         if self.text in screen.screenshot():
             raise AssertionError(f'expected missing: {self.text!r}')
 
@@ -89,14 +99,14 @@ class AwaitCursorPosition(NamedTuple):
     x: int
     y: int
 
-    def __call__(self, screen):
+    def __call__(self, screen: Screen) -> None:
         assert (self.x, self.y) == (screen.x, screen.y)
 
 
 class AssertCursorLineEquals(NamedTuple):
     line: str
 
-    def __call__(self, screen):
+    def __call__(self, screen: Screen) -> None:
         assert screen.lines[screen.y].rstrip() == self.line
 
 
@@ -104,14 +114,14 @@ class AssertScreenLineEquals(NamedTuple):
     n: int
     line: str
 
-    def __call__(self, screen):
+    def __call__(self, screen: Screen) -> None:
         assert screen.lines[self.n].rstrip() == self.line
 
 
 class AssertFullContents(NamedTuple):
     contents: str
 
-    def __call__(self, screen):
+    def __call__(self, screen: Screen) -> None:
         assert screen.screenshot() == self.contents
 
 
@@ -119,19 +129,19 @@ class Resize(NamedTuple):
     width: int
     height: int
 
-    def __call__(self, screen):
+    def __call__(self, screen: Screen) -> None:
         screen.resize(width=self.width, height=self.height)
 
 
 class KeyPress(NamedTuple):
     wch: Union[int, str]
 
-    def __call__(self, screen):
+    def __call__(self, screen: Screen) -> None:
         raise AssertionError('unreachable')
 
 
 class CursesError(NamedTuple):
-    def __call__(self, screen):
+    def __call__(self, screen: Screen) -> None:
         raise curses.error()
 
 
@@ -223,7 +233,7 @@ class DeferredRunner:
     def __init__(self, command, width=80, height=24, colors=256):
         self.command = command
         self._i = 0
-        self._ops: Callable[[Screen], None] = []
+        self._ops: List[Op] = []
         self.screen = Screen(width, height)
         self._colors = colors
 
@@ -236,8 +246,10 @@ class DeferredRunner:
                 self.screen.screenshot()
                 raise
         self._i += 1
-        print(f'KEY: {self._ops[self._i - 1].wch!r}')
-        return self._ops[self._i - 1].wch
+        keypress_event = self._ops[self._i - 1]
+        assert isinstance(keypress_event, KeyPress)
+        print(f'KEY: {keypress_event.wch!r}')
+        return keypress_event.wch
 
     def await_text(self, text):
         self._ops.append(AwaitText(text))
@@ -312,7 +324,7 @@ class DeferredRunner:
     def _curses_initscr(self):
         curses.COLORS = self._colors
         self._curses_update_lines_cols()
-        self.screen.enabled = True
+        self.screen.disabled = False
         return CursesScreen(self)
 
     def _curses_endwin(self):
@@ -338,7 +350,7 @@ class DeferredRunner:
         # KeyPress with failing condition or error
         for i in range(self._i, len(self._ops)):
             if self._ops[i] != KeyPress('n'):
-                raise AssertionError(self.ops[i:])
+                raise AssertionError(self._ops[i:])
 
 
 @contextlib.contextmanager
