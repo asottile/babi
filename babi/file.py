@@ -614,7 +614,7 @@ class File:
 
         with self.edit_action_context('cut', final=False):
             if self.y == len(self.lines) - 1:
-                return ()
+                return cut_buffer
             else:
                 victim = self.lines.pop(self.y)
                 self.x = self.x_hint = 0

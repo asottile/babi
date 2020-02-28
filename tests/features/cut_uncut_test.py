@@ -33,6 +33,15 @@ def test_cut_end_of_file(run):
         h.press('hi')
 
 
+def test_cut_end_of_file_noop_extra_cut(run):
+    with run() as h, and_exit(h):
+        h.press('hi')
+        h.press('^K')
+        h.press('^K')
+        h.press('^U')
+        h.await_text('hi')
+
+
 def test_cut_uncut_multiple_file_buffers(run, tmpdir):
     f1 = tmpdir.join('f1')
     f1.write('hello\nworld\n')
