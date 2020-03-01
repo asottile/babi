@@ -464,7 +464,7 @@ class File:
         else:
             pos = max(self.file_y - margin.page_size, 0)
             self.y = self.file_y = pos
-        self._set_x_after_vertical_movement()
+        self.x = self.x_hint = 0
 
     @action
     def page_down(self, margin: Margin) -> None:
@@ -473,7 +473,7 @@ class File:
         else:
             pos = self.file_y + margin.page_size
             self.y = self.file_y = pos
-        self._set_x_after_vertical_movement()
+        self.x = self.x_hint = 0
 
     # editing
 

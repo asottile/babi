@@ -88,6 +88,19 @@ def test_page_up_and_page_down(run, ten_lines, page_up, page_down):
         h.assert_cursor_line_equals('line_9')
 
 
+def test_page_up_and_page_down_x_0(run, ten_lines):
+    with run(str(ten_lines), height=10) as h, and_exit(h):
+        h.press('Right')
+        h.press('PageDown')
+        h.await_cursor_position(x=0, y=1)
+        h.assert_cursor_line_equals('line_6')
+
+        h.press('Right')
+        h.press('PageUp')
+        h.await_cursor_position(x=0, y=1)
+        h.assert_cursor_line_equals('line_0')
+
+
 def test_page_up_page_down_size_small_window(run, ten_lines):
     with run(str(ten_lines), height=4) as h, and_exit(h):
         h.press('PageDown')
