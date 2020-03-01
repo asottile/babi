@@ -1,3 +1,4 @@
+covdefaults
 coverage
 git+https://github.com/asottile/hecate@ebe6dfb
 pytest
