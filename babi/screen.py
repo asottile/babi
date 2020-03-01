@@ -416,6 +416,7 @@ def _init_screen() -> 'curses._CursesWindow':
     stdscr.keypad(True)
     with contextlib.suppress(curses.error):
         curses.start_color()
+        curses.use_default_colors()
     # TODO: colors
     return stdscr
 
