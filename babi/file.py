@@ -715,7 +715,7 @@ class File:
     def c(self, wch: str, margin: Margin) -> None:
         s = self.lines[self.y]
         self.lines[self.y] = s[:self.x] + wch + s[self.x:]
-        self.x = self.x_hint = self.x + 1
+        self.x = self.x_hint = self.x + len(wch)
         _restore_lines_eof_invariant(self.lines)
 
     def finalize_previous_action(self) -> None:

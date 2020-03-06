@@ -2,6 +2,7 @@ import curses
 import enum
 from typing import List
 from typing import Optional
+from typing import Tuple
 from typing import TYPE_CHECKING
 from typing import Union
 
@@ -98,20 +99,24 @@ class Prompt:
     def _resize(self) -> None:
         self._screen.resize()
 
+    def _check_failed(self, idx: int, s: str) -> Tuple[bool, int]:
+        failed = False
+        for search_idx in range(idx, -1, -1):
+            if s in self._lst[search_idx]:
+                idx = self._y = search_idx
+                self._x = self._lst[search_idx].index(s)
+                break
+        else:
+            failed = True
+        return failed, idx
+
     def _reverse_search(self) -> Union[None, str, PromptResult]:
         reverse_s = ''
-        reverse_idx = self._y
+        idx = self._y
         while True:
-            reverse_failed = False
-            for search_idx in range(reverse_idx, -1, -1):
-                if reverse_s in self._lst[search_idx]:
-                    reverse_idx = self._y = search_idx
-                    self._x = self._lst[search_idx].index(reverse_s)
-                    break
-            else:
-                reverse_failed = True
+            fail, idx = self._check_failed(idx, reverse_s)
 
-            if reverse_failed:
+            if fail:
                 base = f'{self._prompt}(failed reverse-search)`{reverse_s}`'
             else:
                 base = f'{self._prompt}(reverse-search)`{reverse_s}`'
@@ -123,14 +128,17 @@ class Prompt:
                 self._screen.resize()
             elif key.keyname == b'KEY_BACKSPACE' or key.keyname == b'^H':
                 reverse_s = reverse_s[:-1]
-            elif isinstance(key.wch, str) and key.wch.isprintable():
-                reverse_s += key.wch
             elif key.keyname == b'^R':
-                reverse_idx = max(0, reverse_idx - 1)
+                idx = max(0, idx - 1)
             elif key.keyname == b'^C':
                 return self._screen.status.cancelled()
             elif key.keyname == b'^M':
                 return self._s
+            elif key.keyname == b'STRING':
+                assert isinstance(key.wch, str), key.wch
+                for c in key.wch:
+                    reverse_s += c
+                    failed, idx = self._check_failed(idx, reverse_s)
             else:
                 self._x = len(self._s)
                 return None
@@ -167,7 +175,7 @@ class Prompt:
 
     def _c(self, c: str) -> None:
         self._s = self._s[:self._x] + c + self._s[self._x:]
-        self._x += 1
+        self._x += len(c)
 
     def run(self) -> Union[PromptResult, str]:
         while True:
@@ -178,5 +186,6 @@ class Prompt:
                 ret = Prompt.DISPATCH[key.keyname](self)
                 if ret is not None:
                     return ret
-            elif isinstance(key.wch, str) and key.wch.isprintable():
+            elif key.keyname == b'STRING':
+                assert isinstance(key.wch, str), key.wch
                 self._c(key.wch)

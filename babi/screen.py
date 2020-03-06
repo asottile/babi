@@ -78,6 +78,7 @@ class Screen:
         self.cut_buffer: Tuple[str, ...] = ()
         self.cut_selection = False
         self._resize_cb: Optional[Callable[[], None]] = None
+        self._buffered_input: Union[int, str, None] = None
 
     @property
     def file(self) -> File:
@@ -97,29 +98,55 @@ class Screen:
         s = f' {VERSION_STR} {files}{centered}{files}'
         self.stdscr.insstr(0, 0, s, curses.A_REVERSE)
 
-    def _get_char(self) -> Key:
-        wch = self.stdscr.get_wch()
-        if isinstance(wch, str) and wch == '\x1b':
-            self.stdscr.nodelay(True)
-            try:
-                while True:
-                    try:
-                        new_wch = self.stdscr.get_wch()
-                        if isinstance(new_wch, str):
-                            wch += new_wch
-                        else:  # pragma: no cover (impossible?)
-                            curses.unget_wch(new_wch)
-                            break
-                    except curses.error:
+    def _get_sequence(self, wch: str) -> str:
+        self.stdscr.nodelay(True)
+        try:
+            while True:
+                try:
+                    c = self.stdscr.get_wch()
+                    if isinstance(c, str):
+                        wch += c
+                    else:  # pragma: no cover (race)
+                        self._buffered_input = c
                         break
-            finally:
-                self.stdscr.nodelay(False)
+                except curses.error:
+                    break
+        finally:
+            self.stdscr.nodelay(False)
+        return wch
 
+    def _get_string(self, wch: str) -> str:
+        self.stdscr.nodelay(True)
+        try:
+            while True:
+                try:
+                    c = self.stdscr.get_wch()
+                    if isinstance(c, str) and c.isprintable():
+                        wch += c
+                    else:
+                        self._buffered_input = c
+                        break
+                except curses.error:
+                    break
+        finally:
+            self.stdscr.nodelay(False)
+        return wch
+
+    def _get_char(self) -> Key:
+        if self._buffered_input is not None:
+            wch, self._buffered_input = self._buffered_input, None
+        else:
+            wch = self.stdscr.get_wch()
+        if isinstance(wch, str) and wch == '\x1b':
+            wch = self._get_sequence(wch)
             if len(wch) == 2:
                 return Key(wch, f'M-{wch[1]}'.encode())
             elif len(wch) > 1:
                 keyname = SEQUENCE_KEYNAME.get(wch, b'unknown')
                 return Key(wch, keyname)
+        elif isinstance(wch, str) and wch.isprintable():
+            wch = self._get_string(wch)
+            return Key(wch, b'STRING')
         elif wch == '\x7f':  # pragma: no cover (macos)
             keyname = curses.keyname(curses.KEY_BACKSPACE)
             return Key(wch, keyname)

@@ -277,7 +277,7 @@ class DeferredRunner:
         elif s.startswith('M-'):
             return [KeyPress('\x1b'), KeyPress(s[2:]), CursesError()]
         else:
-            return [KeyPress(k) for k in s]
+            return [*(KeyPress(k) for k in s), CursesError()]
 
     def press(self, s):
         self._ops.extend(self._expand_key(s))
@@ -287,7 +287,7 @@ class DeferredRunner:
         self.press('Enter')
 
     def answer_no_if_modified(self):
-        self._ops.append(KeyPress('n'))
+        self.press('n')
 
     @contextlib.contextmanager
     def resize(self, *, width, height):
@@ -344,7 +344,7 @@ class DeferredRunner:
         # we have already exited -- check remaining things
         # KeyPress with failing condition or error
         for i in range(self._i, len(self._ops)):
-            if self._ops[i] != KeyPress('n'):
+            if self._ops[i] not in {KeyPress('n'), CursesError()}:
                 raise AssertionError(self._ops[i:])
 
 

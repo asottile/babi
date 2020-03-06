@@ -24,7 +24,8 @@ def _edit(screen: Screen) -> EditResult:
             ret = Screen.DISPATCH[key.keyname](screen)
             if isinstance(ret, EditResult):
                 return ret
-        elif isinstance(key.wch, str) and key.wch.isprintable():
+        elif key.keyname == b'STRING':
+            assert isinstance(key.wch, str), key.wch
             screen.file.c(key.wch, screen.margin)
         else:
             screen.status.update(f'unknown key: {key}')
