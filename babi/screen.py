@@ -98,22 +98,66 @@ class Screen:
         s = f' {VERSION_STR} {files}{centered}{files}'
         self.stdscr.insstr(0, 0, s, curses.A_REVERSE)
 
+    def _get_sequence_home_end(self, wch: str) -> str:
+        try:
+            c = self.stdscr.get_wch()
+        except curses.error:
+            return wch
+        else:
+            if isinstance(c, int) or c not in 'HF':
+                self._buffered_input = c
+                return wch
+            else:
+                return f'{wch}{c}'
+
+    def _get_sequence_bracketed(self, wch: str) -> str:
+        for _ in range(3):  # [0-9]{1,2};
+            try:
+                c = self.stdscr.get_wch()
+            except curses.error:
+                return wch
+            else:
+                if isinstance(c, int):
+                    self._buffered_input = c
+                    return wch
+                else:
+                    wch += c
+                    if c == ';':
+                        break
+        else:
+            return wch  # unexpected input while searching for `;`
+
+        for _ in range(2):  # [0-9].
+            try:
+                c = self.stdscr.get_wch()
+            except curses.error:
+                return wch
+            else:
+                if isinstance(c, int):
+                    self._buffered_input = c
+                    return wch
+                else:
+                    wch += c
+
+        return wch
+
     def _get_sequence(self, wch: str) -> str:
         self.stdscr.nodelay(True)
         try:
-            while True:
-                try:
-                    c = self.stdscr.get_wch()
-                    if isinstance(c, str):
-                        wch += c
-                    else:  # pragma: no cover (race)
-                        self._buffered_input = c
-                        break
-                except curses.error:
-                    break
+            c = self.stdscr.get_wch()
+        except curses.error:
+            return wch
+        else:
+            if isinstance(c, int):  # M-BSpace
+                return f'{wch}({c})'  # TODO
+            elif c == 'O':
+                return self._get_sequence_home_end(f'{wch}O')
+            elif c == '[':
+                return self._get_sequence_bracketed(f'{wch}[')
+            else:
+                return f'{wch}{c}'
         finally:
             self.stdscr.nodelay(False)
-        return wch
 
     def _get_string(self, wch: str) -> str:
         self.stdscr.nodelay(True)

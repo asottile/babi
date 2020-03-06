@@ -33,6 +33,7 @@ def ten_lines(tmpdir):
 class Screen:
     def __init__(self, width, height):
         self.disabled = True
+        self.nodelay = False
         self.width = width
         self.height = height
         self.lines = [' ' * self.width for _ in range(self.height)]
@@ -137,7 +138,8 @@ class KeyPress(NamedTuple):
 
 class CursesError(NamedTuple):
     def __call__(self, screen: Screen) -> None:
-        raise curses.error()
+        if screen.nodelay:
+            raise curses.error()
 
 
 class CursesScreen:
@@ -160,7 +162,7 @@ class CursesScreen:
         pass
 
     def nodelay(self, val):
-        pass
+        self._runner.screen.nodelay = val
 
 
 class Key(NamedTuple):
@@ -286,6 +288,13 @@ class DeferredRunner:
         self.press(s)
         self.press('Enter')
 
+    def press_sequence(self, *ks):
+        for k in ks:
+            for op in self._expand_key(k):
+                if not isinstance(op, CursesError):
+                    self._ops.append(op)
+        self._ops.append(CursesError())
+
     def answer_no_if_modified(self):
         self.press('n')
 
@@ -373,4 +382,9 @@ def run_tmux(*args, colors=256, **kwargs):
     ids=['fake', 'tmux'],
 )
 def run(request):
+    return request.param
+
+
+@pytest.fixture(scope='session', params=[run_fake], ids=['fake'])
+def run_only_fake(request):
     return request.param

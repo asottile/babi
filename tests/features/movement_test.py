@@ -359,3 +359,55 @@ def test_ctrl_left_triggering_scroll(run, jump_word_file):
         h.press('^Left')
         h.await_cursor_position(x=11, y=1)
         h.assert_cursor_line_equals('hello world')
+
+
+def test_sequence_handling(run_only_fake):
+    # this test is run with the fake runner since it simulates some situations
+    # that are either impossible or due to race conditions (that we can only
+    # force with the fake runner)
+    with run_only_fake() as h, and_exit(h):
+        h.press_sequence('\x1b[1;5C\x1b[1;5D test1')  # ^Left + ^Right
+        h.await_text('test1')
+        h.await_text_missing('unknown key')
+
+        h.press_sequence('\x1bOH', '\x1bOF', ' test2')  # Home + End
+        h.await_text('test1 test2')
+        h.await_text_missing('unknown key')
+
+        h.press_sequence(' tq', 'M-O', 'BSpace', 'est3')
+        h.await_text('test1 test2 test3')
+        h.await_text('unknown key')
+        h.await_text('M-O')
+
+        h.press('M-[')
+        h.await_text_missing('M-O')
+        h.await_text('M-[')
+
+        h.press('M-O')
+        h.await_text_missing('M-[')
+        h.await_text('M-O')
+
+        h.press_sequence(' tq', 'M-[', 'BSpace', 'est4')
+        h.await_text('test1 test2 test3 test4')
+        h.await_text_missing('M-O')
+        h.await_text('M-[')
+
+        # TODO: this is broken for now, not quite sure what to do with it
+        h.press_sequence('\x1b', 'BSpace')
+        h.await_text(r'\x1b(263)')
+
+        # the sequences after here are "wrong" but I don't think a human
+        # could type them
+
+        h.press_sequence(' tq', '\x1b[1;', 'BSpace', 'est5')
+        h.await_text('test1 test2 test3 test4 test5')
+        h.await_text(r'\x1b[1;')
+
+        h.press_sequence('\x1b[111', ' test6')
+        h.await_text('test1 test2 test3 test4 test5 test6')
+        h.await_text(r'\x1b[111')
+
+        h.press('\x1b[1;')
+        h.press(' test7')
+        h.await_text('test1 test2 test3 test4 test5 test6 test7')
+        h.await_text(r'\x1b[1;')
