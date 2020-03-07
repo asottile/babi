@@ -122,3 +122,10 @@ def test_press_enter_mid_line(run, tmpdir):
         h.await_cursor_position(x=0, y=2)
         h.press('Up')
         h.await_cursor_position(x=0, y=1)
+
+
+def test_press_string_sequence(run):
+    with run() as h, and_exit(h):
+        h.press('hello world\x1bOH')
+        h.await_text('hello world')
+        h.await_cursor_position(x=0, y=1)
