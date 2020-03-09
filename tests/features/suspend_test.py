@@ -9,7 +9,7 @@ def test_suspend(tmpdir):
     f = tmpdir.join('f')
     f.write('hello')
 
-    with PrintsErrorRunner('bash', '--norc') as h:
+    with PrintsErrorRunner('env', 'TERM=screen', 'bash', '--norc') as h:
         cmd = (sys.executable, '-mcoverage', 'run', '-m', 'babi', str(f))
         h.press_and_enter(' '.join(shlex.quote(part) for part in cmd))
         h.await_text(VERSION_STR, timeout=2)
@@ -30,7 +30,7 @@ def test_suspend_with_resize(tmpdir):
     f = tmpdir.join('f')
     f.write('hello')
 
-    with PrintsErrorRunner('bash', '--norc') as h:
+    with PrintsErrorRunner('env', 'TERM=screen', 'bash', '--norc') as h:
         cmd = (sys.executable, '-mcoverage', 'run', '-m', 'babi', str(f))
         h.press_and_enter(' '.join(shlex.quote(part) for part in cmd))
         h.await_text(VERSION_STR, timeout=2)

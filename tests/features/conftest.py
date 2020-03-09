@@ -1,7 +1,6 @@
 import contextlib
 import curses
 import os
-import shlex
 import sys
 from typing import List
 from typing import NamedTuple
@@ -227,12 +226,16 @@ KEYS_CURSES = {k.value: k.curses for k in KEYS}
 
 
 class DeferredRunner:
-    def __init__(self, command, width=80, height=24, colors=256):
+    def __init__(self, command, width=80, height=24, term='screen'):
         self.command = command
         self._i = 0
         self._ops: List[Op] = []
         self.screen = Screen(width, height)
-        self._colors = colors
+        self._n_colors, self._can_change_color = {
+            'screen': (8, False),
+            'screen-256color': (256, False),
+            'xterm-256color': (256, True),
+        }[term]
 
     def _get_wch(self):
         while not isinstance(self._ops[self._i], KeyPress):
@@ -313,8 +316,7 @@ class DeferredRunner:
         pass
 
     _curses_cbreak = _curses_init_pair = _curses_noecho = _curses__noop
-    _curses_nonl = _curses_raw = _curses_start_color = _curses__noop
-    _curses_use_default_colors = _curses__noop
+    _curses_nonl = _curses_raw = _curses_use_default_colors = _curses__noop
 
     _curses_error = curses.error  # so we don't mock the exception
 
@@ -325,8 +327,10 @@ class DeferredRunner:
         curses.LINES = self.screen.height
         curses.COLS = self.screen.width
 
+    def _curses_start_color(self):
+        curses.COLORS = self._n_colors
+
     def _curses_initscr(self):
-        curses.COLORS = self._colors
         self._curses_update_lines_cols()
         self.screen.disabled = False
         return CursesScreen(self)
@@ -365,11 +369,9 @@ def run_fake(*cmd, **kwargs):
 
 
 @contextlib.contextmanager
-def run_tmux(*args, colors=256, **kwargs):
+def run_tmux(*args, term='screen', **kwargs):
     cmd = (sys.executable, '-mcoverage', 'run', '-m', 'babi', *args)
-    quoted = ' '.join(shlex.quote(p) for p in cmd)
-    term = 'screen-256color' if colors == 256 else 'screen'
-    cmd = ('bash', '-c', f'export TERM={term}; exec {quoted}')
+    cmd = ('env', f'TERM={term}', *cmd)
     with PrintsErrorRunner(*cmd, **kwargs) as h, h.on_error():
         # startup with coverage can be slow
         h.await_text(VERSION_STR, timeout=2)
