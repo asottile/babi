@@ -66,13 +66,14 @@ class Screen:
     def __init__(
             self,
             stdscr: 'curses._CursesWindow',
-            files: List[File],
+            filenames: List[Optional[str]],
+            perf: Perf,
     ) -> None:
         self.stdscr = stdscr
-        self.files = files
+        self.files = [File(f) for f in filenames]
         self.i = 0
         self.history = History()
-        self.perf = Perf()
+        self.perf = perf
         self.status = Status()
         self.margin = Margin.from_current_screen()
         self.cut_buffer: Tuple[str, ...] = ()

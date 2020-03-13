@@ -4,6 +4,7 @@ from typing import Optional
 from typing import Sequence
 
 from babi.file import File
+from babi.perf import perf_log
 from babi.screen import EditResult
 from babi.screen import make_stdscr
 from babi.screen import Screen
@@ -32,22 +33,23 @@ def _edit(screen: Screen) -> EditResult:
 
 
 def c_main(stdscr: 'curses._CursesWindow', args: argparse.Namespace) -> None:
-    screen = Screen(stdscr, [File(f) for f in args.filenames or [None]])
-    with screen.perf.log(args.perf_log), screen.history.save():
-        while screen.files:
-            screen.i = screen.i % len(screen.files)
-            res = _edit(screen)
-            if res == EditResult.EXIT:
-                del screen.files[screen.i]
-                screen.status.clear()
-            elif res == EditResult.NEXT:
-                screen.i += 1
-                screen.status.clear()
-            elif res == EditResult.PREV:
-                screen.i -= 1
-                screen.status.clear()
-            else:
-                raise AssertionError(f'unreachable {res}')
+    with perf_log(args.perf_log) as perf:
+        screen = Screen(stdscr, args.filenames or [None], perf)
+        with screen.history.save():
+            while screen.files:
+                screen.i = screen.i % len(screen.files)
+                res = _edit(screen)
+                if res == EditResult.EXIT:
+                    del screen.files[screen.i]
+                    screen.status.clear()
+                elif res == EditResult.NEXT:
+                    screen.i += 1
+                    screen.status.clear()
+                elif res == EditResult.PREV:
+                    screen.i -= 1
+                    screen.status.clear()
+                else:
+                    raise AssertionError(f'unreachable {res}')
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:

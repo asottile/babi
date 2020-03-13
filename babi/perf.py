@@ -29,19 +29,28 @@ class Perf:
             self._records.append((self._name, time.monotonic() - self._time))
             self._name = self._time = None
 
-    @contextlib.contextmanager
-    def log(self, filename: Optional[str]) -> Generator[None, None, None]:
-        if filename is None:
-            yield
-        else:
-            self._prof = cProfile.Profile()
-            self.start('startup')
-            try:
-                yield
-            finally:
-                self.end()
-                self._prof.dump_stats(f'{filename}.pstats')
-                with open(filename, 'w') as f:
-                    f.write('μs\tevent\n')
-                    for name, duration in self._records:
-                        f.write(f'{int(duration * 1000 * 1000)}\t{name}\n')
+    def init_profiling(self) -> None:
+        self._prof = cProfile.Profile()
+        self.start('startup')
+
+    def save_profiles(self, filename: str) -> None:
+        assert self._prof is not None
+        self._prof.dump_stats(f'{filename}.pstats')
+        with open(filename, 'w') as f:
+            f.write('μs\tevent\n')
+            for name, duration in self._records:
+                f.write(f'{int(duration * 1000 * 1000)}\t{name}\n')
+
+
+@contextlib.contextmanager
+def perf_log(filename: Optional[str]) -> Generator[Perf, None, None]:
+    perf = Perf()
+    if filename is None:
+        yield perf
+    else:
+        perf.init_profiling()
+        try:
+            yield perf
+        finally:
+            perf.end()
+            perf.save_profiles(filename)
