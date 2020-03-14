@@ -148,20 +148,24 @@ class CursesScreen:
     def keypad(self, val):
         pass
 
+    def nodelay(self, val):
+        self._runner.screen.nodelay = val
+
     def insstr(self, y, x, s, attr=0):
         self._runner.screen.insstr(y, x, s)
+
+    def clrtoeol(self):
+        s = self._runner.screen.width * ' '
+        self.insstr(self._runner.screen.y, self._runner.screen.x, s)
+
+    def chgat(self, y, x, n, color):
+        pass
 
     def move(self, y, x):
         self._runner.screen.move(y, x)
 
     def get_wch(self):
         return self._runner._get_wch()
-
-    def chgat(self, y, x, n, color):
-        pass
-
-    def nodelay(self, val):
-        self._runner.screen.nodelay = val
 
 
 class Key(NamedTuple):

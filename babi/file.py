@@ -811,9 +811,9 @@ class File:
             x = self.x if line_idx == self.y else 0
             line = scrolled_line(line, x, curses.COLS)
             stdscr.insstr(i + margin.header, 0, line)
-        blankline = ' ' * curses.COLS
         for i in range(to_display, margin.body_lines):
-            stdscr.insstr(i + margin.header, 0, blankline)
+            stdscr.move(i + margin.header, 0)
+            stdscr.clrtoeol()
 
         if self.select_start is not None:
             (s_y, s_x), (e_y, e_x) = self._get_selection()
