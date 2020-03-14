@@ -53,6 +53,7 @@ SYNTAXES = (
     Syntax('json', Ext.PLIST, 'https://raw.githubusercontent.com/microsoft/vscode-JSON.tmLanguage/d113e90937ed3ecc31ac54750aac2e8efa08d784/JSON.tmLanguage'),  # noqa: E501
     Syntax('markdown', Ext.PLIST, 'https://raw.githubusercontent.com/microsoft/vscode-markdown-tm-grammar/59a5962/syntaxes/markdown.tmLanguage'),  # noqa: E501
     Syntax('powershell', Ext.PLIST, 'https://raw.githubusercontent.com/PowerShell/EditorSyntax/4a0a0766/PowerShellSyntax.tmLanguage'),  # noqa: E501
+    Syntax('puppet', Ext.PLIST, 'https://raw.githubusercontent.com/lingua-pupuli/puppet-editor-syntax/dc414b8a/syntaxes/puppet.tmLanguage'),  # noqa: E501
     Syntax('python', Ext.PLIST, 'https://raw.githubusercontent.com/MagicStack/MagicPython/c9b3409d/grammars/MagicPython.tmLanguage'),  # noqa: E501
     # TODO: https://github.com/zargony/atom-language-rust/pull/149
     Syntax('rust', Ext.CSON, 'https://raw.githubusercontent.com/asottile/atom-language-rust/e113ca67/grammars/rust.cson'),  # noqa: E501
