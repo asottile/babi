@@ -53,3 +53,24 @@ see the progress of babi over time
 - babi can be quit using `:q` and can save using `:w`
 
 ![](https://i.fluffy.cc/KfGg7NhNTTH5X4ZsxdsMt72RVg5nR79H.png)
+
+### 2020-03-14
+
+- a lot of stuff has changed, there's now syntax highlighting and other things
+- sorry I haven't updated in a while
+
+![](https://i.fluffy.cc/5WFZBJ4mWs7wtThD9strQnGlJqw4Z9KS.png)
+
+![](https://i.fluffy.cc/qrNhgCK34qKQ6tw4GHLSGs4984Qqnqh7.png)
+
+![](https://i.fluffy.cc/DKlkjnZ4tgfnxH7cxjnLcB7GkBVdW35v.png)
+
+![](https://i.fluffy.cc/VqHWHfWNW73sppZlHv0C4lw63TVczZfZ.png)
+
+![](https://i.fluffy.cc/p8lv61TCql1MJfpBDqbNPWPf27lmGWFN.png)
+
+![](https://i.fluffy.cc/ZH5sswB4FSbpW8FfcXL1KZWdJnjxRkbW.png)
+
+![](https://i.fluffy.cc/Rw8nZKFC3R36mNrV01fL2gk4rfwWn7wX.png)
+
+![](https://i.fluffy.cc/FSD92ZVN4xcMFPv1V7gc0Xzk8TCQTgdg.png)
