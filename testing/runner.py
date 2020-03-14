@@ -1,6 +1,63 @@
 import contextlib
+import curses
+import enum
+import re
+from typing import List
+from typing import Tuple
 
 from hecate import Runner
+
+
+class Token(enum.Enum):
+    RESET = re.compile(r'\x1b\[0?m')
+    ESC = re.compile(r'\x1b\[(\d+)m')
+    NL = re.compile(r'\n')
+    CHAR = re.compile('.')
+
+
+def tokenize_colors(s):
+    i = 0
+    while i < len(s):
+        for tp in Token:
+            match = tp.value.match(s, i)
+            if match is not None:
+                yield tp, match
+                i = match.end()
+                break
+        else:
+            raise AssertionError(f'unreachable: not matched at {i}?')
+
+
+def to_attrs(screen, width):
+    fg = bg = -1
+    attr = 0
+    idx = 0
+    ret: List[List[Tuple[int, int, int]]]
+    ret = [[] for _ in range(len(screen.splitlines()))]
+
+    for tp, match in tokenize_colors(screen):
+        if tp is Token.RESET:
+            fg = bg = attr = 0
+        elif tp is Token.ESC:
+            if match[1] == '7':
+                attr |= curses.A_REVERSE
+            elif match[1] == '39':
+                fg = -1
+            elif match[1] == '49':
+                bg = -1
+            elif 40 <= int(match[1]) <= 47:
+                bg = int(match[1]) - 40
+            else:
+                raise AssertionError(f'unknown escape {match[1]}')
+        elif tp is Token.NL:
+            ret[idx].extend([(fg, bg, attr)] * (width - len(ret[idx])))
+            idx += 1
+        elif tp is Token.CHAR:
+            ret[idx].append((fg, bg, attr))
+        else:
+            raise AssertionError(f'unreachable {tp} {match}')
+
+    return ret
 
 
 class PrintsErrorRunner(Runner):
@@ -16,6 +73,19 @@ class PrintsErrorRunner(Runner):
             print('=' * 79, flush=True)
             self._prev_screenshot = ret
         return ret
+
+    def color_screenshot(self):
+        ret = self.tmux.execute_command('capture-pane', '-ept0')
+        if ret != self._prev_screenshot:
+            print('=' * 79, flush=True)
+            print(ret, end='\x1b[m', flush=True)
+            print('=' * 79, flush=True)
+            self._prev_screenshot = ret
+        return ret
+
+    def get_attrs(self):
+        width, _ = self.get_pane_size()
+        return to_attrs(self.color_screenshot(), width)
 
     def await_text(self, text, timeout=None):
         """copied from the base implementation but doesn't munge newlines"""
@@ -45,6 +115,10 @@ class PrintsErrorRunner(Runner):
     def assert_screen_line_equals(self, n, s):
         screen_line = self._get_screen_line(n)
         assert screen_line == s, (screen_line, s)
+
+    def assert_screen_attr_equals(self, n, attr):
+        attr_line = self.get_attrs()[n]
+        assert attr_line == attr, (n, attr_line, attr)
 
     def assert_full_contents(self, s):
         contents = self.screenshot()

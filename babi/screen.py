@@ -15,10 +15,12 @@ from typing import Pattern
 from typing import Tuple
 from typing import Union
 
+from babi.color_manager import ColorManager
 from babi.file import Action
 from babi.file import File
 from babi.file import get_lines
 from babi.history import History
+from babi.hl.trailing_whitespace import TrailingWhitespace
 from babi.margin import Margin
 from babi.perf import Perf
 from babi.prompt import Prompt
@@ -70,7 +72,9 @@ class Screen:
             perf: Perf,
     ) -> None:
         self.stdscr = stdscr
-        self.files = [File(f) for f in filenames]
+        color_manager = ColorManager.make()
+        hl_factories = (TrailingWhitespace(color_manager),)
+        self.files = [File(f, hl_factories) for f in filenames]
         self.i = 0
         self.history = History()
         self.perf = perf
@@ -489,15 +493,13 @@ def _init_screen() -> 'curses._CursesWindow':
     with contextlib.suppress(curses.error):
         curses.start_color()
         curses.use_default_colors()
-    # TODO: colors
     return stdscr
 
 
 @contextlib.contextmanager
 def make_stdscr() -> Generator['curses._CursesWindow', None, None]:
     """essentially `curses.wrapper` but split out to implement ^Z"""
-    stdscr = _init_screen()
     try:
-        yield stdscr
+        yield _init_screen()
     finally:
         curses.endwin()

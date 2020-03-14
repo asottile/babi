@@ -21,6 +21,8 @@ from typing import TYPE_CHECKING
 from typing import TypeVar
 from typing import Union
 
+from babi.hl.interface import FileHL
+from babi.hl.interface import HLFactory
 from babi.horizontal_scrolling import line_x
 from babi.horizontal_scrolling import scrolled_line
 from babi.list_spy import ListSpy
@@ -96,6 +98,7 @@ class Action:
         file.x = self.start_x
         file.y = self.start_y
         file.modified = self.start_modified
+        file.touch(spy.min_line_touched)
 
         return action
 
@@ -202,7 +205,11 @@ class _SearchIter:
 
 
 class File:
-    def __init__(self, filename: Optional[str]) -> None:
+    def __init__(
+            self,
+            filename: Optional[str],
+            hl_factories: Tuple[HLFactory, ...],
+    ) -> None:
         self.filename = filename
         self.modified = False
         self.lines: MutableSequenceNoSlice = []
@@ -212,6 +219,8 @@ class File:
         self.undo_stack: List[Action] = []
         self.redo_stack: List[Action] = []
         self.select_start: Optional[Tuple[int, int]] = None
+        self._hl_factories = hl_factories
+        self._file_hls: Tuple[FileHL, ...] = ()
 
     def ensure_loaded(self, status: Status) -> None:
         if self.lines:
@@ -234,9 +243,17 @@ class File:
             status.update(f'mixed newlines will be converted to {self.nl!r}')
             self.modified = True
 
+        file_hls = []
+        for factory in self._hl_factories:
+            if self.filename is not None:
+                # TODO: this does an extra read
+                file_hls.append(factory.get_file_highlighter(self.filename))
+            else:
+                file_hls.append(factory.get_blank_file_highlighter())
+        self._file_hls = tuple(file_hls)
+
     def __repr__(self) -> str:
-        attrs = ',\n    '.join(f'{k}={v!r}' for k, v in self.__dict__.items())
-        return f'{type(self).__name__}(\n    {attrs},\n)'
+        return f'<{type(self).__name__} {self.filename!r}>'
 
     # movement
 
@@ -757,6 +774,7 @@ class File:
             if continue_last:
                 self.undo_stack[-1].end_x = self.x
                 self.undo_stack[-1].end_y = self.y
+                self.touch(spy.min_line_touched)
             elif spy.has_modifications:
                 self.modified = True
                 action = Action(
@@ -768,6 +786,7 @@ class File:
                     final=final,
                 )
                 self.undo_stack.append(action)
+                self.touch(spy.min_line_touched)
 
     @contextlib.contextmanager
     def select(self) -> Generator[None, None, None]:
@@ -803,6 +822,10 @@ class File:
         else:
             return self.select_start, select_end
 
+    def touch(self, lineno: int) -> None:
+        for file_hl in self._file_hls:
+            file_hl.touch(lineno)
+
     def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
         to_display = min(len(self.lines) - self.file_y, margin.body_lines)
         for i in range(to_display):
@@ -814,6 +837,17 @@ class File:
         for i in range(to_display, margin.body_lines):
             stdscr.move(i + margin.header, 0)
             stdscr.clrtoeol()
+
+        for file_hl in self._file_hls:
+            file_hl.highlight_until(self.lines, self.file_y + to_display)
+
+        for i in range(self.file_y, self.file_y + to_display):
+            for file_hl in self._file_hls:
+                for region in file_hl.regions[i]:
+                    self.highlight(
+                        stdscr, margin,
+                        y=i, include_edge=False, **region,
+                    )
 
         if self.select_start is not None:
             (s_y, s_x), (e_y, e_x) = self._get_selection()
@@ -861,7 +895,7 @@ class File:
             l_x = 0
             h_x = x
         if not include_edge and len(self.lines[y]) > l_x + curses.COLS:
-            raise NotImplementedError('h_n = min(curses.COLS - h_x - 1, n)')
+            h_n = min(curses.COLS - h_x - 1, n)
         else:
             h_n = n
         if (

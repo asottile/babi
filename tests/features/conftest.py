@@ -4,6 +4,7 @@ import os
 import sys
 from typing import List
 from typing import NamedTuple
+from typing import Tuple
 from typing import Union
 from unittest import mock
 
@@ -36,6 +37,7 @@ class Screen:
         self.width = width
         self.height = height
         self.lines = [' ' * self.width for _ in range(self.height)]
+        self.attrs = [[(0, 0, 0)] * self.width for _ in range(self.height)]
         self.x = self.y = 0
         self._prev_screenshot = None
 
@@ -48,9 +50,16 @@ class Screen:
             self._prev_screenshot = ret
         return ret
 
-    def insstr(self, y, x, s):
+    def insstr(self, y, x, s, attr):
         line = self.lines[y]
         self.lines[y] = (line[:x] + s + line[x:])[:self.width]
+
+        line_attr = self.attrs[y]
+        new = [attr] * len(s)
+        self.attrs[y] = (line_attr[:x] + new + line_attr[x:])[:self.width]
+
+    def chgat(self, y, x, n, attr):
+        self.attrs[y][x:x + n] = [attr] * n
 
     def move(self, y, x):
         assert 0 <= y < self.height
@@ -113,6 +122,14 @@ class AssertScreenLineEquals(NamedTuple):
         assert screen.lines[self.n].rstrip() == self.line
 
 
+class AssertScreenAttrEquals(NamedTuple):
+    n: int
+    attr: List[Tuple[int, int, int]]
+
+    def __call__(self, screen: Screen) -> None:
+        assert screen.attrs[self.n] == self.attr
+
+
 class AssertFullContents(NamedTuple):
     contents: str
 
@@ -144,6 +161,19 @@ class CursesError(NamedTuple):
 class CursesScreen:
     def __init__(self, runner):
         self._runner = runner
+        self._bkgd_attr = (-1, -1, 0)
+
+    def _to_attr(self, attr):
+        if attr == 0:
+            return self._bkgd_attr
+        else:
+            pair = (attr & (0xff << 8)) >> 8
+            if pair == 0:
+                fg, bg, _ = self._bkgd_attr
+            else:
+                fg, bg = self._runner.color_pairs[pair]
+            attr = attr & ~(0xff << 8)
+            return (fg, bg, attr)
 
     def keypad(self, val):
         pass
@@ -152,14 +182,14 @@ class CursesScreen:
         self._runner.screen.nodelay = val
 
     def insstr(self, y, x, s, attr=0):
-        self._runner.screen.insstr(y, x, s)
+        self._runner.screen.insstr(y, x, s, self._to_attr(attr))
 
     def clrtoeol(self):
         s = self._runner.screen.width * ' '
         self.insstr(self._runner.screen.y, self._runner.screen.x, s)
 
-    def chgat(self, y, x, n, color):
-        pass
+    def chgat(self, y, x, n, attr):
+        self._runner.screen.chgat(y, x, n, self._to_attr(attr))
 
     def move(self, y, x):
         self._runner.screen.move(y, x)
@@ -234,6 +264,7 @@ class DeferredRunner:
         self.command = command
         self._i = 0
         self._ops: List[Op] = []
+        self.color_pairs = {0: (7, 0)}
         self.screen = Screen(width, height)
         self._n_colors, self._can_change_color = {
             'screen': (8, False),
@@ -269,6 +300,9 @@ class DeferredRunner:
 
     def assert_screen_line_equals(self, n, line):
         self._ops.append(AssertScreenLineEquals(n, line))
+
+    def assert_screen_attr_equals(self, n, attr):
+        self._ops.append(AssertScreenAttrEquals(n, attr))
 
     def assert_full_contents(self, contents):
         self._ops.append(AssertFullContents(contents))
@@ -319,8 +353,8 @@ class DeferredRunner:
     def _curses__noop(self, *_, **__):
         pass
 
-    _curses_cbreak = _curses_init_pair = _curses_noecho = _curses__noop
-    _curses_nonl = _curses_raw = _curses_use_default_colors = _curses__noop
+    _curses_cbreak = _curses_noecho = _curses_nonl = _curses__noop
+    _curses_raw = _curses_use_default_colors = _curses__noop
 
     _curses_error = curses.error  # so we don't mock the exception
 
@@ -333,6 +367,13 @@ class DeferredRunner:
 
     def _curses_start_color(self):
         curses.COLORS = self._n_colors
+
+    def _curses_init_pair(self, pair, fg, bg):
+        self.color_pairs[pair] = (fg, bg)
+
+    def _curses_color_pair(self, pair):
+        assert pair in self.color_pairs
+        return pair << 8
 
     def _curses_initscr(self):
         self._curses_update_lines_cols()
