@@ -10,6 +10,7 @@ from typing import Match
 from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
+from typing import TypeVar
 
 from babi._types import Protocol
 from babi.fdict import FDict
@@ -19,9 +20,16 @@ from babi.reg import ERR_REG
 from babi.reg import make_reg
 from babi.reg import make_regset
 
+T = TypeVar('T')
 Scope = Tuple[str, ...]
 Regions = Tuple['Region', ...]
 Captures = Tuple[Tuple[int, '_Rule'], ...]
+
+
+def uniquely_constructed(t: T) -> T:
+    """avoid tuple.__hash__ for "singleton" constructed objects"""
+    t.__hash__ = object.__hash__  # type: ignore
+    return t
 
 
 def _split_name(s: Optional[str]) -> Tuple[str, ...]:
@@ -59,6 +67,7 @@ class _Rule(Protocol):
     def patterns(self) -> 'Tuple[_Rule, ...]': ...
 
 
+@uniquely_constructed
 class Rule(NamedTuple):
     name: Tuple[str, ...]
     match: Optional[str]
@@ -146,6 +155,7 @@ class Rule(NamedTuple):
         )
 
 
+@uniquely_constructed
 class Grammar(NamedTuple):
     scope_name: str
     first_line_match: Optional[_Reg]
@@ -369,6 +379,7 @@ def _do_regset(
     return state, match.end(), boundary, tuple(ret)
 
 
+@uniquely_constructed
 class PatternRule(NamedTuple):
     name: Tuple[str, ...]
     regset: _RegSet
@@ -395,6 +406,7 @@ class PatternRule(NamedTuple):
         return _do_regset(idx, match, self, compiler, state, pos)
 
 
+@uniquely_constructed
 class MatchRule(NamedTuple):
     name: Tuple[str, ...]
     captures: Captures
@@ -420,6 +432,7 @@ class MatchRule(NamedTuple):
         raise AssertionError(f'unreachable {self}')
 
 
+@uniquely_constructed
 class EndRule(NamedTuple):
     name: Tuple[str, ...]
     content_name: Tuple[str, ...]
@@ -480,6 +493,7 @@ class EndRule(NamedTuple):
                 return _do_regset(idx, match, self, compiler, state, pos)
 
 
+@uniquely_constructed
 class WhileRule(NamedTuple):
     name: Tuple[str, ...]
     content_name: Tuple[str, ...]
