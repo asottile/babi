@@ -3,8 +3,8 @@ from typing import List
 from typing import NamedTuple
 
 from babi.color_manager import ColorManager
-from babi.hl.interface import CursesRegion
-from babi.hl.interface import CursesRegions
+from babi.hl.interface import HL
+from babi.hl.interface import HLs
 from babi.list_spy import SequenceNoSlice
 
 
@@ -14,9 +14,9 @@ class FileTrailingWhitespace:
     def __init__(self, color_manager: ColorManager) -> None:
         self._color_manager = color_manager
 
-        self.regions: List[CursesRegions] = []
+        self.regions: List[HLs] = []
 
-    def _trailing_ws(self, line: str) -> CursesRegions:
+    def _trailing_ws(self, line: str) -> HLs:
         if not line:
             return ()
 
@@ -29,7 +29,7 @@ class FileTrailingWhitespace:
         else:
             pair = self._color_manager.raw_color_pair(-1, curses.COLOR_RED)
             attr = curses.color_pair(pair)
-            return (CursesRegion(x=i, n=len(line) - i, color=attr),)
+            return (HL(x=i, end=len(line), attr=attr),)
 
     def highlight_until(self, lines: SequenceNoSlice, idx: int) -> None:
         for i in range(len(self.regions), idx):

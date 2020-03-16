@@ -127,3 +127,16 @@ def test_undo_redo_causes_scroll(run):
         h.await_cursor_position(x=0, y=1)
         h.press('M-U')
         h.await_cursor_position(x=0, y=4)
+
+
+def test_undo_redo_clears_selection(run, ten_lines):
+    # maintaining the selection across undo/redo is both difficult and not all
+    # that useful.  prior to this it was buggy anyway (a negative selection
+    # indented and then undone would highlight out of bounds)
+    with run(str(ten_lines), width=20) as h, and_exit(h):
+        h.press('S-Down')
+        h.press('Tab')
+        h.await_cursor_position(x=4, y=2)
+        h.press('M-u')
+        h.await_cursor_position(x=0, y=2)
+        h.assert_screen_attr_equals(1, [(-1, -1, 0)] * 20)

@@ -293,7 +293,7 @@ class Screen:
         self.status.update(f'{line}, {col} (of {line_count} {lines_word})')
 
     def cut(self) -> None:
-        if self.file.select_start:
+        if self.file.selection.start:
             self.cut_buffer = self.file.cut_selection(self.margin)
             self.cut_selection = True
         else:
@@ -329,6 +329,7 @@ class Screen:
             to_stack.append(action.apply(self.file))
             self.file.scroll_screen_if_needed(self.margin)
             self.status.update(f'{op}: {action.name}')
+            self.file.selection.clear()
 
     def undo(self) -> None:
         self._undo_redo('undo', self.file.undo_stack, self.file.redo_stack)
@@ -360,7 +361,7 @@ class Screen:
             self.save()
             return EditResult.EXIT
         elif response == ':sort':
-            if self.file.select_start:
+            if self.file.selection.start:
                 self.file.sort_selection(self.margin)
             else:
                 self.file.sort(self.margin)

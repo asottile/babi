@@ -24,6 +24,7 @@ from typing import Union
 from babi.hl.interface import FileHL
 from babi.hl.interface import HLFactory
 from babi.hl.replace import Replace
+from babi.hl.selection import Selection
 from babi.horizontal_scrolling import line_x
 from babi.horizontal_scrolling import scrolled_line
 from babi.list_spy import ListSpy
@@ -139,7 +140,7 @@ def clear_selection(func: TCallable) -> TCallable:
     @functools.wraps(func)
     def clear_selection_inner(self: 'File', *args: Any, **kwargs: Any) -> Any:
         ret = func(self, *args, **kwargs)
-        self.select_start = None
+        self.selection.clear()
         return ret
     return cast(TCallable, clear_selection_inner)
 
@@ -220,9 +221,9 @@ class File:
         self.sha256: Optional[str] = None
         self.undo_stack: List[Action] = []
         self.redo_stack: List[Action] = []
-        self.select_start: Optional[Tuple[int, int]] = None
         self._hl_factories = hl_factories
         self._replace_hl = Replace()
+        self.selection = Selection()
         self._file_hls: Tuple[FileHL, ...] = ()
 
     def ensure_loaded(self, status: Status) -> None:
@@ -253,7 +254,7 @@ class File:
                 file_hls.append(factory.get_file_highlighter(self.filename))
             else:
                 file_hls.append(factory.get_blank_file_highlighter())
-        self._file_hls = (*file_hls, self._replace_hl)
+        self._file_hls = (*file_hls, self._replace_hl, self.selection)
 
     def __repr__(self) -> str:
         return f'<{type(self).__name__} {self.filename!r}>'
@@ -444,7 +445,7 @@ class File:
             self.x = self.x_hint = match.start()
             self.scroll_screen_if_needed(screen.margin)
             if res != 'a':  # make `a` replace the rest of them
-                with self._replace_hl.region(self.y, self.x, len(match[0])):
+                with self._replace_hl.region(self.y, self.x, match.end()):
                     screen.draw()
                     res = screen.quick_prompt(
                         'replace [y(es), n(o), a(ll)]?', 'yna',
@@ -537,16 +538,17 @@ class File:
 
     @edit_action('indent selection', final=True)
     def _indent_selection(self, margin: Margin) -> None:
-        assert self.select_start is not None
-        sel_y, sel_x = self.select_start
-        (s_y, _), (e_y, _) = self._get_selection()
+        assert self.selection.start is not None
+        sel_y, sel_x = self.selection.start
+        (s_y, _), (e_y, _) = self.selection.get()
         for l_y in range(s_y, e_y + 1):
             if self.lines[l_y]:
                 self.lines[l_y] = ' ' * 4 + self.lines[l_y]
-                if l_y == sel_y and sel_x != 0:
-                    self.select_start = (sel_y, sel_x + 4)
                 if l_y == self.y:
                     self.x = self.x_hint = self.x + 4
+                if l_y == sel_y and sel_x != 0:
+                    sel_x += 4
+        self.selection.set(sel_y, sel_x, self.y, self.x)
 
     @edit_action('insert tab', final=False)
     def _tab(self, margin: Margin) -> None:
@@ -557,7 +559,7 @@ class File:
         _restore_lines_eof_invariant(self.lines)
 
     def tab(self, margin: Margin) -> None:
-        if self.select_start:
+        if self.selection.start is not None:
             self._indent_selection(margin)
         else:
             self._tab(margin)
@@ -572,17 +574,18 @@ class File:
 
     @edit_action('dedent selection', final=True)
     def _dedent_selection(self, margin: Margin) -> None:
-        assert self.select_start is not None
-        sel_y, sel_x = self.select_start
-        (s_y, _), (e_y, _) = self._get_selection()
+        assert self.selection.start is not None
+        sel_y, sel_x = self.selection.start
+        (s_y, _), (e_y, _) = self.selection.get()
         for l_y in range(s_y, e_y + 1):
             n = self._dedent_line(self.lines[l_y])
             if n:
                 self.lines[l_y] = self.lines[l_y][n:]
-                if l_y == sel_y:
-                    self.select_start = (sel_y, max(sel_x - n, 0))
                 if l_y == self.y:
                     self.x = self.x_hint = max(self.x - n, 0)
+                if l_y == sel_y:
+                    sel_x = max(sel_x - n, 0)
+        self.selection.set(sel_y, sel_x, self.y, self.x)
 
     @edit_action('dedent', final=True)
     def _dedent(self, margin: Margin) -> None:
@@ -592,7 +595,7 @@ class File:
             self.x = self.x_hint = max(self.x - n, 0)
 
     def shift_tab(self, margin: Margin) -> None:
-        if self.select_start:
+        if self.selection.start is not None:
             self._dedent_selection(margin)
         else:
             self._dedent(margin)
@@ -601,7 +604,7 @@ class File:
     @clear_selection
     def cut_selection(self, margin: Margin) -> Tuple[str, ...]:
         ret = []
-        (s_y, s_x), (e_y, e_x) = self._get_selection()
+        (s_y, s_x), (e_y, e_x) = self.selection.get()
         if s_y == e_y:
             ret.append(self.lines[s_y][s_x:e_x])
             self.lines[s_y] = self.lines[s_y][:s_x] + self.lines[s_y][e_x:]
@@ -674,7 +677,7 @@ class File:
     @edit_action('sort selection', final=True)
     @clear_selection
     def sort_selection(self, margin: Margin) -> None:
-        (s_y, _), (e_y, _) = self._get_selection()
+        (s_y, _), (e_y, _) = self.selection.get()
         e_y = min(e_y + 1, len(self.lines) - 1)
         if self.lines[e_y - 1] == '':
             e_y -= 1
@@ -732,7 +735,7 @@ class File:
 
     def finalize_previous_action(self) -> None:
         assert not isinstance(self.lines, ListSpy), 'nested edit/movement'
-        self.select_start = None
+        self.selection.clear()
         if self.undo_stack:
             self.undo_stack[-1].final = True
 
@@ -785,14 +788,14 @@ class File:
 
     @contextlib.contextmanager
     def select(self) -> Generator[None, None, None]:
-        if self.select_start is None:
-            select_start = (self.y, self.x)
+        if self.selection.start is None:
+            start = (self.y, self.x)
         else:
-            select_start = self.select_start
+            start = self.selection.start
         try:
             yield
         finally:
-            self.select_start = select_start
+            self.selection.set(*start, self.y, self.x)
 
     # positioning
 
@@ -809,95 +812,50 @@ class File:
     ) -> None:
         stdscr.move(self.rendered_y(margin), self.rendered_x())
 
-    def _get_selection(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
-        assert self.select_start is not None
-        select_end = (self.y, self.x)
-        if select_end < self.select_start:
-            return select_end, self.select_start
-        else:
-            return self.select_start, select_end
-
     def touch(self, lineno: int) -> None:
         for file_hl in self._file_hls:
             file_hl.touch(lineno)
 
     def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
         to_display = min(len(self.lines) - self.file_y, margin.body_lines)
-        for i in range(to_display):
-            line_idx = self.file_y + i
-            line = self.lines[line_idx]
-            x = self.x if line_idx == self.y else 0
-            line = scrolled_line(line, x, curses.COLS)
-            stdscr.insstr(i + margin.header, 0, line)
-        for i in range(to_display, margin.body_lines):
-            stdscr.move(i + margin.header, 0)
-            stdscr.clrtoeol()
 
         for file_hl in self._file_hls:
             file_hl.highlight_until(self.lines, self.file_y + to_display)
 
-        for i in range(self.file_y, self.file_y + to_display):
+        for i in range(to_display):
+            draw_y = i + margin.header
+            l_y = self.file_y + i
+            x = self.x if l_y == self.y else 0
+            line = scrolled_line(self.lines[l_y], x, curses.COLS)
+            stdscr.insstr(draw_y, 0, line)
+
+            l_x = line_x(x, curses.COLS)
+            l_x_max = l_x + curses.COLS
             for file_hl in self._file_hls:
-                for region in file_hl.regions[i]:
-                    self.highlight(
-                        stdscr, margin,
-                        y=i, include_edge=file_hl.include_edge, **region,
-                    )
+                for region in file_hl.regions[l_y]:
+                    if region.x >= l_x_max:
+                        break
+                    elif region.end < l_x:
+                        continue
 
-        if self.select_start is not None:
-            (s_y, s_x), (e_y, e_x) = self._get_selection()
+                    if l_x and region.x <= l_x:
+                        if file_hl.include_edge:
+                            h_s_x = 0
+                        else:
+                            h_s_x = 1
+                    else:
+                        h_s_x = region.x - l_x
 
-            if s_y == e_y:
-                self.highlight(
-                    stdscr, margin,
-                    y=s_y, x=s_x, n=e_x - s_x,
-                    color=HIGHLIGHT, include_edge=True,
-                )
-            else:
-                self.highlight(
-                    stdscr, margin,
-                    y=s_y, x=s_x, n=len(self.lines[s_y]) - s_x + 1,
-                    color=HIGHLIGHT, include_edge=True,
-                )
-                for l_y in range(s_y + 1, e_y):
-                    self.highlight(
-                        stdscr, margin,
-                        y=l_y, x=0, n=len(self.lines[l_y]) + 1,
-                        color=HIGHLIGHT, include_edge=True,
-                    )
-                self.highlight(
-                    stdscr, margin,
-                    y=e_y, x=0, n=e_x,
-                    color=HIGHLIGHT, include_edge=True,
-                )
+                    if region.end >= l_x_max:
+                        if file_hl.include_edge:
+                            h_e_x = curses.COLS
+                        else:
+                            h_e_x = curses.COLS - 1
+                    else:
+                        h_e_x = region.end - l_x
 
-    def highlight(
-            self,
-            stdscr: 'curses._CursesWindow', margin: Margin,
-            *,
-            y: int, x: int, n: int, color: int,
-            include_edge: bool,
-    ) -> None:
-        h_y = y - self.file_y + margin.header
-        if y == self.y:
-            l_x = line_x(self.x, curses.COLS)
-            # TODO: include edge left detection
-            if x < l_x:
-                h_x = 0
-                n -= l_x - x
-            else:
-                h_x = x - l_x
-        else:
-            l_x = 0
-            h_x = x
-        if not include_edge and len(self.lines[y]) > l_x + curses.COLS:
-            h_n = min(curses.COLS - h_x - 1, n)
-        else:
-            h_n = n
-        if (
-                h_y < margin.header or
-                h_y > margin.header + margin.body_lines or
-                h_x >= curses.COLS
-        ):
-            return
-        stdscr.chgat(h_y, h_x, h_n, color)
+                    stdscr.chgat(draw_y, h_s_x, h_e_x - h_s_x, region.attr)
+
+        for i in range(to_display, margin.body_lines):
+            stdscr.move(i + margin.header, 0)
+            stdscr.clrtoeol()

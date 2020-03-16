@@ -9,8 +9,8 @@ from babi.highlight import Compiler
 from babi.highlight import Grammars
 from babi.highlight import highlight_line
 from babi.highlight import State
-from babi.hl.interface import CursesRegion
-from babi.hl.interface import CursesRegions
+from babi.hl.interface import HL
+from babi.hl.interface import HLs
 from babi.list_spy import SequenceNoSlice
 from babi.theme import Style
 from babi.theme import Theme
@@ -33,10 +33,10 @@ class FileSyntax:
         self._theme = theme
         self._color_manager = color_manager
 
-        self.regions: List[CursesRegions] = []
+        self.regions: List[HLs] = []
         self._states: List[State] = []
 
-        self._hl_cache: Dict[str, Dict[State, Tuple[State, CursesRegions]]]
+        self._hl_cache: Dict[str, Dict[State, Tuple[State, HLs]]]
         self._hl_cache = {}
 
     def attr(self, style: Style) -> int:
@@ -53,7 +53,7 @@ class FileSyntax:
             state: State,
             line: str,
             i: int,
-    ) -> Tuple[State, CursesRegions]:
+    ) -> Tuple[State, HLs]:
         try:
             return self._hl_cache[line][state]
         except KeyError:
@@ -67,22 +67,21 @@ class FileSyntax:
         new_end = regions[-1]._replace(end=regions[-1].end - 1)
         regions = regions[:-1] + (new_end,)
 
-        regs: List[CursesRegion] = []
+        regs: List[HL] = []
         for r in regions:
             style = self._theme.select(r.scope)
             if style == self._theme.default:
                 continue
 
-            n = r.end - r.start
             attr = self.attr(style)
             if (
                     regs and
-                    regs[-1]['color'] == attr and
-                    regs[-1]['x'] + regs[-1]['n'] == r.start
+                    regs[-1].attr == attr and
+                    regs[-1].end == r.start
             ):
-                regs[-1]['n'] += n
+                regs[-1] = regs[-1]._replace(end=r.end)
             else:
-                regs.append(CursesRegion(x=r.start, n=n, color=attr))
+                regs.append(HL(x=r.start, end=r.end, attr=attr))
 
         dct = self._hl_cache.setdefault(line, {})
         ret = dct[state] = (new_state, tuple(regs))

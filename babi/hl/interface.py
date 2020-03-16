@@ -1,21 +1,21 @@
+from typing import NamedTuple
 from typing import Tuple
 
 from babi._types import Protocol
-from babi._types import TypedDict
 from babi.list_spy import SequenceNoSlice
 
 
-class CursesRegion(TypedDict):
+class HL(NamedTuple):
     x: int
-    n: int
-    color: int
+    end: int
+    attr: int
 
 
-CursesRegions = Tuple[CursesRegion, ...]
+HLs = Tuple[HL, ...]
 
 
 class RegionsMapping(Protocol):
-    def __getitem__(self, idx: int) -> CursesRegions: ...
+    def __getitem__(self, idx: int) -> HLs: ...
 
 
 class FileHL(Protocol):

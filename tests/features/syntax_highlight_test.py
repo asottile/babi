@@ -78,3 +78,22 @@ def test_syntax_highlighting_does_not_highlight_arrows(run, tmpdir):
     with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
         h.await_text('loooo')
         h.assert_screen_attr_equals(2, [(243, 40, 0)] * 19 + [(236, 40, 0)])
+
+        h.press('Down')
+        h.press('^E')
+        h.await_text_missing('loooo')
+        expected = [(236, 40, 0)] + [(243, 40, 0)] * 15 + [(236, 40, 0)] * 4
+        h.assert_screen_attr_equals(2, expected)
+
+
+def test_syntax_highlighting_off_screen_does_not_crash(run, tmpdir):
+    f = tmpdir.join('f.demo')
+    f.write(f'"""a"""{"x" * 40}"""b"""')
+
+    with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
+        h.await_text('"""a"""')
+        h.assert_screen_attr_equals(1, [(17, 40, 0)] * 7 + [(236, 40, 0)] * 13)
+        h.press('^E')
+        h.await_text('"""b"""')
+        expected = [(236, 40, 0)] * 11 + [(17, 40, 0)] * 7 + [(236, 40, 0)] * 2
+        h.assert_screen_attr_equals(1, expected)
