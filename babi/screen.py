@@ -6,7 +6,6 @@ import os
 import re
 import signal
 import sys
-from typing import Callable
 from typing import Generator
 from typing import List
 from typing import NamedTuple
@@ -86,7 +85,6 @@ class Screen:
         self.margin = Margin.from_current_screen()
         self.cut_buffer: Tuple[str, ...] = ()
         self.cut_selection = False
-        self._resize_cb: Optional[Callable[[], None]] = None
         self._buffered_input: Union[int, str, None] = None
 
     @property
@@ -220,22 +218,11 @@ class Screen:
         self.file.draw(self.stdscr, self.margin)
         self.status.draw(self.stdscr, self.margin)
 
-    @contextlib.contextmanager
-    def resize_cb(self, f: Callable[[], None]) -> Generator[None, None, None]:
-        assert self._resize_cb is None, self._resize_cb
-        self._resize_cb = f
-        try:
-            yield
-        finally:
-            self._resize_cb = None
-
     def resize(self) -> None:
         curses.update_lines_cols()
         self.margin = Margin.from_current_screen()
         self.file.scroll_screen_if_needed(self.margin)
         self.draw()
-        if self._resize_cb is not None:
-            self._resize_cb()
 
     def quick_prompt(self, prompt: str, opts: str) -> Union[str, PromptResult]:
         while True:

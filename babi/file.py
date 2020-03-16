@@ -23,6 +23,7 @@ from typing import Union
 
 from babi.hl.interface import FileHL
 from babi.hl.interface import HLFactory
+from babi.hl.replace import Replace
 from babi.horizontal_scrolling import line_x
 from babi.horizontal_scrolling import scrolled_line
 from babi.list_spy import ListSpy
@@ -221,6 +222,7 @@ class File:
         self.redo_stack: List[Action] = []
         self.select_start: Optional[Tuple[int, int]] = None
         self._hl_factories = hl_factories
+        self._replace_hl = Replace()
         self._file_hls: Tuple[FileHL, ...] = ()
 
     def ensure_loaded(self, status: Status) -> None:
@@ -251,7 +253,7 @@ class File:
                 file_hls.append(factory.get_file_highlighter(self.filename))
             else:
                 file_hls.append(factory.get_blank_file_highlighter())
-        self._file_hls = tuple(file_hls)
+        self._file_hls = (*file_hls, self._replace_hl)
 
     def __repr__(self) -> str:
         return f'<{type(self).__name__} {self.filename!r}>'
@@ -434,13 +436,6 @@ class File:
     ) -> None:
         self.finalize_previous_action()
 
-        def highlight() -> None:
-            self.highlight(
-                screen.stdscr, screen.margin,
-                y=self.y, x=self.x, n=len(match[0]),
-                color=HIGHLIGHT, include_edge=True,
-            )
-
         count = 0
         res: Union[str, PromptResult] = ''
         search = _SearchIter(self, reg, offset=0)
@@ -449,9 +444,8 @@ class File:
             self.x = self.x_hint = match.start()
             self.scroll_screen_if_needed(screen.margin)
             if res != 'a':  # make `a` replace the rest of them
-                screen.draw()
-                highlight()
-                with screen.resize_cb(highlight):
+                with self._replace_hl.region(self.y, self.x, len(match[0])):
+                    screen.draw()
                     res = screen.quick_prompt(
                         'replace [y(es), n(o), a(ll)]?', 'yna',
                     )
@@ -847,7 +841,7 @@ class File:
                 for region in file_hl.regions[i]:
                     self.highlight(
                         stdscr, margin,
-                        y=i, include_edge=False, **region,
+                        y=i, include_edge=file_hl.include_edge, **region,
                     )
 
         if self.select_start is not None:

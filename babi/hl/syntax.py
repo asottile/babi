@@ -21,6 +21,8 @@ A_ITALIC = getattr(curses, 'A_ITALIC', 0x80000000)  # new in py37
 
 
 class FileSyntax:
+    include_edge = False
+
     def __init__(
             self,
             compiler: Compiler,

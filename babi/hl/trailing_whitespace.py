@@ -9,6 +9,8 @@ from babi.list_spy import SequenceNoSlice
 
 
 class FileTrailingWhitespace:
+    include_edge = False
+
     def __init__(self, color_manager: ColorManager) -> None:
         self._color_manager = color_manager
 
