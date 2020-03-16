@@ -1,7 +1,8 @@
+import collections
 import contextlib
 import curses
+from typing import Dict
 from typing import Generator
-from typing import List
 
 from babi.hl.interface import CursesRegion
 from babi.hl.interface import CursesRegions
@@ -14,19 +15,18 @@ class Replace:
     include_edge = True
 
     def __init__(self) -> None:
-        self.regions: List[CursesRegions] = []
+        self.regions: Dict[int, CursesRegions] = collections.defaultdict(tuple)
 
     def highlight_until(self, lines: SequenceNoSlice, idx: int) -> None:
-        self.regions.extend(() for _ in range(len(self.regions), idx))
+        """our highlight regions are populated in other ways"""
 
     def touch(self, lineno: int) -> None:
         """our highlight regions are populated in other ways"""
 
     @contextlib.contextmanager
     def region(self, y: int, x: int, n: int) -> Generator[None, None, None]:
-        self.highlight_until((), y + 1)
         self.regions[y] = (CursesRegion(x=x, n=n, color=HIGHLIGHT),)
         try:
             yield
         finally:
-            self.regions[y] = ()
+            del self.regions[y]

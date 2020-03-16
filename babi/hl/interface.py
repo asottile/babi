@@ -1,4 +1,3 @@
-from typing import Sequence
 from typing import Tuple
 
 from babi._types import Protocol
@@ -15,11 +14,15 @@ class CursesRegion(TypedDict):
 CursesRegions = Tuple[CursesRegion, ...]
 
 
+class RegionsMapping(Protocol):
+    def __getitem__(self, idx: int) -> CursesRegions: ...
+
+
 class FileHL(Protocol):
     @property
     def include_edge(self) -> bool: ...
     @property
-    def regions(self) -> Sequence[CursesRegions]: ...
+    def regions(self) -> RegionsMapping: ...
     def highlight_until(self, lines: SequenceNoSlice, idx: int) -> None: ...
     def touch(self, lineno: int) -> None: ...
 
