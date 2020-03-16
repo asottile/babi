@@ -4,6 +4,12 @@ from babi.highlight import highlight_line
 from babi.highlight import Region
 
 
+def test_grammar_matches_extension_only_name():
+    data = {'scopeName': 'test', 'patterns': [], 'fileTypes': ['bashrc']}
+    grammar = Grammar.from_data(data)
+    assert grammar.matches_file('.bashrc', 'alias nano=babi')
+
+
 def _compiler_state(grammar_dct, *others):
     grammar = Grammar.from_data(grammar_dct)
     grammars = [grammar, *(Grammar.from_data(dct) for dct in others)]

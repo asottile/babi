@@ -196,16 +196,10 @@ class Grammar(NamedTuple):
 
     @classmethod
     def blank(cls) -> 'Grammar':
-        return cls(
-            scope_name='source.unknown',
-            first_line_match=None,
-            file_types=frozenset(),
-            patterns=(),
-            repository=FDict({}),
-        )
+        return cls.from_data({'scopeName': 'source.unknown', 'patterns': []})
 
     def matches_file(self, filename: str, first_line: str) -> bool:
-        _, ext = os.path.splitext(filename)
+        _, _, ext = os.path.basename(filename).rpartition('.')
         if ext.lstrip('.') in self.file_types:
             return True
         elif self.first_line_match is not None:
