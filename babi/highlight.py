@@ -699,7 +699,6 @@ class Grammars:
         return self._compiler_for_grammar(grammar)
 
 
-@functools.lru_cache(maxsize=None)
 def highlight_line(
         compiler: 'Compiler',
         state: State,
