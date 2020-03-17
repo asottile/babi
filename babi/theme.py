@@ -114,11 +114,14 @@ class Theme(NamedTuple):
         for rule in rules:
             if 'scope' not in rule:
                 scopes = ['']
+            elif rule['scope'] == '':
+                scopes = ['']
             elif isinstance(rule['scope'], str):
                 scopes = [
                     s.strip()
                     # some themes have a buggy trailing/leading comma
                     for s in rule['scope'].strip().strip(',').split(',')
+                    if s.strip()
                 ]
             else:
                 scopes = rule['scope']

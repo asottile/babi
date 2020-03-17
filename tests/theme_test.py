@@ -84,6 +84,19 @@ def test_theme_scope_comma_at_beginning_and_end():
     assert theme.select(('b',)).i is True
 
 
+def test_theme_scope_internal_newline_commas():
+    # this is arguably malformed, but `cobalt2` in the wild has this issue
+    theme = Theme.from_dct({
+        'colors': {'foreground': '#cccccc', 'background': '#333333'},
+        'tokenColors': [
+            {'scope': '\n,a,\n,b,\n', 'settings': {'fontStyle': 'italic'}},
+        ],
+    })
+    assert theme.select(('d',)).i is False
+    assert theme.select(('a',)).i is True
+    assert theme.select(('b',)).i is True
+
+
 def test_theme_scope_as_A_list():
     theme = Theme.from_dct({
         'colors': {'foreground': '#cccccc', 'background': '#333333'},
