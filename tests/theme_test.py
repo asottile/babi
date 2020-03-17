@@ -72,6 +72,18 @@ def test_theme_scope_split_by_commas():
     assert theme.select(('c',)).i is True
 
 
+def test_theme_scope_comma_at_beginning_and_end():
+    theme = Theme.from_dct({
+        'colors': {'foreground': '#cccccc', 'background': '#333333'},
+        'tokenColors': [
+            {'scope': '\n,a,b,\n', 'settings': {'fontStyle': 'italic'}},
+        ],
+    })
+    assert theme.select(('d',)).i is False
+    assert theme.select(('a',)).i is True
+    assert theme.select(('b',)).i is True
+
+
 def test_theme_scope_as_A_list():
     theme = Theme.from_dct({
         'colors': {'foreground': '#cccccc', 'background': '#333333'},

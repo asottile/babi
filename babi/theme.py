@@ -116,8 +116,9 @@ class Theme(NamedTuple):
                 scopes = ['']
             elif isinstance(rule['scope'], str):
                 scopes = [
-                    # some themes have a buggy trailing comma
-                    s.strip() for s in rule['scope'].strip(',').split(',')
+                    s.strip()
+                    # some themes have a buggy trailing/leading comma
+                    for s in rule['scope'].strip().strip(',').split(',')
                 ]
             else:
                 scopes = rule['scope']
