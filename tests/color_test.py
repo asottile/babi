@@ -9,6 +9,7 @@ from babi.color import Color
         ('#1e77d3', Color(0x1e, 0x77, 0xd3)),
         ('white', Color(0xff, 0xff, 0xff)),
         ('black', Color(0x00, 0x00, 0x00)),
+        ('#ccc', Color(0xcc, 0xcc, 0xcc)),
     ),
 )
 def test_color_parse(s, expected):
