@@ -1,7 +1,6 @@
 import functools
 import json
 import os.path
-import re
 from typing import Any
 from typing import Dict
 from typing import NamedTuple
@@ -11,9 +10,6 @@ from typing import Tuple
 from babi._types import Protocol
 from babi.color import Color
 from babi.fdict import FDict
-
-# yes I know this is wrong, but it's good enough for now
-UN_COMMENT = re.compile(r'^\s*//.*$', re.MULTILINE)
 
 
 class Style(NamedTuple):
@@ -152,5 +148,4 @@ class Theme(NamedTuple):
             return cls.blank()
         else:
             with open(filename) as f:
-                contents = UN_COMMENT.sub('', f.read())
-                return cls.from_dct(json.loads(contents))
+                return cls.from_dct(json.load(f))
