@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+import argparse
+import json
+import os.path
+import plistlib
+import re
+import urllib.request
+from typing import Any
+
+import cson  # pip install cson
+
+# yes I know this is wrong, but it's good enough for now
+UN_COMMENT = re.compile(rb'^\s*//.*$', re.MULTILINE)
+
+
+def json_with_comments(src: bytes) -> Any:
+    return json.loads(UN_COMMENT.sub(b'', src))
+
+
+STRATEGIES = (json.loads, plistlib.loads, cson.loads, json_with_comments)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument('name')
+    parser.add_argument('url')
+    args = parser.parse_args()
+
+    if '/blob/' in args.url:
+        url = args.url.replace('/blob/', '/raw/')
+    else:
+        url = args.url
+
+    contents = urllib.request.urlopen(url).read()
+
+    errors = []
+    for strategy in STRATEGIES:
+        try:
+            loaded = strategy(contents)
+        except Exception as e:
+            errors.append((f'{strategy.__module__}.{strategy.__name__}', e))
+        else:
+            break
+    else:
+        errors_s = '\n'.join(f'\t{name}: {error}' for name, error in errors)
+        raise AssertionError(f'could not load as json/plist/cson:\n{errors_s}')
+
+    config_dir = os.path.expanduser('~/.config/babi')
+    os.makedirs(config_dir, exist_ok=True)
+    dest = os.path.join(config_dir, f'{args.name}.json')
+    with open(dest, 'w') as f:
+        json.dump(loaded, f)
+
+    theme_json = os.path.join(config_dir, 'theme.json')
+    if os.path.lexists(theme_json):
+        os.remove(theme_json)
+    os.symlink(dest, theme_json)
+    return 0
+
+
+if __name__ == '__main__':
+    exit(main())
