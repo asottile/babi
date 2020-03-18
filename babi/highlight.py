@@ -123,6 +123,10 @@ class Rule(NamedTuple):
         else:
             while_captures = ()
 
+        # some grammars (at least xml) have begin rules with no end
+        if begin is not None and end is None and while_ is None:
+            end = '$impossible^'
+
         # Using the captures key for a begin/end/while rule is short-hand for
         # giving both beginCaptures and endCaptures with same values
         if begin and end and captures:

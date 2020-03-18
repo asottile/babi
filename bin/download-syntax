@@ -58,6 +58,8 @@ SYNTAXES = (
     # TODO: https://github.com/zargony/atom-language-rust/pull/149
     Syntax('rust', Ext.CSON, 'https://raw.githubusercontent.com/asottile/atom-language-rust/e113ca67/grammars/rust.cson'),  # noqa: E501
     Syntax('shell', Ext.CSON, 'https://raw.githubusercontent.com/atom/language-shellscript/7008ea926867d8a231003e78094091471c4fccf8/grammars/shell-unix-bash.cson'),  # noqa: E501
+    # TODO: https://github.com/atom/language-xml/pull/99
+    Syntax('xml', Ext.CSON, 'https://raw.githubusercontent.com/asottile/language-xml/2d76bc1f/grammars/xml.cson'),  # noqa: E501
     Syntax('yaml', Ext.PLIST, 'https://raw.githubusercontent.com/textmate/yaml.tmbundle/e54ceae3/Syntaxes/YAML.tmLanguage'),  # noqa: E501
 )
 

@@ -534,3 +534,27 @@ def test_include_base():
         Region(2, 3, ('test', 'tick')),
         Region(3, 4, ('test',)),
     )
+
+
+def test_rule_with_begin_and_no_end():
+    compiler, state = _compiler_state({
+        'scopeName': 'test',
+        'patterns': [
+            {
+                'begin': '!', 'end': '!', 'name': 'bang',
+                'patterns': [{'begin': '--', 'name': 'invalid'}],
+            },
+        ],
+    })
+
+    state, regions = highlight_line(compiler, state, '!x! !--!', True)
+
+    assert regions == (
+        Region(0, 1, ('test', 'bang')),
+        Region(1, 2, ('test', 'bang')),
+        Region(2, 3, ('test', 'bang')),
+        Region(3, 4, ('test',)),
+        Region(4, 5, ('test', 'bang')),
+        Region(5, 7, ('test', 'bang', 'invalid')),
+        Region(7, 8, ('test', 'bang', 'invalid')),
+    )
