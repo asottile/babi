@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import io
 import json
 import os.path
 import plistlib
@@ -9,12 +10,38 @@ from typing import Any
 
 import cson  # pip install cson
 
-# yes I know this is wrong, but it's good enough for now
-UN_COMMENT = re.compile(rb'^\s*//.*$', re.MULTILINE)
+TOKEN = re.compile(br'(\\\\|\\"|"|//|\n)')
 
 
-def json_with_comments(src: bytes) -> Any:
-    return json.loads(UN_COMMENT.sub(b'', src))
+def json_with_comments(s: bytes) -> Any:
+    bio = io.BytesIO()
+
+    idx = 0
+    in_string = False
+    in_comment = False
+
+    match = TOKEN.search(s, idx)
+    while match:
+        if not in_comment:
+            bio.write(s[idx:match.start()])
+
+        tok = match[0]
+        if not in_comment and tok == b'"':
+            in_string = not in_string
+        elif in_comment and tok == b'\n':
+            in_comment = False
+        elif not in_string and tok == b'//':
+            in_comment = True
+
+        if not in_comment:
+            bio.write(tok)
+
+        idx = match.end()
+        match = TOKEN.search(s, idx)
+
+    print(bio.getvalue())
+    bio.seek(0)
+    return json.load(bio)
 
 
 STRATEGIES = (json.loads, plistlib.loads, cson.loads, json_with_comments)
