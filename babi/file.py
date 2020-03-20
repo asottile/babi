@@ -453,9 +453,7 @@ class File:
             if res != 'a':  # make `a` replace the rest of them
                 with self._replace_hl.region(self.y, self.x, match.end()):
                     screen.draw()
-                    res = screen.quick_prompt(
-                        'replace [y(es), n(o), a(ll)]?', 'yna',
-                    )
+                    res = screen.quick_prompt('replace', ('yes', 'no', 'all'))
             if res in {'y', 'a'}:
                 count += 1
                 with self.edit_action_context('replace', final=True):

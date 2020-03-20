@@ -224,13 +224,40 @@ class Screen:
         self.file.scroll_screen_if_needed(self.margin)
         self.draw()
 
-    def quick_prompt(self, prompt: str, opts: str) -> Union[str, PromptResult]:
+    def quick_prompt(
+            self,
+            prompt: str,
+            opt_strs: Tuple[str, ...],
+    ) -> Union[str, PromptResult]:
+        opts = [opt[0] for opt in opt_strs]
         while True:
-            s = prompt.ljust(curses.COLS)
-            if len(s) > curses.COLS:
-                s = f'{s[:curses.COLS - 1]}…'
-            self.stdscr.insstr(curses.LINES - 1, 0, s, curses.A_REVERSE)
-            x = min(curses.COLS - 1, len(prompt) + 1)
+            x = 0
+
+            def _write(s: str, *, attr: int = curses.A_REVERSE) -> None:
+                nonlocal x
+
+                if x >= curses.COLS:
+                    return
+                self.stdscr.insstr(curses.LINES - 1, x, s, attr)
+                x += len(s)
+
+            _write(prompt)
+            _write(' [')
+            for i, opt_str in enumerate(opt_strs):
+                _write(opt_str[0], attr=curses.A_REVERSE | curses.A_BOLD)
+                _write(opt_str[1:])
+                if i != len(opt_strs) - 1:
+                    _write(', ')
+            _write(']?')
+
+            if x < curses.COLS - 1:
+                s = ' ' * (curses.COLS - x)
+                self.stdscr.insstr(curses.LINES - 1, x, s, curses.A_REVERSE)
+                x += 1
+            else:
+                x = curses.COLS - 1
+                self.stdscr.insstr(curses.LINES - 1, x, '…', curses.A_REVERSE)
+
             self.stdscr.move(curses.LINES - 1, x)
 
             key = self.get_char()
@@ -427,7 +454,7 @@ class Screen:
     def quit_save_modified(self) -> Optional[EditResult]:
         if self.file.modified:
             response = self.quick_prompt(
-                'file is modified - save [y(es), n(o)]?', 'yn',
+                'file is modified - save', ('yes', 'no'),
             )
             if response == 'y':
                 if self.save_filename() is not PromptResult.CANCELLED:
