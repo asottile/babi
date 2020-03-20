@@ -23,6 +23,7 @@ these are all of the current key bindings in babi
 - <kbd>^S</kbd>: save
 - <kbd>^O</kbd>: save as
 - <kbd>^X</kbd>: quit
+- <kbd>^P</kbd>: open file
 - arrow keys: movement
 - <kbd>^A</kbd> / <kbd>home</kbd>: move to beginning of line
 - <kbd>^E</kbd> / <kbd>end</kbd>: move to end of line

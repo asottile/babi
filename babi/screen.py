@@ -28,7 +28,7 @@ from babi.prompt import PromptResult
 from babi.status import Status
 
 VERSION_STR = 'babi v0'
-EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV')
+EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV OPEN')
 
 # TODO: find a place to populate these, surely there's a database somewhere
 SEQUENCE_KEYNAME = {
@@ -73,11 +73,11 @@ class Screen:
     ) -> None:
         self.stdscr = stdscr
         color_manager = ColorManager.make()
-        hl_factories = (
+        self.hl_factories = (
             Syntax.from_screen(stdscr, color_manager),
             TrailingWhitespace(color_manager),
         )
-        self.files = [File(f, hl_factories) for f in filenames]
+        self.files = [File(f, self.hl_factories) for f in filenames]
         self.i = 0
         self.history = History()
         self.perf = perf
@@ -451,6 +451,14 @@ class Screen:
             self.file.filename = response
             return self.save()
 
+    def open_file(self) -> Optional[EditResult]:
+        response = self.prompt('enter filename', history='open')
+        if response is not PromptResult.CANCELLED:
+            self.files.append(File(response, self.hl_factories))
+            return EditResult.OPEN
+        else:
+            return None
+
     def quit_save_modified(self) -> Optional[EditResult]:
         if self.file.modified:
             response = self.quick_prompt(
@@ -488,6 +496,7 @@ class Screen:
         b'^S': save,
         b'^O': save_filename,
         b'^X': quit_save_modified,
+        b'^P': open_file,
         b'kLFT3': lambda screen: EditResult.PREV,
         b'kRIT3': lambda screen: EditResult.NEXT,
         b'^Z': background,

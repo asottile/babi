@@ -58,6 +58,8 @@ def c_main(
                 elif res == EditResult.PREV:
                     screen.i -= 1
                     screen.status.clear()
+                elif res == EditResult.OPEN:
+                    screen.i = len(screen.files) - 1
                 else:
                     raise AssertionError(f'unreachable {res}')
     return 0
