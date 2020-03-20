@@ -49,6 +49,8 @@ def c_main(
                 res = _edit(screen, stdin)
                 if res == EditResult.EXIT:
                     del screen.files[screen.i]
+                    # always go to the next file except at the end
+                    screen.i = min(screen.i, len(screen.files) - 1)
                     screen.status.clear()
                 elif res == EditResult.NEXT:
                     screen.i += 1

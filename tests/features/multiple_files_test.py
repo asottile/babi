@@ -1,10 +1,19 @@
-def test_multiple_files(run, tmpdir):
+import pytest
+
+
+@pytest.fixture
+def abc(tmpdir):
     a = tmpdir.join('file_a')
     a.write('a text')
     b = tmpdir.join('file_b')
     b.write('b text')
     c = tmpdir.join('file_c')
     c.write('c text')
+    yield a, b, c
+
+
+def test_multiple_files(run, abc):
+    a, b, c = abc
 
     with run(str(a), str(b), str(c)) as h:
         h.await_text('file_a')
@@ -44,9 +53,36 @@ def test_multiple_files(run, tmpdir):
         h.press('^J')
         h.await_text('unknown key')
         h.press('^X')
-        h.await_text('file_a')
+        h.await_text('file_b')
         h.await_text_missing('unknown key')
         h.press('^X')
+        h.await_text('file_a')
+        h.press('^X')
+        h.await_exit()
+
+
+def test_multiple_files_close_from_beginning(run, abc):
+    a, b, c = abc
+
+    with run(str(a), str(b), str(c)) as h:
+        h.press('^X')
         h.await_text('file_b')
+        h.press('^X')
+        h.await_text('file_c')
+        h.press('^X')
+        h.await_exit()
+
+
+def test_multiple_files_close_from_end(run, abc):
+    a, b, c = abc
+
+    with run(str(a), str(b), str(c)) as h:
+        h.press('M-Right')
+        h.await_text('file_b')
+
+        h.press('^X')
+        h.await_text('file_c')
+        h.press('^X')
+        h.await_text('file_a')
         h.press('^X')
         h.await_exit()
