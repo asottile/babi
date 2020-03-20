@@ -226,11 +226,17 @@ class File:
         self.selection = Selection()
         self._file_hls: Tuple[FileHL, ...] = ()
 
-    def ensure_loaded(self, status: Status) -> None:
+    def ensure_loaded(self, status: Status, stdin: str) -> None:
         if self.lines:
             return
 
-        if self.filename is not None and os.path.isfile(self.filename):
+        if self.filename == '-':
+            status.update('(from stdin)')
+            self.filename = None
+            self.modified = True
+            sio = io.StringIO(stdin)
+            self.lines, self.nl, mixed, self.sha256 = get_lines(sio)
+        elif self.filename is not None and os.path.isfile(self.filename):
             with open(self.filename, newline='') as f:
                 self.lines, self.nl, mixed, self.sha256 = get_lines(f)
         else:
