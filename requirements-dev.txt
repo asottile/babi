@@ -1,5 +1,5 @@
 covdefaults
 coverage
-git+https://github.com/asottile/hecate@ebe6dfb
+git+https://github.com/asottile/hecate@875567f
 pytest
 remote-pdb
