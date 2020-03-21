@@ -46,6 +46,7 @@ class Syntax(NamedTuple):
 SYNTAXES = (
     Syntax('c', Ext.JSON, 'https://raw.githubusercontent.com/jeff-hykin/cpp-textmate-grammar/53e39b1c/syntaxes/c.tmLanguage.json'),  # noqa: E501
     Syntax('css', Ext.CSON, 'https://raw.githubusercontent.com/atom/language-css/9feb69c081308b63f78bb0d6a2af2ff5eb7d869b/grammars/css.cson'),  # noqa: E501
+    Syntax('docker', Ext.PLIST, 'https://raw.githubusercontent.com/moby/moby/c7ad2b866/contrib/syntax/textmate/Docker.tmbundle/Syntaxes/Dockerfile.tmLanguage'),  # noqa: E501
     Syntax('diff', Ext.PLIST, 'https://raw.githubusercontent.com/textmate/diff.tmbundle/0593bb77/Syntaxes/Diff.plist'),  # noqa: E501
     Syntax('html', Ext.PLIST, 'https://raw.githubusercontent.com/textmate/html.tmbundle/0c3d5ee5/Syntaxes/HTML.plist'),  # noqa: E501
     Syntax('html-derivative', Ext.PLIST, 'https://raw.githubusercontent.com/textmate/html.tmbundle/0c3d5ee54de3a993f747f54186b73a4d2d3c44a2/Syntaxes/HTML%20(Derivative).tmLanguage'),  # noqa: E501
