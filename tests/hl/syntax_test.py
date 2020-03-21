@@ -5,7 +5,6 @@ from unittest import mock
 import pytest
 
 from babi.color_manager import ColorManager
-from babi.highlight import Grammar
 from babi.highlight import Grammars
 from babi.hl.syntax import Syntax
 from babi.theme import Color
@@ -72,8 +71,8 @@ THEME = Theme.from_dct({
 
 
 @pytest.fixture
-def syntax():
-    return Syntax(Grammars([Grammar.blank()]), THEME, ColorManager.make())
+def syntax(tmpdir):
+    return Syntax(Grammars.from_syntax_dir(tmpdir), THEME, ColorManager.make())
 
 
 def test_init_screen_low_color(stdscr, syntax):
@@ -131,7 +130,7 @@ def test_lazily_instantiated_pairs(stdscr, syntax):
         assert len(fake_curses.pairs) == 1
 
         style = THEME.select(('string.python',))
-        attr = syntax.get_blank_file_highlighter().attr(style)
+        attr = syntax.blank_file_highlighter().attr(style)
         assert attr == 2 << 8
 
         assert len(syntax.color_manager.raw_pairs) == 2
@@ -143,5 +142,5 @@ def test_style_attributes_applied(stdscr, syntax):
         syntax._init_screen(stdscr)
 
         style = THEME.select(('keyword.python',))
-        attr = syntax.get_blank_file_highlighter().attr(style)
+        attr = syntax.blank_file_highlighter().attr(style)
         assert attr == 2 << 8 | curses.A_BOLD

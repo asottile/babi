@@ -256,10 +256,10 @@ class File:
         file_hls = []
         for factory in self._hl_factories:
             if self.filename is not None:
-                # TODO: this does an extra read
-                file_hls.append(factory.get_file_highlighter(self.filename))
+                hl = factory.file_highlighter(self.filename, self.lines[0])
+                file_hls.append(hl)
             else:
-                file_hls.append(factory.get_blank_file_highlighter())
+                file_hls.append(factory.blank_file_highlighter())
         self._file_hls = (*file_hls, self._replace_hl, self.selection)
 
     def __repr__(self) -> str:

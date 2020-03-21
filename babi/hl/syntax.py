@@ -108,11 +108,11 @@ class Syntax(NamedTuple):
     theme: Theme
     color_manager: ColorManager
 
-    def get_file_highlighter(self, filename: str) -> FileSyntax:
-        compiler = self.grammars.compiler_for_file(filename)
+    def file_highlighter(self, filename: str, first_line: str) -> FileSyntax:
+        compiler = self.grammars.compiler_for_file(filename, first_line)
         return FileSyntax(compiler, self.theme, self.color_manager)
 
-    def get_blank_file_highlighter(self) -> FileSyntax:
+    def blank_file_highlighter(self) -> FileSyntax:
         compiler = self.grammars.blank_compiler()
         return FileSyntax(compiler, self.theme, self.color_manager)
 

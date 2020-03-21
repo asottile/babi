@@ -42,9 +42,13 @@ class FileTrailingWhitespace:
 class TrailingWhitespace(NamedTuple):
     color_manager: ColorManager
 
-    def get_file_highlighter(self, filename: str) -> FileTrailingWhitespace:
+    def file_highlighter(
+            self,
+            filename: str,
+            first_line: str,
+    ) -> FileTrailingWhitespace:
         # no file-specific behaviour
-        return self.get_blank_file_highlighter()
+        return self.blank_file_highlighter()
 
-    def get_blank_file_highlighter(self) -> FileTrailingWhitespace:
+    def blank_file_highlighter(self) -> FileTrailingWhitespace:
         return FileTrailingWhitespace(self.color_manager)

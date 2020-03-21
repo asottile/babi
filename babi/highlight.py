@@ -4,11 +4,11 @@ import json
 import os.path
 from typing import Any
 from typing import Dict
-from typing import FrozenSet
 from typing import List
 from typing import Match
 from typing import NamedTuple
 from typing import Optional
+from typing import Sequence
 from typing import Tuple
 from typing import TypeVar
 
@@ -162,22 +162,12 @@ class Rule(NamedTuple):
 @uniquely_constructed
 class Grammar(NamedTuple):
     scope_name: str
-    first_line_match: Optional[_Reg]
-    file_types: FrozenSet[str]
     patterns: Tuple[_Rule, ...]
     repository: FDict[str, _Rule]
 
     @classmethod
     def from_data(cls, data: Dict[str, Any]) -> 'Grammar':
         scope_name = data['scopeName']
-        if 'firstLineMatch' in data:
-            first_line_match: Optional[_Reg] = make_reg(data['firstLineMatch'])
-        else:
-            first_line_match = None
-        if 'fileTypes' in data:
-            file_types = frozenset(data['fileTypes'])
-        else:
-            file_types = frozenset()
         patterns = tuple(Rule.from_dct(dct) for dct in data['patterns'])
         if 'repository' in data:
             repository = FDict({
@@ -187,33 +177,9 @@ class Grammar(NamedTuple):
             repository = FDict({})
         return cls(
             scope_name=scope_name,
-            first_line_match=first_line_match,
-            file_types=file_types,
             patterns=patterns,
             repository=repository,
         )
-
-    @classmethod
-    def parse(cls, filename: str) -> 'Grammar':
-        with open(filename) as f:
-            return cls.from_data(json.load(f))
-
-    @classmethod
-    def blank(cls) -> 'Grammar':
-        return cls.from_data({'scopeName': 'source.unknown', 'patterns': []})
-
-    def matches_file(self, filename: str, first_line: str) -> bool:
-        _, _, ext = os.path.basename(filename).rpartition('.')
-        if ext.lstrip('.') in self.file_types:
-            return True
-        elif self.first_line_match is not None:
-            return bool(
-                self.first_line_match.match(
-                    first_line, 0, first_line=True, boundary=True,
-                ),
-            )
-        else:
-            return False
 
 
 class Region(NamedTuple):
@@ -546,7 +512,7 @@ class WhileRule(NamedTuple):
 
 
 class Compiler:
-    def __init__(self, grammar: Grammar, grammars: Dict[str, Grammar]) -> None:
+    def __init__(self, grammar: Grammar, grammars: 'Grammars') -> None:
         self._root_scope = grammar.scope_name
         self._grammars = grammars
         self._rule_to_grammar: Dict[_Rule, Grammar] = {}
@@ -567,14 +533,17 @@ class Compiler:
         if s == '$self':
             return self._patterns(grammar, grammar.patterns)
         elif s == '$base':
-            return self._include(self._grammars[self._root_scope], '$self')
+            grammar = self._grammars.grammar_for_scope(self._root_scope)
+            return self._include(grammar, '$self')
         elif s.startswith('#'):
             return self._patterns(grammar, (grammar.repository[s[1:]],))
         elif '#' not in s:
-            return self._include(self._grammars[s], '$self')
+            grammar = self._grammars.grammar_for_scope(s)
+            return self._include(grammar, '$self')
         else:
             scope, _, s = s.partition('#')
-            return self._include(self._grammars[scope], f'#{s}')
+            grammar = self._grammars.grammar_for_scope(scope)
+            return self._include(grammar, f'#{s}')
 
     @functools.lru_cache(maxsize=None)
     def _patterns(
@@ -655,46 +624,58 @@ class Compiler:
 
 
 class Grammars:
-    def __init__(self, grammars: List[Grammar]) -> None:
-        self.grammars = {grammar.scope_name: grammar for grammar in grammars}
-        self._compilers: Dict[Grammar, Compiler] = {}
+    def __init__(self, grammars: Sequence[Dict[str, Any]]) -> None:
+        self._raw = {grammar['scopeName']: grammar for grammar in grammars}
+        self._find_scope = [
+            (
+                frozenset(grammar.get('fileTypes', ())),
+                make_reg(grammar.get('firstLineMatch', '$impossible^')),
+                grammar['scopeName'],
+            )
+            for grammar in grammars
+        ]
+        self._parsed: Dict[str, Grammar] = {}
+        self._compilers: Dict[str, Compiler] = {}
 
     @classmethod
     def from_syntax_dir(cls, syntax_dir: str) -> 'Grammars':
-        grammars = [Grammar.blank()]
+        grammars = [{'scopeName': 'source.unknown', 'patterns': []}]
         if os.path.exists(syntax_dir):
-            grammars.extend(
-                Grammar.parse(os.path.join(syntax_dir, filename))
-                for filename in os.listdir(syntax_dir)
-            )
+            for filename in os.listdir(syntax_dir):
+                with open(os.path.join(syntax_dir, filename)) as f:
+                    grammars.append(json.load(f))
         return cls(grammars)
 
-    def _compiler_for_grammar(self, grammar: Grammar) -> Compiler:
+    def grammar_for_scope(self, scope: str) -> Grammar:
         with contextlib.suppress(KeyError):
-            return self._compilers[grammar]
+            return self._parsed[scope]
 
-        ret = self._compilers[grammar] = Compiler(grammar, self.grammars)
+        ret = self._parsed[scope] = Grammar.from_data(self._raw[scope])
         return ret
 
     def compiler_for_scope(self, scope: str) -> Compiler:
-        return self._compiler_for_grammar(self.grammars[scope])
+        with contextlib.suppress(KeyError):
+            return self._compilers[scope]
+
+        grammar = self.grammar_for_scope(scope)
+        ret = self._compilers[scope] = Compiler(grammar, self)
+        return ret
 
     def blank_compiler(self) -> Compiler:
         return self.compiler_for_scope('source.unknown')
 
-    def compiler_for_file(self, filename: str) -> Compiler:
-        if os.path.exists(filename):
-            with open(filename) as f:
-                first_line = next(f, '')
+    def compiler_for_file(self, filename: str, first_line: str) -> Compiler:
+        _, _, ext = os.path.basename(filename).rpartition('.')
+        for extensions, first_line_match, scope_name in self._find_scope:
+            if (
+                    ext in extensions or
+                    first_line_match.match(
+                        first_line, 0, first_line=True, boundary=True,
+                    )
+            ):
+                return self.compiler_for_scope(scope_name)
         else:
-            first_line = ''
-        for grammar in self.grammars.values():
-            if grammar.matches_file(filename, first_line):
-                break
-        else:
-            grammar = self.grammars['source.unknown']
-
-        return self._compiler_for_grammar(grammar)
+            return self.compiler_for_scope('source.unknown')
 
 
 def highlight_line(

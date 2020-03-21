@@ -1,19 +1,18 @@
-from babi.highlight import Grammar
 from babi.highlight import Grammars
 from babi.highlight import highlight_line
 from babi.highlight import Region
 
 
 def test_grammar_matches_extension_only_name():
-    data = {'scopeName': 'test', 'patterns': [], 'fileTypes': ['bashrc']}
-    grammar = Grammar.from_data(data)
-    assert grammar.matches_file('.bashrc', 'alias nano=babi')
+    data = {'scopeName': 'shell', 'patterns': [], 'fileTypes': ['bashrc']}
+    grammars = Grammars([data])
+    compiler = grammars.compiler_for_file('.bashrc', 'alias nano=babi')
+    assert compiler.root_state.entries[0].scope[0] == 'shell'
 
 
-def _compiler_state(grammar_dct, *others):
-    grammar = Grammar.from_data(grammar_dct)
-    grammars = [grammar, *(Grammar.from_data(dct) for dct in others)]
-    compiler = Grammars(grammars).compiler_for_scope(grammar.scope_name)
+def _compiler_state(*grammar_dcts):
+    grammars = Grammars(grammar_dcts)
+    compiler = grammars.compiler_for_scope(grammar_dcts[0]['scopeName'])
     return compiler, compiler.root_state
 
 
