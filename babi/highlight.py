@@ -12,6 +12,8 @@ from typing import Sequence
 from typing import Tuple
 from typing import TypeVar
 
+from identify.identify import tags_from_filename
+
 from babi._types import Protocol
 from babi.fdict import FDict
 from babi.reg import _Reg
@@ -665,6 +667,10 @@ class Grammars:
         return self.compiler_for_scope('source.unknown')
 
     def compiler_for_file(self, filename: str, first_line: str) -> Compiler:
+        for tag in tags_from_filename(filename) - {'text'}:
+            with contextlib.suppress(KeyError):
+                return self.compiler_for_scope(f'source.{tag}')
+
         _, _, ext = os.path.basename(filename).rpartition('.')
         for extensions, first_line_match, scope_name in self._find_scope:
             if (

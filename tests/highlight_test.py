@@ -10,6 +10,13 @@ def test_grammar_matches_extension_only_name():
     assert compiler.root_state.entries[0].scope[0] == 'shell'
 
 
+def test_grammar_matches_via_identify_tag():
+    data = {'scopeName': 'source.ini', 'patterns': []}
+    grammars = Grammars([data])
+    compiler = grammars.compiler_for_file('setup.cfg', '')
+    assert compiler.root_state.entries[0].scope[0] == 'source.ini'
+
+
 def _compiler_state(*grammar_dcts):
     grammars = Grammars(grammar_dcts)
     compiler = grammars.compiler_for_scope(grammar_dcts[0]['scopeName'])
