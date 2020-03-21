@@ -267,7 +267,7 @@ KEYS = [
     Key('^\\', b'^\\', '\x1c'),
     Key('!resize', b'KEY_RESIZE', curses.KEY_RESIZE),
 ]
-KEYS_TMUX = {k.tmux: k.value for k in KEYS}
+KEYS_TMUX = {k.tmux: k.wch for k in KEYS}
 KEYS_CURSES = {k.value: k.curses for k in KEYS}
 
 
@@ -298,7 +298,7 @@ class DeferredRunner:
         print(f'KEY: {keypress_event.wch!r}')
         return keypress_event.wch
 
-    def await_text(self, text):
+    def await_text(self, text, timeout=1):
         self._ops.append(AwaitText(text))
 
     def await_text_missing(self, text):

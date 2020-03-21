@@ -6,6 +6,7 @@ from typing import Optional
 from typing import Sequence
 
 from babi.file import File
+from babi.perf import Perf
 from babi.perf import perf_log
 from babi.screen import EditResult
 from babi.screen import make_stdscr
@@ -65,10 +66,31 @@ def c_main(
     return 0
 
 
+def _key_debug(stdscr: 'curses._CursesWindow') -> int:
+    screen = Screen(stdscr, ['<<key debug>>'], Perf())
+    screen.file.lines = ['']
+
+    while True:
+        screen.status.update('press q to quit')
+        screen.draw()
+        screen.file.move_cursor(screen.stdscr, screen.margin)
+
+        key = screen.get_char()
+        screen.file.lines.insert(-1, f'{key.wch!r} {key.keyname.decode()!r}')
+        screen.file.down(screen.margin)
+        if key.wch == curses.KEY_RESIZE:
+            screen.resize()
+        if key.wch == 'q':
+            return 0
+
+
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', metavar='filename', nargs='*')
     parser.add_argument('--perf-log')
+    parser.add_argument(
+        '--key-debug', action='store_true', help=argparse.SUPPRESS,
+    )
     args = parser.parse_args(argv)
 
     if '-' in args.filenames:
@@ -80,7 +102,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         stdin = ''
 
     with make_stdscr() as stdscr:
-        return c_main(stdscr, args, stdin)
+        if args.key_debug:
+            return _key_debug(stdscr)
+        else:
+            return c_main(stdscr, args, stdin)
 
 
 if __name__ == '__main__':
