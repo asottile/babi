@@ -27,7 +27,12 @@ from babi.prompt import Prompt
 from babi.prompt import PromptResult
 from babi.status import Status
 
-VERSION_STR = 'babi v0'
+if sys.version_info >= (3, 8):  # pragma: no cover (py38+)
+    import importlib.metadata as importlib_metadata
+else:  # pragma: no cover (<py38)
+    import importlib_metadata
+
+VERSION_STR = f'babi v{importlib_metadata.version("babi")}'
 EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV OPEN')
 
 # TODO: find a place to populate these, surely there's a database somewhere
