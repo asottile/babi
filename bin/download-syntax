@@ -52,6 +52,7 @@ SYNTAXES = (
     Syntax('html-derivative', Ext.PLIST, 'https://raw.githubusercontent.com/textmate/html.tmbundle/0c3d5ee54de3a993f747f54186b73a4d2d3c44a2/Syntaxes/HTML%20(Derivative).tmLanguage'),  # noqa: E501
     Syntax('ini', Ext.PLIST, 'https://raw.githubusercontent.com/textmate/ini.tmbundle/7d8c7b55/Syntaxes/Ini.plist'),  # noqa: E501
     Syntax('json', Ext.PLIST, 'https://raw.githubusercontent.com/microsoft/vscode-JSON.tmLanguage/d113e90937ed3ecc31ac54750aac2e8efa08d784/JSON.tmLanguage'),  # noqa: E501
+    Syntax('make', Ext.PLIST, 'https://raw.githubusercontent.com/fadeevab/make.tmbundle/fd57c0552/Syntaxes/Makefile.plist'),  # noqa: E501
     Syntax('markdown', Ext.PLIST, 'https://raw.githubusercontent.com/microsoft/vscode-markdown-tm-grammar/59a5962/syntaxes/markdown.tmLanguage'),  # noqa: E501
     Syntax('powershell', Ext.PLIST, 'https://raw.githubusercontent.com/PowerShell/EditorSyntax/4a0a0766/PowerShellSyntax.tmLanguage'),  # noqa: E501
     Syntax('puppet', Ext.PLIST, 'https://raw.githubusercontent.com/lingua-pupuli/puppet-editor-syntax/dc414b8a/syntaxes/puppet.tmLanguage'),  # noqa: E501
