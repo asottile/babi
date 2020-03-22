@@ -1,4 +1,5 @@
 import functools
+import re
 from typing import Match
 from typing import Optional
 from typing import Tuple
@@ -6,6 +7,8 @@ from typing import Tuple
 import onigurumacffi
 
 from babi.cached_property import cached_property
+
+_BACKREF_RE = re.compile(r'((?<!\\)(?:\\\\)*)\\([0-9]+)')
 
 
 def _replace_esc(s: str, chars: str) -> str:
@@ -140,6 +143,10 @@ class _RegSet:
                 return self._set_no_G.search(line, pos)
             else:
                 return self._set_no_A_no_G.search(line, pos)
+
+
+def expand_escaped(match: Match[str], s: str) -> str:
+    return _BACKREF_RE.sub(lambda m: f'{m[1]}{re.escape(match[int(m[2])])}', s)
 
 
 make_reg = functools.lru_cache(maxsize=None)(_Reg)

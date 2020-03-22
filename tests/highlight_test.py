@@ -564,3 +564,18 @@ def test_rule_with_begin_and_no_end():
         Region(5, 7, ('test', 'bang', 'invalid')),
         Region(7, 8, ('test', 'bang', 'invalid')),
     )
+
+
+def test_begin_end_substitute_special_chars():
+    compiler, state = _compiler_state({
+        'scopeName': 'test',
+        'patterns': [{'begin': r'(\*)', 'end': r'\1', 'name': 'italic'}],
+    })
+
+    state, regions = highlight_line(compiler, state, '*italic*', True)
+
+    assert regions == (
+        Region(0, 1, ('test', 'italic')),
+        Region(1, 7, ('test', 'italic')),
+        Region(7, 8, ('test', 'italic')),
+    )
