@@ -20,7 +20,6 @@ from babi.file import File
 from babi.file import get_lines
 from babi.history import History
 from babi.hl.syntax import Syntax
-from babi.hl.trailing_whitespace import TrailingWhitespace
 from babi.margin import Margin
 from babi.perf import Perf
 from babi.prompt import Prompt
@@ -77,12 +76,12 @@ class Screen:
             perf: Perf,
     ) -> None:
         self.stdscr = stdscr
-        color_manager = ColorManager.make()
-        self.hl_factories = (
-            Syntax.from_screen(stdscr, color_manager),
-            TrailingWhitespace(color_manager),
-        )
-        self.files = [File(f, self.hl_factories) for f in filenames]
+        self.color_manager = ColorManager.make()
+        self.hl_factories = (Syntax.from_screen(stdscr, self.color_manager),)
+        self.files = [
+            File(filename, self.color_manager, self.hl_factories)
+            for filename in filenames
+        ]
         self.i = 0
         self.history = History()
         self.perf = perf
@@ -459,7 +458,8 @@ class Screen:
     def open_file(self) -> Optional[EditResult]:
         response = self.prompt('enter filename', history='open')
         if response is not PromptResult.CANCELLED:
-            self.files.append(File(response, self.hl_factories))
+            opened = File(response, self.color_manager, self.hl_factories)
+            self.files.append(opened)
             return EditResult.OPEN
         else:
             return None

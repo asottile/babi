@@ -1,6 +1,5 @@
 import curses
 from typing import List
-from typing import NamedTuple
 
 from babi.color_manager import ColorManager
 from babi.hl.interface import HL
@@ -8,7 +7,7 @@ from babi.hl.interface import HLs
 from babi.list_spy import SequenceNoSlice
 
 
-class FileTrailingWhitespace:
+class TrailingWhitespace:
     include_edge = False
 
     def __init__(self, color_manager: ColorManager) -> None:
@@ -37,18 +36,3 @@ class FileTrailingWhitespace:
 
     def touch(self, lineno: int) -> None:
         del self.regions[lineno:]
-
-
-class TrailingWhitespace(NamedTuple):
-    color_manager: ColorManager
-
-    def file_highlighter(
-            self,
-            filename: str,
-            first_line: str,
-    ) -> FileTrailingWhitespace:
-        # no file-specific behaviour
-        return self.blank_file_highlighter()
-
-    def blank_file_highlighter(self) -> FileTrailingWhitespace:
-        return FileTrailingWhitespace(self.color_manager)

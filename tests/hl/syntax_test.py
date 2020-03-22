@@ -78,11 +78,16 @@ def syntax(tmpdir):
 def test_init_screen_low_color(stdscr, syntax):
     with FakeCurses.patch(n_colors=16, can_change_color=False) as fake_curses:
         syntax._init_screen(stdscr)
-    assert syntax.color_manager.colors == {}
-    assert syntax.color_manager.raw_pairs == {}
+    assert syntax.color_manager.colors == {
+        Color.parse('#cccccc'): -1,
+        Color.parse('#333333'): -1,
+        Color.parse('#000000'): -1,
+        Color.parse('#009900'): -1,
+    }
+    assert syntax.color_manager.raw_pairs == {(-1, -1): 1}
     assert fake_curses.colors == {}
-    assert fake_curses.pairs == {}
-    assert stdscr.attr == 0
+    assert fake_curses.pairs == {1: (-1, -1)}
+    assert stdscr.attr == 1 << 8
 
 
 def test_init_screen_256_color(stdscr, syntax):

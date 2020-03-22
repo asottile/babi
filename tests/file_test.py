@@ -2,12 +2,13 @@ import io
 
 import pytest
 
+from babi.color_manager import ColorManager
 from babi.file import File
 from babi.file import get_lines
 
 
 def test_position_repr():
-    ret = repr(File('f.txt', ()))
+    ret = repr(File('f.txt', ColorManager.make(), ()))
     assert ret == "<File 'f.txt'>"
 
 

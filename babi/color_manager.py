@@ -19,19 +19,16 @@ class ColorManager(NamedTuple):
     raw_pairs: Dict[Tuple[int, int], int]
 
     def init_color(self, color: Color) -> None:
-        if curses.COLORS < 256:
-            return
-        elif curses.can_change_color():
+        if curses.can_change_color():
             n = min(self.colors.values(), default=256) - 1
             self.colors[color] = n
             curses.init_color(n, *_color_to_curses(color))
-        else:
+        elif curses.COLORS >= 256:
             self.colors[color] = color_kd.nearest(color, color_kd.make_256())
+        else:
+            self.colors[color] = -1
 
     def color_pair(self, fg: Optional[Color], bg: Optional[Color]) -> int:
-        if curses.COLORS < 256:
-            return 0
-
         fg_i = self.colors[fg] if fg is not None else -1
         bg_i = self.colors[bg] if bg is not None else -1
         return self.raw_color_pair(fg_i, bg_i)

@@ -21,10 +21,12 @@ from typing import TYPE_CHECKING
 from typing import TypeVar
 from typing import Union
 
+from babi.color_manager import ColorManager
 from babi.hl.interface import FileHL
 from babi.hl.interface import HLFactory
 from babi.hl.replace import Replace
 from babi.hl.selection import Selection
+from babi.hl.trailing_whitespace import TrailingWhitespace
 from babi.horizontal_scrolling import line_x
 from babi.horizontal_scrolling import scrolled_line
 from babi.list_spy import ListSpy
@@ -211,6 +213,7 @@ class File:
     def __init__(
             self,
             filename: Optional[str],
+            color_manager: ColorManager,
             hl_factories: Tuple[HLFactory, ...],
     ) -> None:
         self.filename = filename
@@ -222,6 +225,7 @@ class File:
         self.undo_stack: List[Action] = []
         self.redo_stack: List[Action] = []
         self._hl_factories = hl_factories
+        self._trailing_whitespace = TrailingWhitespace(color_manager)
         self._replace_hl = Replace()
         self.selection = Selection()
         self._file_hls: Tuple[FileHL, ...] = ()
@@ -260,7 +264,10 @@ class File:
                 file_hls.append(hl)
             else:
                 file_hls.append(factory.blank_file_highlighter())
-        self._file_hls = (*file_hls, self._replace_hl, self.selection)
+        self._file_hls = (
+            *file_hls,
+            self._trailing_whitespace, self._replace_hl, self.selection,
+        )
 
     def __repr__(self) -> str:
         return f'<{type(self).__name__} {self.filename!r}>'

@@ -8,8 +8,6 @@ from babi.hl.interface import HL
 from babi.hl.interface import HLs
 from babi.list_spy import SequenceNoSlice
 
-HIGHLIGHT = curses.A_REVERSE | curses.A_DIM
-
 
 class Replace:
     include_edge = True
@@ -25,7 +23,9 @@ class Replace:
 
     @contextlib.contextmanager
     def region(self, y: int, x: int, end: int) -> Generator[None, None, None]:
-        self.regions[y] = (HL(x=x, end=end, attr=HIGHLIGHT),)
+        # XXX: this assumes pair 1 is the background
+        attr = curses.A_REVERSE | curses.A_DIM | curses.color_pair(1)
+        self.regions[y] = (HL(x=x, end=end, attr=attr),)
         try:
             yield
         finally:
