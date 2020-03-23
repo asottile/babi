@@ -40,8 +40,6 @@ if TYPE_CHECKING:
 
 TCallable = TypeVar('TCallable', bound=Callable[..., Any])
 
-HIGHLIGHT = curses.A_REVERSE | curses.A_DIM
-
 
 def _restore_lines_eof_invariant(lines: MutableSequenceNoSlice) -> None:
     """The file lines will always contain a blank empty string at the end to
