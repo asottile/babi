@@ -1,4 +1,3 @@
-import contextlib
 import curses
 from typing import Dict
 from typing import NamedTuple
@@ -34,8 +33,10 @@ class ColorManager(NamedTuple):
         return self.raw_color_pair(fg_i, bg_i)
 
     def raw_color_pair(self, fg: int, bg: int) -> int:
-        with contextlib.suppress(KeyError):
+        try:
             return self.raw_pairs[(fg, bg)]
+        except KeyError:
+            pass
 
         n = self.raw_pairs[(fg, bg)] = len(self.raw_pairs) + 1
         curses.init_pair(n, fg, bg)

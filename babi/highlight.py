@@ -1,4 +1,3 @@
-import contextlib
 import functools
 import json
 import os.path
@@ -618,8 +617,10 @@ class Compiler:
             return PatternRule(rule.name, make_regset(*regs), rules)
 
     def compile_rule(self, rule: _Rule) -> CompiledRule:
-        with contextlib.suppress(KeyError):
+        try:
             return self._c_rules[rule]
+        except KeyError:
+            pass
 
         grammar = self._rule_to_grammar[rule]
         ret = self._c_rules[rule] = self._compile_rule(grammar, rule)
@@ -650,15 +651,19 @@ class Grammars:
         return cls(grammars)
 
     def grammar_for_scope(self, scope: str) -> Grammar:
-        with contextlib.suppress(KeyError):
+        try:
             return self._parsed[scope]
+        except KeyError:
+            pass
 
         ret = self._parsed[scope] = Grammar.from_data(self._raw[scope])
         return ret
 
     def compiler_for_scope(self, scope: str) -> Compiler:
-        with contextlib.suppress(KeyError):
+        try:
             return self._compilers[scope]
+        except KeyError:
+            pass
 
         grammar = self.grammar_for_scope(scope)
         ret = self._compilers[scope] = Compiler(grammar, self)
@@ -669,8 +674,10 @@ class Grammars:
 
     def compiler_for_file(self, filename: str, first_line: str) -> Compiler:
         for tag in tags_from_filename(filename) - {'text'}:
-            with contextlib.suppress(KeyError):
+            try:
                 return self.compiler_for_scope(f'source.{tag}')
+            except KeyError:
+                pass
 
         _, _, ext = os.path.basename(filename).rpartition('.')
         for extensions, first_line_match, scope_name in self._find_scope:
