@@ -1,7 +1,10 @@
 import curses
-from typing import Dict
+import functools
+import math
+from typing import Callable
 from typing import List
 from typing import NamedTuple
+from typing import Optional
 from typing import Tuple
 
 from babi.color_manager import ColorManager
@@ -36,8 +39,10 @@ class FileSyntax:
         self.regions: List[HLs] = []
         self._states: List[State] = []
 
-        self._hl_cache: Dict[str, Dict[State, Tuple[State, HLs]]]
-        self._hl_cache = {}
+        # this will be assigned a functools.lru_cache per instance for
+        # better hit rate and memory usage
+        self._hl: Optional[Callable[[State, str, bool], Tuple[State, HLs]]]
+        self._hl = None
 
     def attr(self, style: Style) -> int:
         pair = self._color_manager.color_pair(style.fg, style.bg)
@@ -48,19 +53,14 @@ class FileSyntax:
             curses.A_UNDERLINE * style.u
         )
 
-    def _hl(
+    def _hl_uncached(
             self,
             state: State,
             line: str,
-            i: int,
+            first_line: bool,
     ) -> Tuple[State, HLs]:
-        try:
-            return self._hl_cache[line][state]
-        except KeyError:
-            pass
-
         new_state, regions = highlight_line(
-            self._compiler, state, f'{line}\n', first_line=i == 0,
+            self._compiler, state, f'{line}\n', first_line=first_line,
         )
 
         # remove the trailing newline
@@ -83,18 +83,22 @@ class FileSyntax:
             else:
                 regs.append(HL(x=r.start, end=r.end, attr=attr))
 
-        dct = self._hl_cache.setdefault(line, {})
-        ret = dct[state] = (new_state, tuple(regs))
-        return ret
+        return new_state, tuple(regs)
 
     def highlight_until(self, lines: SequenceNoSlice, idx: int) -> None:
+        if self._hl is None:
+            # the docs claim better performance with power of two sizing
+            size = max(4096, 2 ** (int(math.log(len(lines), 2)) + 2))
+            self._hl = functools.lru_cache(maxsize=size)(self._hl_uncached)
+
         if not self._states:
             state = self._compiler.root_state
         else:
             state = self._states[-1]
 
         for i in range(len(self._states), idx):
-            state, regions = self._hl(state, lines[i], i)
+            # https://github.com/python/mypy/issues/8579
+            state, regions = self._hl(state, lines[i], i == 0)  # type: ignore
             self._states.append(state)
             self.regions.append(regions)
 

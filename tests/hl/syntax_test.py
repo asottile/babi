@@ -6,6 +6,7 @@ import pytest
 
 from babi.color_manager import ColorManager
 from babi.highlight import Grammars
+from babi.hl.interface import HL
 from babi.hl.syntax import Syntax
 from babi.theme import Color
 from babi.theme import Theme
@@ -149,3 +150,20 @@ def test_style_attributes_applied(stdscr, syntax):
         style = THEME.select(('keyword.python',))
         attr = syntax.blank_file_highlighter().attr(style)
         assert attr == 2 << 8 | curses.A_BOLD
+
+
+def test_syntax_highlight_cache_first_line(stdscr):
+    with FakeCurses.patch(n_colors=256, can_change_color=False):
+        grammars = Grammars([{
+            'scopeName': 'source.demo',
+            'fileTypes': ['demo'],
+            'patterns': [{'match': r'\Aint', 'name': 'keyword'}],
+        }])
+        syntax = Syntax(grammars, THEME, ColorManager.make())
+        syntax._init_screen(stdscr)
+        file_hl = syntax.file_highlighter('foo.demo', '')
+        file_hl.highlight_until(['int', 'int'], 2)
+        assert file_hl.regions == [
+            (HL(0, 3, curses.A_BOLD | 2 << 8),),
+            (),
+        ]
