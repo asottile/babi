@@ -43,7 +43,7 @@ still more
 @pytest.fixture(autouse=True)
 def theme_and_grammar(xdg_data_home, xdg_config_home):
     xdg_config_home.join('babi/theme.json').ensure().write(THEME)
-    xdg_data_home.join('babi/textmate_syntax/demo.json').ensure().write(SYNTAX)
+    xdg_data_home.join('babi/grammar_v1/demo.json').ensure().write(SYNTAX)
 
 
 @pytest.fixture

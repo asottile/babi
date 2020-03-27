@@ -3,11 +3,11 @@ import json
 import os.path
 from typing import Any
 from typing import Dict
+from typing import FrozenSet
 from typing import List
 from typing import Match
 from typing import NamedTuple
 from typing import Optional
-from typing import Sequence
 from typing import Tuple
 from typing import TypeVar
 
@@ -628,27 +628,39 @@ class Compiler:
 
 
 class Grammars:
-    def __init__(self, grammars: Sequence[Dict[str, Any]]) -> None:
-        self._raw = {grammar['scopeName']: grammar for grammar in grammars}
-        self._find_scope = [
-            (
-                frozenset(grammar.get('fileTypes', ())),
-                make_reg(grammar.get('firstLineMatch', '$impossible^')),
-                grammar['scopeName'],
-            )
-            for grammar in grammars
-        ]
-        self._parsed: Dict[str, Grammar] = {}
-        self._compilers: Dict[str, Compiler] = {}
+    def __init__(self, *directories: str) -> None:
+        self._scope_to_files = {
+            os.path.splitext(filename)[0]: os.path.join(directory, filename)
+            for directory in directories
+            if os.path.exists(directory)
+            for filename in os.listdir(directory)
+            if filename.endswith('.json')
+        }
 
-    @classmethod
-    def from_syntax_dir(cls, syntax_dir: str) -> 'Grammars':
-        grammars = [{'scopeName': 'source.unknown', 'patterns': []}]
-        if os.path.exists(syntax_dir):
-            for filename in os.listdir(syntax_dir):
-                with open(os.path.join(syntax_dir, filename)) as f:
-                    grammars.append(json.load(f))
-        return cls(grammars)
+        unknown_grammar = {'scopeName': 'source.unknown', 'patterns': []}
+        self._raw = {'source.unknown': unknown_grammar}
+        self._file_types: List[Tuple[FrozenSet[str], str]] = []
+        self._first_line: List[Tuple[_Reg, str]] = []
+        self._parsed: Dict[str, Grammar] = {}
+        self._compiled: Dict[str, Compiler] = {}
+
+    def _raw_for_scope(self, scope: str) -> Dict[str, Any]:
+        try:
+            return self._raw[scope]
+        except KeyError:
+            pass
+
+        grammar_path = self._scope_to_files.pop(scope)
+        with open(grammar_path) as f:
+            ret = self._raw[scope] = json.load(f)
+
+        file_types = frozenset(ret.get('fileTypes', ()))
+        first_line = make_reg(ret.get('firstLineMatch', '$impossible^'))
+
+        self._file_types.append((file_types, scope))
+        self._first_line.append((first_line, scope))
+
+        return ret
 
     def grammar_for_scope(self, scope: str) -> Grammar:
         try:
@@ -656,17 +668,18 @@ class Grammars:
         except KeyError:
             pass
 
-        ret = self._parsed[scope] = Grammar.from_data(self._raw[scope])
+        raw = self._raw_for_scope(scope)
+        ret = self._parsed[scope] = Grammar.from_data(raw)
         return ret
 
     def compiler_for_scope(self, scope: str) -> Compiler:
         try:
-            return self._compilers[scope]
+            return self._compiled[scope]
         except KeyError:
             pass
 
         grammar = self.grammar_for_scope(scope)
-        ret = self._compilers[scope] = Compiler(grammar, self)
+        ret = self._compiled[scope] = Compiler(grammar, self)
         return ret
 
     def blank_compiler(self) -> Compiler:
@@ -675,21 +688,25 @@ class Grammars:
     def compiler_for_file(self, filename: str, first_line: str) -> Compiler:
         for tag in tags_from_filename(filename) - {'text'}:
             try:
+                # TODO: this doesn't always match even if we detect it
                 return self.compiler_for_scope(f'source.{tag}')
             except KeyError:
                 pass
 
+        # didn't find it in the fast path, need to read all the json
+        for k in tuple(self._scope_to_files):
+            self._raw_for_scope(k)
+
         _, _, ext = os.path.basename(filename).rpartition('.')
-        for extensions, first_line_match, scope_name in self._find_scope:
-            if (
-                    ext in extensions or
-                    first_line_match.match(
-                        first_line, 0, first_line=True, boundary=True,
-                    )
-            ):
-                return self.compiler_for_scope(scope_name)
-        else:
-            return self.compiler_for_scope('source.unknown')
+        for extensions, scope in self._file_types:
+            if ext in extensions:
+                return self.compiler_for_scope(scope)
+
+        for reg, scope in self._first_line:
+            if reg.match(first_line, 0, first_line=True, boundary=True):
+                return self.compiler_for_scope(scope)
+
+        return self.compiler_for_scope('source.unknown')
 
 
 def highlight_line(

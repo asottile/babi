@@ -1,34 +1,37 @@
-from babi.highlight import Grammars
+import pytest
+
 from babi.highlight import highlight_line
 from babi.highlight import Region
 
 
-def test_grammar_matches_extension_only_name():
+def test_grammar_matches_extension_only_name(make_grammars):
     data = {'scopeName': 'shell', 'patterns': [], 'fileTypes': ['bashrc']}
-    grammars = Grammars([data])
+    grammars = make_grammars(data)
     compiler = grammars.compiler_for_file('.bashrc', 'alias nano=babi')
     assert compiler.root_state.entries[0].scope[0] == 'shell'
 
 
-def test_grammar_matches_via_identify_tag():
-    data = {'scopeName': 'source.ini', 'patterns': []}
-    grammars = Grammars([data])
+def test_grammar_matches_via_identify_tag(make_grammars):
+    grammars = make_grammars({'scopeName': 'source.ini', 'patterns': []})
     compiler = grammars.compiler_for_file('setup.cfg', '')
     assert compiler.root_state.entries[0].scope[0] == 'source.ini'
 
 
-def _compiler_state(*grammar_dcts):
-    grammars = Grammars(grammar_dcts)
-    compiler = grammars.compiler_for_scope(grammar_dcts[0]['scopeName'])
-    return compiler, compiler.root_state
+@pytest.fixture
+def compiler_state(make_grammars):
+    def _compiler_state(*grammar_dcts):
+        grammars = make_grammars(*grammar_dcts)
+        compiler = grammars.compiler_for_scope(grammar_dcts[0]['scopeName'])
+        return compiler, compiler.root_state
+    return _compiler_state
 
 
-def test_backslash_a():
+def test_backslash_a(compiler_state):
     grammar = {
         'scopeName': 'test',
         'patterns': [{'name': 'aaa', 'match': r'\Aa+'}],
     }
-    compiler, state = _compiler_state(grammar)
+    compiler, state = compiler_state(grammar)
 
     state, (region_0,) = highlight_line(compiler, state, 'aaa', True)
     state, (region_1,) = highlight_line(compiler, state, 'aaa', False)
@@ -51,8 +54,8 @@ BEGIN_END_NO_NL = {
 }
 
 
-def test_backslash_g_inline():
-    compiler, state = _compiler_state(BEGIN_END_NO_NL)
+def test_backslash_g_inline(compiler_state):
+    compiler, state = compiler_state(BEGIN_END_NO_NL)
 
     _, regions = highlight_line(compiler, state, 'xaax', True)
     assert regions == (
@@ -63,8 +66,8 @@ def test_backslash_g_inline():
     )
 
 
-def test_backslash_g_next_line():
-    compiler, state = _compiler_state(BEGIN_END_NO_NL)
+def test_backslash_g_next_line(compiler_state):
+    compiler, state = compiler_state(BEGIN_END_NO_NL)
 
     state, regions1 = highlight_line(compiler, state, 'x\n', True)
     state, regions2 = highlight_line(compiler, state, 'aax\n', False)
@@ -81,8 +84,8 @@ def test_backslash_g_next_line():
     )
 
 
-def test_end_before_other_match():
-    compiler, state = _compiler_state(BEGIN_END_NO_NL)
+def test_end_before_other_match(compiler_state):
+    compiler, state = compiler_state(BEGIN_END_NO_NL)
 
     state, regions = highlight_line(compiler, state, 'xazzx', True)
 
@@ -107,8 +110,8 @@ BEGIN_END_NL = {
 }
 
 
-def test_backslash_g_captures_nl():
-    compiler, state = _compiler_state(BEGIN_END_NL)
+def test_backslash_g_captures_nl(compiler_state):
+    compiler, state = compiler_state(BEGIN_END_NL)
 
     state, regions1 = highlight_line(compiler, state, 'x\n', True)
     state, regions2 = highlight_line(compiler, state, 'aax\n', False)
@@ -124,8 +127,8 @@ def test_backslash_g_captures_nl():
     )
 
 
-def test_backslash_g_captures_nl_next_line():
-    compiler, state = _compiler_state(BEGIN_END_NL)
+def test_backslash_g_captures_nl_next_line(compiler_state):
+    compiler, state = compiler_state(BEGIN_END_NL)
 
     state, regions1 = highlight_line(compiler, state, 'x\n', True)
     state, regions2 = highlight_line(compiler, state, 'aa\n', False)
@@ -147,8 +150,8 @@ def test_backslash_g_captures_nl_next_line():
     )
 
 
-def test_while_no_nl():
-    compiler, state = _compiler_state({
+def test_while_no_nl(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [{
             'begin': '> ',
@@ -182,8 +185,8 @@ def test_while_no_nl():
     )
 
 
-def test_complex_captures():
-    compiler, state = _compiler_state({
+def test_complex_captures(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [
             {
@@ -213,8 +216,8 @@ def test_complex_captures():
     )
 
 
-def test_captures_multiple_applied_to_same_capture():
-    compiler, state = _compiler_state({
+def test_captures_multiple_applied_to_same_capture(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [
             {
@@ -256,8 +259,8 @@ def test_captures_multiple_applied_to_same_capture():
     )
 
 
-def test_captures_ignores_empty():
-    compiler, state = _compiler_state({
+def test_captures_ignores_empty(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [{
             'match': '(.*) hi',
@@ -279,8 +282,8 @@ def test_captures_ignores_empty():
     )
 
 
-def test_captures_ignores_invalid_out_of_bounds():
-    compiler, state = _compiler_state({
+def test_captures_ignores_invalid_out_of_bounds(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [{'match': '.', 'captures': {'1': {'name': 'oob'}}}],
     })
@@ -292,8 +295,8 @@ def test_captures_ignores_invalid_out_of_bounds():
     )
 
 
-def test_captures_begin_end():
-    compiler, state = _compiler_state({
+def test_captures_begin_end(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [
             {
@@ -314,8 +317,8 @@ def test_captures_begin_end():
     )
 
 
-def test_captures_while_captures():
-    compiler, state = _compiler_state({
+def test_captures_while_captures(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [
             {
@@ -343,8 +346,8 @@ def test_captures_while_captures():
     )
 
 
-def test_captures_implies_begin_end_captures():
-    compiler, state = _compiler_state({
+def test_captures_implies_begin_end_captures(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [
             {
@@ -364,8 +367,8 @@ def test_captures_implies_begin_end_captures():
     )
 
 
-def test_captures_implies_begin_while_captures():
-    compiler, state = _compiler_state({
+def test_captures_implies_begin_while_captures(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [
             {
@@ -392,8 +395,8 @@ def test_captures_implies_begin_while_captures():
     )
 
 
-def test_include_self():
-    compiler, state = _compiler_state({
+def test_include_self(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [
             {
@@ -416,8 +419,8 @@ def test_include_self():
     )
 
 
-def test_include_repository_rule():
-    compiler, state = _compiler_state({
+def test_include_repository_rule(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [{'include': '#impl'}],
         'repository': {
@@ -438,8 +441,8 @@ def test_include_repository_rule():
     )
 
 
-def test_include_other_grammar():
-    compiler, state = _compiler_state(
+def test_include_other_grammar(compiler_state):
+    compiler, state = compiler_state(
         {
             'scopeName': 'test',
             'patterns': [
@@ -494,8 +497,8 @@ def test_include_other_grammar():
     )
 
 
-def test_include_base():
-    compiler, state = _compiler_state(
+def test_include_base(compiler_state):
+    compiler, state = compiler_state(
         {
             'scopeName': 'test',
             'patterns': [
@@ -542,8 +545,8 @@ def test_include_base():
     )
 
 
-def test_rule_with_begin_and_no_end():
-    compiler, state = _compiler_state({
+def test_rule_with_begin_and_no_end(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [
             {
@@ -566,8 +569,8 @@ def test_rule_with_begin_and_no_end():
     )
 
 
-def test_begin_end_substitute_special_chars():
-    compiler, state = _compiler_state({
+def test_begin_end_substitute_special_chars(compiler_state):
+    compiler, state = compiler_state({
         'scopeName': 'test',
         'patterns': [{'begin': r'(\*)', 'end': r'\1', 'name': 'italic'}],
     })

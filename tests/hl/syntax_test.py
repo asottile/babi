@@ -5,7 +5,6 @@ from unittest import mock
 import pytest
 
 from babi.color_manager import ColorManager
-from babi.highlight import Grammars
 from babi.hl.interface import HL
 from babi.hl.syntax import Syntax
 from babi.theme import Color
@@ -72,8 +71,8 @@ THEME = Theme.from_dct({
 
 
 @pytest.fixture
-def syntax(tmpdir):
-    return Syntax(Grammars.from_syntax_dir(tmpdir), THEME, ColorManager.make())
+def syntax(make_grammars):
+    return Syntax(make_grammars(), THEME, ColorManager.make())
 
 
 def test_init_screen_low_color(stdscr, syntax):
@@ -152,13 +151,13 @@ def test_style_attributes_applied(stdscr, syntax):
         assert attr == 2 << 8 | curses.A_BOLD
 
 
-def test_syntax_highlight_cache_first_line(stdscr):
+def test_syntax_highlight_cache_first_line(stdscr, make_grammars):
     with FakeCurses.patch(n_colors=256, can_change_color=False):
-        grammars = Grammars([{
+        grammars = make_grammars({
             'scopeName': 'source.demo',
             'fileTypes': ['demo'],
             'patterns': [{'match': r'\Aint', 'name': 'keyword'}],
-        }])
+        })
         syntax = Syntax(grammars, THEME, ColorManager.make())
         syntax._init_screen(stdscr)
         file_hl = syntax.file_highlighter('foo.demo', '')

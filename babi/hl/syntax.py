@@ -17,6 +17,7 @@ from babi.hl.interface import HLs
 from babi.list_spy import SequenceNoSlice
 from babi.theme import Style
 from babi.theme import Theme
+from babi.user_data import prefix_data
 from babi.user_data import xdg_config
 from babi.user_data import xdg_data
 
@@ -144,7 +145,7 @@ class Syntax(NamedTuple):
             stdscr: 'curses._CursesWindow',
             color_manager: ColorManager,
     ) -> 'Syntax':
-        grammars = Grammars.from_syntax_dir(xdg_data('textmate_syntax'))
+        grammars = Grammars(prefix_data('grammar_v1'), xdg_data('grammar_v1'))
         theme = Theme.from_filename(xdg_config('theme.json'))
         ret = cls(grammars, theme, color_manager)
         ret._init_screen(stdscr)

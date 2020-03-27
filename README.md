@@ -63,9 +63,7 @@ in prompts (search, search replace, command):
 
 the syntax highlighting setup is a bit manual right now
 
-1. from a clone of babi, run `./bin/download-syntax` -- you will likely need
-   to install some additional packages to download them (`pip install cson`)
-2. find a visual studio code theme, convert it to json (if it is not already
+1. find a visual studio code theme, convert it to json (if it is not already
    json) and put it at `~/.config/babi/theme.json`.  a helper script is
    provided to make this easier: `./bin/download-theme NAME URL`
 

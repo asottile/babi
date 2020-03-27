@@ -17,6 +17,13 @@ from testing.runner import PrintsErrorRunner
 
 
 @pytest.fixture(autouse=True)
+def prefix_home(tmpdir):
+    prefix_home = tmpdir.join('prefix_home')
+    with mock.patch.object(sys, 'prefix', str(prefix_home)):
+        yield prefix_home
+
+
+@pytest.fixture(autouse=True)
 def xdg_data_home(tmpdir):
     data_home = tmpdir.join('data_home')
     with mock.patch.dict(os.environ, {'XDG_DATA_HOME': str(data_home)}):

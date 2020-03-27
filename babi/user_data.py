@@ -1,4 +1,5 @@
 import os.path
+import sys
 
 
 def _xdg(*path: str, env: str, default: str) -> str:
@@ -14,3 +15,7 @@ def xdg_data(*path: str) -> str:
 
 def xdg_config(*path: str) -> str:
     return _xdg(*path, env='XDG_CONFIG_HOME', default='~/.config')
+
+
+def prefix_data(*path: str) -> str:
+    return os.path.join(sys.prefix, 'share/babi', *path)
