@@ -272,3 +272,31 @@ def test_replace_separate_line_after_wrapping(run, ten_lines):
         h.await_text_missing('line_0')
         h.press('y')
         h.await_text_missing('line_1')
+
+
+def test_replace_with_newline_characters(run, ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^\\')
+        h.await_text('search (to replace):')
+        h.press_and_enter('(line)_([01])')
+        h.await_text('replace with:')
+        h.press_and_enter(r'\1\n\2')
+        h.await_text('replace [yes, no, all]?')
+        h.press('a')
+        h.await_text_missing('line_0')
+        h.await_text_missing('line_1')
+        h.await_text('line\n0\nline\n1\n')
+
+
+def test_replace_with_multiple_newline_characters(run, ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^\\')
+        h.await_text('search (to replace):')
+        h.press_and_enter('(li)(ne)_(1)')
+        h.await_text('replace with:')
+        h.press_and_enter(r'\1\n\2\n\3\n')
+        h.await_text('replace [yes, no, all]?')
+        h.press('a')
+
+        h.await_text_missing('line_1')
+        h.await_text('li\nne\n1\n\nline_2')

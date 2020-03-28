@@ -464,9 +464,28 @@ class File:
                 with self.edit_action_context('replace', final=True):
                     replaced = match.expand(replace)
                     line = screen.file.lines[line_y]
-                    line = line[:match.start()] + replaced + line[match.end():]
-                    screen.file.lines[line_y] = line
-                search.offset = len(replaced)
+                    if '\n' in replaced:
+                        replaced_lines = replaced.split('\n')
+                        self.lines[line_y] = (
+                            f'{line[:match.start()]}{replaced_lines[0]}'
+                        )
+                        for i, ins_line in enumerate(replaced_lines[1:-1], 1):
+                            self.lines.insert(line_y + i, ins_line)
+                        last_insert = line_y + len(replaced_lines) - 1
+                        self.lines.insert(
+                            last_insert,
+                            f'{replaced_lines[-1]}{line[match.end():]}',
+                        )
+                        self.y = last_insert
+                        self.x = self.x_hint = 0
+                        search.offset = len(replaced_lines[-1])
+                    else:
+                        self.lines[line_y] = (
+                            f'{line[:match.start()]}'
+                            f'{replaced}'
+                            f'{line[match.end():]}'
+                        )
+                        search.offset = len(replaced)
             elif res == 'n':
                 search.offset = 1
             else:
