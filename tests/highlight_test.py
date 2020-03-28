@@ -582,3 +582,26 @@ def test_begin_end_substitute_special_chars(compiler_state):
         Region(1, 7, ('test', 'italic')),
         Region(7, 8, ('test', 'italic')),
     )
+
+
+def test_backslash_z(compiler_state):
+    # similar to text.git-commit grammar, \z matches nothing!
+    compiler, state = compiler_state({
+        'scopeName': 'test',
+        'patterns': [
+            {'begin': '#', 'end': r'\z', 'name': 'comment'},
+            {'name': 'other', 'match': '.'},
+        ],
+    })
+
+    state, regions1 = highlight_line(compiler, state, '# comment', True)
+    state, regions2 = highlight_line(compiler, state, 'other?', False)
+
+    assert regions1 == (
+        Region(0, 1, ('test', 'comment')),
+        Region(1, 9, ('test', 'comment')),
+    )
+
+    assert regions2 == (
+        Region(0, 6, ('test', 'comment')),
+    )

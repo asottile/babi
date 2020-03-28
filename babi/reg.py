@@ -43,7 +43,7 @@ def _replace_esc(s: str, chars: str) -> str:
 
 class _Reg:
     def __init__(self, s: str) -> None:
-        self._pattern = s
+        self._pattern = _replace_esc(s, 'z')
 
     def __repr__(self) -> str:
         return f'{type(self).__name__}({self._pattern!r})'
