@@ -1,10 +1,10 @@
 import curses
 from typing import List
 
+from babi.buf import Buf
 from babi.color_manager import ColorManager
 from babi.hl.interface import HL
 from babi.hl.interface import HLs
-from babi.list_spy import SequenceNoSlice
 
 
 class TrailingWhitespace:
@@ -30,9 +30,23 @@ class TrailingWhitespace:
             attr = curses.color_pair(pair)
             return (HL(x=i, end=len(line), attr=attr),)
 
-    def highlight_until(self, lines: SequenceNoSlice, idx: int) -> None:
+    def _set_cb(self, lines: Buf, idx: int, victim: str) -> None:
+        if idx < len(self.regions):
+            self.regions[idx] = self._trailing_ws(lines[idx])
+
+    def _del_cb(self, lines: Buf, idx: int, victim: str) -> None:
+        assert idx < len(self.regions)  # currently all `del` happen on screen
+        del self.regions[idx]
+
+    def _ins_cb(self, lines: Buf, idx: int) -> None:
+        if idx < len(self.regions):
+            self.regions.insert(idx, self._trailing_ws(lines[idx]))
+
+    def register_callbacks(self, buf: Buf) -> None:
+        buf.add_set_callback(self._set_cb)
+        buf.add_del_callback(self._del_cb)
+        buf.add_ins_callback(self._ins_cb)
+
+    def highlight_until(self, lines: Buf, idx: int) -> None:
         for i in range(len(self.regions), idx):
             self.regions.append(self._trailing_ws(lines[i]))
-
-    def touch(self, lineno: int) -> None:
-        del self.regions[lineno:]

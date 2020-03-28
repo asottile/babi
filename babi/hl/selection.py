@@ -4,9 +4,9 @@ from typing import Dict
 from typing import Optional
 from typing import Tuple
 
+from babi.buf import Buf
 from babi.hl.interface import HL
 from babi.hl.interface import HLs
-from babi.list_spy import SequenceNoSlice
 
 
 class Selection:
@@ -17,7 +17,10 @@ class Selection:
         self.start: Optional[Tuple[int, int]] = None
         self.end: Optional[Tuple[int, int]] = None
 
-    def highlight_until(self, lines: SequenceNoSlice, idx: int) -> None:
+    def register_callbacks(self, buf: Buf) -> None:
+        """our highlight regions are populated in other ways"""
+
+    def highlight_until(self, lines: Buf, idx: int) -> None:
         if self.start is None or self.end is None:
             return
 
@@ -35,9 +38,6 @@ class Selection:
                     HL(x=0, end=len(lines[l_y]) + 1, attr=attr),
                 )
             self.regions[e_y] = (HL(x=0, end=e_x, attr=attr),)
-
-    def touch(self, lineno: int) -> None:
-        """our highlight regions are populated in other ways"""
 
     def get(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
         assert self.start is not None and self.end is not None

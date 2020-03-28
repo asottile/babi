@@ -4,9 +4,9 @@ import curses
 from typing import Dict
 from typing import Generator
 
+from babi.buf import Buf
 from babi.hl.interface import HL
 from babi.hl.interface import HLs
-from babi.list_spy import SequenceNoSlice
 
 
 class Replace:
@@ -15,10 +15,10 @@ class Replace:
     def __init__(self) -> None:
         self.regions: Dict[int, HLs] = collections.defaultdict(tuple)
 
-    def highlight_until(self, lines: SequenceNoSlice, idx: int) -> None:
+    def highlight_until(self, lines: Buf, idx: int) -> None:
         """our highlight regions are populated in other ways"""
 
-    def touch(self, lineno: int) -> None:
+    def register_callbacks(self, buf: Buf) -> None:
         """our highlight regions are populated in other ways"""
 
     @contextlib.contextmanager

@@ -25,6 +25,18 @@ def test_modify_file_with_windows_newlines(run, tmpdir):
     assert f.read_binary() == b'\r\nfoo\r\nbar\r\n'
 
 
+def test_saving_file_with_multiple_lines_at_end_maintains_those(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('foo\n\n')
+    with run(str(f)) as h, and_exit(h):
+        h.press('a')
+        h.await_text('*')
+        h.press('^S')
+        h.await_text('saved!')
+
+    assert f.read() == 'afoo\n\n'
+
+
 def test_new_file(run):
     with run('this_is_a_new_file') as h, and_exit(h):
         h.await_text('this_is_a_new_file')

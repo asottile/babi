@@ -2,7 +2,7 @@ from typing import NamedTuple
 from typing import Tuple
 
 from babi._types import Protocol
-from babi.list_spy import SequenceNoSlice
+from babi.buf import Buf
 
 
 class HL(NamedTuple):
@@ -23,8 +23,8 @@ class FileHL(Protocol):
     def include_edge(self) -> bool: ...
     @property
     def regions(self) -> RegionsMapping: ...
-    def highlight_until(self, lines: SequenceNoSlice, idx: int) -> None: ...
-    def touch(self, lineno: int) -> None: ...
+    def highlight_until(self, lines: Buf, idx: int) -> None: ...
+    def register_callbacks(self, buf: Buf) -> None: ...
 
 
 class HLFactory(Protocol):

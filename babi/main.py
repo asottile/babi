@@ -5,6 +5,7 @@ import sys
 from typing import Optional
 from typing import Sequence
 
+from babi.buf import Buf
 from babi.file import File
 from babi.perf import Perf
 from babi.perf import perf_log
@@ -68,7 +69,7 @@ def c_main(
 
 def _key_debug(stdscr: 'curses._CursesWindow') -> int:
     screen = Screen(stdscr, ['<<key debug>>'], Perf())
-    screen.file.lines = ['']
+    screen.file.buf = Buf([''])
 
     while True:
         screen.status.update('press q to quit')
@@ -76,7 +77,7 @@ def _key_debug(stdscr: 'curses._CursesWindow') -> int:
         screen.file.move_cursor(screen.stdscr, screen.margin)
 
         key = screen.get_char()
-        screen.file.lines.insert(-1, f'{key.wch!r} {key.keyname.decode()!r}')
+        screen.file.buf.insert(-1, f'{key.wch!r} {key.keyname.decode()!r}')
         screen.file.down(screen.margin)
         if key.wch == curses.KEY_RESIZE:
             screen.resize()

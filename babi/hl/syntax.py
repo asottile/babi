@@ -7,6 +7,7 @@ from typing import NamedTuple
 from typing import Optional
 from typing import Tuple
 
+from babi.buf import Buf
 from babi.color_manager import ColorManager
 from babi.highlight import Compiler
 from babi.highlight import Grammars
@@ -14,7 +15,6 @@ from babi.highlight import highlight_line
 from babi.highlight import State
 from babi.hl.interface import HL
 from babi.hl.interface import HLs
-from babi.list_spy import SequenceNoSlice
 from babi.theme import Style
 from babi.theme import Theme
 from babi.user_data import prefix_data
@@ -86,7 +86,24 @@ class FileSyntax:
 
         return new_state, tuple(regs)
 
-    def highlight_until(self, lines: SequenceNoSlice, idx: int) -> None:
+    def _set_cb(self, lines: Buf, idx: int, victim: str) -> None:
+        del self.regions[idx:]
+        del self._states[idx:]
+
+    def _del_cb(self, lines: Buf, idx: int, victim: str) -> None:
+        del self.regions[idx:]
+        del self._states[idx:]
+
+    def _ins_cb(self, lines: Buf, idx: int) -> None:
+        del self.regions[idx:]
+        del self._states[idx:]
+
+    def register_callbacks(self, buf: Buf) -> None:
+        buf.add_set_callback(self._set_cb)
+        buf.add_del_callback(self._del_cb)
+        buf.add_ins_callback(self._ins_cb)
+
+    def highlight_until(self, lines: Buf, idx: int) -> None:
         if self._hl is None:
             # the docs claim better performance with power of two sizing
             size = max(4096, 2 ** (int(math.log(len(lines), 2)) + 2))
@@ -102,10 +119,6 @@ class FileSyntax:
             state, regions = self._hl(state, lines[i], i == 0)  # type: ignore
             self._states.append(state)
             self.regions.append(regions)
-
-    def touch(self, lineno: int) -> None:
-        del self._states[lineno:]
-        del self.regions[lineno:]
 
 
 class Syntax(NamedTuple):

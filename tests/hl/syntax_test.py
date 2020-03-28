@@ -4,6 +4,7 @@ from unittest import mock
 
 import pytest
 
+from babi.buf import Buf
 from babi.color_manager import ColorManager
 from babi.hl.interface import HL
 from babi.hl.syntax import Syntax
@@ -161,7 +162,7 @@ def test_syntax_highlight_cache_first_line(stdscr, make_grammars):
         syntax = Syntax(grammars, THEME, ColorManager.make())
         syntax._init_screen(stdscr)
         file_hl = syntax.file_highlighter('foo.demo', '')
-        file_hl.highlight_until(['int', 'int'], 2)
+        file_hl.highlight_until(Buf(['int', 'int']), 2)
         assert file_hl.regions == [
             (HL(0, 3, curses.A_BOLD | 2 << 8),),
             (),

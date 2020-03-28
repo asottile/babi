@@ -225,7 +225,7 @@ class Screen:
     def resize(self) -> None:
         curses.update_lines_cols()
         self.margin = Margin.from_current_screen()
-        self.file.scroll_screen_if_needed(self.margin)
+        self.file.buf.scroll_screen_if_needed(self.margin)
         self.draw()
 
     def quick_prompt(
@@ -317,9 +317,9 @@ class Screen:
                 self.file.go_to_line(lineno, self.margin)
 
     def current_position(self) -> None:
-        line = f'line {self.file.y + 1}'
-        col = f'col {self.file.x + 1}'
-        line_count = max(len(self.file.lines) - 1, 1)
+        line = f'line {self.file.buf.y + 1}'
+        col = f'col {self.file.buf.x + 1}'
+        line_count = max(len(self.file.buf) - 1, 1)
         lines_word = 'line' if line_count == 1 else 'lines'
         self.status.update(f'{line}, {col} (of {line_count} {lines_word})')
 
@@ -358,7 +358,7 @@ class Screen:
         else:
             action = from_stack.pop()
             to_stack.append(action.apply(self.file))
-            self.file.scroll_screen_if_needed(self.margin)
+            self.file.buf.scroll_screen_if_needed(self.margin)
             self.status.update(f'{op}: {action.name}')
             self.file.selection.clear()
 
@@ -421,7 +421,7 @@ class Screen:
         else:
             sha256 = hashlib.sha256(b'').hexdigest()
 
-        contents = self.file.nl.join(self.file.lines)
+        contents = self.file.nl.join(self.file.buf)
         sha256_to_save = hashlib.sha256(contents.encode()).hexdigest()
 
         # the file on disk is the same as when we opened it
@@ -434,7 +434,7 @@ class Screen:
 
         self.file.modified = False
         self.file.sha256 = sha256_to_save
-        num_lines = len(self.file.lines) - 1
+        num_lines = len(self.file.buf) - 1
         lines = 'lines' if num_lines != 1 else 'line'
         self.status.update(f'saved! ({num_lines} {lines} written)')
 
