@@ -12,6 +12,19 @@ def test_mixed_newlines(run, tmpdir):
         h.await_text(r"mixed newlines will be converted to '\n'")
 
 
+def test_modify_file_with_windows_newlines(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write_binary(b'foo\r\nbar\r\n')
+    with run(str(f)) as h, and_exit(h):
+        # should not start modified
+        h.await_text_missing('*')
+        h.press('Enter')
+        h.await_text('*')
+        h.press('^S')
+        h.await_text('saved!')
+    assert f.read_binary() == b'\r\nfoo\r\nbar\r\n'
+
+
 def test_new_file(run):
     with run('this_is_a_new_file') as h, and_exit(h):
         h.await_text('this_is_a_new_file')
