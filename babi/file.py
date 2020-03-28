@@ -805,7 +805,7 @@ class File:
                     else:
                         h_s_x = region.x - l_x
 
-                    if region.end >= l_x_max:
+                    if region.end >= l_x_max and l_x_max < len(self.buf[l_y]):
                         if file_hl.include_edge:
                             h_e_x = curses.COLS
                         else:

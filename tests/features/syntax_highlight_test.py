@@ -113,3 +113,12 @@ def test_syntax_highlighting_one_off_left_of_screen(run, tmpdir):
         h.press('End')
         h.await_text_missing('?')
         h.assert_screen_attr_equals(1, [(236, 40, 0)] * 20)
+
+
+def test_syntax_highlighting_to_edge_of_screen(run, tmpdir):
+    f = tmpdir.join('f.demo')
+    f.write(f'# {"x" * 18}')
+
+    with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
+        h.await_text('# xxx')
+        h.assert_screen_attr_equals(1, [(243, 40, 0)] * 20)
