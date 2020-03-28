@@ -73,6 +73,7 @@ class Screen:
         self.attrs[y] = (line_attr[:x] + new + line_attr[x:])[:self.width]
 
     def chgat(self, y, x, n, attr):
+        assert n >= 0  # TODO: switch to > 0, we should never do 0-length
         self.attrs[y][x:x + n] = [attr] * n
 
     def move(self, y, x):

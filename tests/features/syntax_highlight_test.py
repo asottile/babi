@@ -15,6 +15,7 @@ THEME = json.dumps({
             'settings': {'foreground': '#5f0000', 'background': '#ff5f5f'},
         },
         {'scope': 'tqs', 'settings': {'foreground': '#00005f'}},
+        {'scope': 'qmark', 'settings': {'foreground': '#5f0000'}},
         {'scope': 'b', 'settings': {'fontStyle': 'bold'}},
         {'scope': 'i', 'settings': {'fontStyle': 'italic'}},
         {'scope': 'u', 'settings': {'fontStyle': 'underline'}},
@@ -28,6 +29,7 @@ SYNTAX = json.dumps({
         {'match': r'#.*$\n?', 'name': 'comment'},
         {'match': r'^-.*$\n?', 'name': 'diffremove'},
         {'begin': '"""', 'end': '"""', 'name': 'tqs'},
+        {'match': r'\?', 'name': 'qmark'},
     ],
 })
 DEMO_S = '''\
@@ -97,3 +99,17 @@ def test_syntax_highlighting_off_screen_does_not_crash(run, tmpdir):
         h.await_text('"""b"""')
         expected = [(236, 40, 0)] * 11 + [(17, 40, 0)] * 7 + [(236, 40, 0)] * 2
         h.assert_screen_attr_equals(1, expected)
+
+
+def test_syntax_highlighting_one_off_left_of_screen(run, tmpdir):
+    f = tmpdir.join('f.demo')
+    f.write(f'{"x" * 11}?123456789')
+
+    with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
+        h.await_text('xxx?123')
+        expected = [(236, 40, 0)] * 11 + [(52, 40, 0)] + [(236, 40, 0)] * 8
+        h.assert_screen_attr_equals(1, expected)
+
+        h.press('End')
+        h.await_text_missing('?')
+        h.assert_screen_attr_equals(1, [(236, 40, 0)] * 20)

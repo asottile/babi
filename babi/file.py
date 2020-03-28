@@ -844,7 +844,7 @@ class File:
                 for region in file_hl.regions[l_y]:
                     if region.x >= l_x_max:
                         break
-                    elif region.end < l_x:
+                    elif region.end <= l_x:
                         continue
 
                     if l_x and region.x <= l_x:
