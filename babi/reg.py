@@ -43,26 +43,26 @@ def _replace_esc(s: str, chars: str) -> str:
 
 class _Reg:
     def __init__(self, s: str) -> None:
-        self._pattern = _replace_esc(s, 'z')
+        self._pattern = s
 
     def __repr__(self) -> str:
         return f'{type(self).__name__}({self._pattern!r})'
 
     @cached_property
     def _reg(self) -> onigurumacffi._Pattern:
-        return onigurumacffi.compile(self._pattern)
+        return onigurumacffi.compile(_replace_esc(self._pattern, 'z'))
 
     @cached_property
     def _reg_no_A(self) -> onigurumacffi._Pattern:
-        return onigurumacffi.compile(_replace_esc(self._pattern, 'A'))
+        return onigurumacffi.compile(_replace_esc(self._pattern, 'Az'))
 
     @cached_property
     def _reg_no_G(self) -> onigurumacffi._Pattern:
-        return onigurumacffi.compile(_replace_esc(self._pattern, 'G'))
+        return onigurumacffi.compile(_replace_esc(self._pattern, 'Gz'))
 
     @cached_property
     def _reg_no_A_no_G(self) -> onigurumacffi._Pattern:
-        return onigurumacffi.compile(_replace_esc(self._pattern, 'AG'))
+        return onigurumacffi.compile(_replace_esc(self._pattern, 'AGz'))
 
     def _get_reg(
             self,
