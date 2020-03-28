@@ -67,6 +67,12 @@ the syntax highlighting setup is a bit manual right now
    json) and put it at `~/.config/babi/theme.json`.  a helper script is
    provided to make this easier: `./bin/download-theme NAME URL`
 
+here's a modified vs dark plus theme that works:
+
+```bash
+./bin/download-theme vs-dark-asottile https://gist.github.com/asottile/b465856c82b1aaa4ba8c7c6314a72e13/raw/22d602fb355fb12b04f176a733941ba5713bc36c/vs_dark_asottile.json
+```
+
 ## demos
 
 most things work!  here's a few screenshots
