@@ -29,8 +29,6 @@ from babi.hl.interface import HLFactory
 from babi.hl.replace import Replace
 from babi.hl.selection import Selection
 from babi.hl.trailing_whitespace import TrailingWhitespace
-from babi.horizontal_scrolling import line_x
-from babi.horizontal_scrolling import scrolled_line
 from babi.margin import Margin
 from babi.prompt import PromptResult
 from babi.status import Status
@@ -88,8 +86,8 @@ class Action:
             final=True,
         )
 
-        file.buf.x = self.start_x
         file.buf.y = self.start_y
+        file.buf.x = self.start_x
         file.modified = self.start_modified
 
         return action
@@ -511,7 +509,7 @@ class File:
             if self.buf[l_y]:
                 self.buf[l_y] = ' ' * 4 + self.buf[l_y]
                 if l_y == self.buf.y:
-                    self.buf.x = self.buf.x + 4
+                    self.buf.x += 4
                 if l_y == sel_y and sel_x != 0:
                     sel_x += 4
         self.selection.set(sel_y, sel_x, self.buf.y, self.buf.x)
@@ -521,7 +519,7 @@ class File:
         n = 4 - self.buf.x % 4
         line = self.buf[self.buf.y]
         self.buf[self.buf.y] = line[:self.buf.x] + n * ' ' + line[self.buf.x:]
-        self.buf.x = self.buf.x + n
+        self.buf.x += n
         self.buf.restore_eof_invariant()
 
     def tab(self, margin: Margin) -> None:
@@ -696,7 +694,7 @@ class File:
     def c(self, wch: str, margin: Margin) -> None:
         s = self.buf[self.buf.y]
         self.buf[self.buf.y] = s[:self.buf.x] + wch + s[self.buf.x:]
-        self.buf.x = self.buf.x + len(wch)
+        self.buf.x += len(wch)
         self.buf.restore_eof_invariant()
 
     def finalize_previous_action(self) -> None:
@@ -761,18 +759,12 @@ class File:
 
     # positioning
 
-    def rendered_y(self, margin: Margin) -> int:
-        return self.buf.y - self.buf.file_y + margin.header
-
-    def rendered_x(self, margin: Margin) -> int:
-        return self.buf.x - line_x(self.buf.x, margin.cols)
-
     def move_cursor(
             self,
             stdscr: 'curses._CursesWindow',
             margin: Margin,
     ) -> None:
-        stdscr.move(self.rendered_y(margin), self.rendered_x(margin))
+        stdscr.move(*self.buf.cursor_position(margin))
 
     def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
         to_display = min(self.buf.displayable_count, margin.body_lines)
@@ -784,34 +776,41 @@ class File:
         for i in range(to_display):
             draw_y = i + margin.header
             l_y = self.buf.file_y + i
-            x = self.buf.x if l_y == self.buf.y else 0
-            line = scrolled_line(self.buf[l_y], x, margin.cols)
-            stdscr.insstr(draw_y, 0, line)
+            stdscr.insstr(draw_y, 0, self.buf.rendered_line(l_y, margin))
 
-            l_x = line_x(x, margin.cols)
+            l_x = self.buf.line_x(margin) if l_y == self.buf.y else 0
             l_x_max = l_x + margin.cols
             for file_hl in self._file_hls:
                 for region in file_hl.regions[l_y]:
-                    if region.x >= l_x_max:
+                    l_positions = self.buf.line_positions(l_y)
+                    r_x = l_positions[region.x]
+                    # the selection highlight intentionally extends one past
+                    # the end of the line, which won't have a position
+                    if region.end == len(l_positions):
+                        r_end = l_positions[-1] + 1
+                    else:
+                        r_end = l_positions[region.end]
+
+                    if r_x >= l_x_max:
                         break
-                    elif region.end <= l_x:
+                    elif r_end <= l_x:
                         continue
 
-                    if l_x and region.x <= l_x:
+                    if l_x and r_x <= l_x:
                         if file_hl.include_edge:
                             h_s_x = 0
                         else:
                             h_s_x = 1
                     else:
-                        h_s_x = region.x - l_x
+                        h_s_x = r_x - l_x
 
-                    if region.end >= l_x_max and l_x_max < len(self.buf[l_y]):
+                    if r_end >= l_x_max and l_x_max < l_positions[-1]:
                         if file_hl.include_edge:
                             h_e_x = margin.cols
                         else:
                             h_e_x = margin.cols - 1
                     else:
-                        h_e_x = region.end - l_x
+                        h_e_x = r_end - l_x
 
                     stdscr.chgat(draw_y, h_s_x, h_e_x - h_s_x, region.attr)
 

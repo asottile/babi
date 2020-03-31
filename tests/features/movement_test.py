@@ -411,3 +411,30 @@ def test_sequence_handling(run_only_fake):
         h.press(' test7')
         h.await_text('test1 test2 test3 test4 test5 test6 test7')
         h.await_text(r'\x1b[1;')
+
+
+def test_indentation_using_tabs(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write(f'123456789\n\t12\t{"x" * 20}\n')
+
+    with run(str(f), width=20) as h, and_exit(h):
+        h.await_text('123456789\n    12  xxxxxxxxxxx»\n')
+
+        h.press('Down')
+        h.await_cursor_position(x=0, y=2)
+        h.press('Up')
+        h.await_cursor_position(x=0, y=1)
+
+        h.press('Right')
+        h.await_cursor_position(x=1, y=1)
+        h.press('Down')
+        h.await_cursor_position(x=0, y=2)
+        h.press('Up')
+        h.await_cursor_position(x=1, y=1)
+
+        h.press('Down')
+        h.await_cursor_position(x=0, y=2)
+        h.press('Right')
+        h.await_cursor_position(x=4, y=2)
+        h.press('Up')
+        h.await_cursor_position(x=4, y=1)

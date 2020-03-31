@@ -1,16 +1,32 @@
+import bisect
 import contextlib
 from typing import Callable
 from typing import Generator
 from typing import Iterator
 from typing import List
 from typing import NamedTuple
+from typing import Optional
+from typing import Tuple
 
 from babi._types import Protocol
+from babi.horizontal_scrolling import line_x
+from babi.horizontal_scrolling import scrolled_line
+from babi.horizontal_scrolling import wcwidth
 from babi.margin import Margin
 
 SetCallback = Callable[['Buf', int, str], None]
 DelCallback = Callable[['Buf', int, str], None]
 InsCallback = Callable[['Buf', int], None]
+
+
+def _offsets(s: str) -> Tuple[int, ...]:
+    ret = [0]
+    for c in s:
+        if c == '\t':
+            ret.append(ret[-1] + (4 - ret[-1] % 4))
+        else:
+            ret.append(ret[-1] + wcwidth(c))
+    return tuple(ret)
 
 
 class Modification(Protocol):
@@ -45,9 +61,11 @@ class Buf:
         self._lines = lines
         self.file_y = self.y = self._x = self._x_hint = 0
 
-        self._set_callbacks: List[SetCallback] = []
-        self._del_callbacks: List[DelCallback] = []
-        self._ins_callbacks: List[InsCallback] = []
+        self._set_callbacks: List[SetCallback] = [self._set_cb]
+        self._del_callbacks: List[DelCallback] = [self._del_cb]
+        self._ins_callbacks: List[InsCallback] = [self._ins_cb]
+
+        self._positions: List[Optional[Tuple[int, ...]]] = []
 
     # read only interface
 
@@ -73,6 +91,8 @@ class Buf:
     # mutators
 
     def __setitem__(self, idx: int, val: str) -> None:
+        if idx < 0:
+            idx %= len(self)
         victim = self._lines[idx]
 
         self._lines[idx] = val
@@ -178,7 +198,47 @@ class Buf:
     @x.setter
     def x(self, x: int) -> None:
         self._x = x
-        self._x_hint = x
+        self._x_hint = self._cursor_x
+
+    def _extend_positions(self, idx: int) -> None:
+        self._positions.extend([None] * (1 + idx - len(self._positions)))
+
+    def _set_cb(self, buf: 'Buf', idx: int, victim: str) -> None:
+        self._extend_positions(idx)
+        self._positions[idx] = None
+
+    def _del_cb(self, buf: 'Buf', idx: int, victim: str) -> None:
+        self._extend_positions(idx)
+        del self._positions[idx]
+
+    def _ins_cb(self, buf: 'Buf', idx: int) -> None:
+        self._extend_positions(idx)
+        self._positions.insert(idx, None)
+
+    def line_positions(self, idx: int) -> Tuple[int, ...]:
+        self._extend_positions(idx)
+        value = self._positions[idx]
+        if value is None:
+            value = self._positions[idx] = _offsets(self._lines[idx])
+        return value
+
+    def line_x(self, margin: Margin) -> int:
+        return line_x(self._cursor_x, margin.cols)
+
+    @property
+    def _cursor_x(self) -> int:
+        return self.line_positions(self.y)[self.x]
+
+    def cursor_position(self, margin: Margin) -> Tuple[int, int]:
+        y = self.y - self.file_y + margin.header
+        x = self._cursor_x - self.line_x(margin)
+        return y, x
+
+    # rendered lines
+
+    def rendered_line(self, idx: int, margin: Margin) -> str:
+        x = self._cursor_x if idx == self.y else 0
+        return scrolled_line(self._lines[idx].expandtabs(4), x, margin.cols)
 
     # movement
 
@@ -188,7 +248,12 @@ class Buf:
             self.file_y = max(self.y - margin.body_lines // 2, 0)
 
     def _set_x_after_vertical_movement(self) -> None:
-        self._x = min(len(self._lines[self.y]), self._x_hint)
+        positions = self.line_positions(self.y)
+        x = bisect.bisect_left(positions, self._x_hint)
+        x = min(len(self._lines[self.y]), x)
+        if positions[x] > self._x_hint:
+            x -= 1
+        self._x = x
 
     def up(self, margin: Margin) -> None:
         if self.y > 0:

@@ -63,6 +63,16 @@ class Screen:
             self._prev_screenshot = ret
         return ret
 
+    def addstr(self, y, x, s, attr):
+        self.lines[y] = self.lines[y][:x] + s + self.lines[y][x + len(s):]
+
+        line_attr = self.attrs[y]
+        new = [attr] * len(s)
+        self.attrs[y] = line_attr[:x] + new + line_attr[x + len(s):]
+
+        self.y = y
+        self.x = x + len(s)
+
     def insstr(self, y, x, s, attr):
         line = self.lines[y]
         self.lines[y] = (line[:x] + s + line[x:])[:self.width]
@@ -173,7 +183,8 @@ class CursesError(NamedTuple):
 
 
 class CursesScreen:
-    def __init__(self, runner):
+    def __init__(self, screen, runner):
+        self._screen = screen
         self._runner = runner
         self._bkgd_attr = (-1, -1, 0)
 
@@ -197,20 +208,26 @@ class CursesScreen:
         pass
 
     def nodelay(self, val):
-        self._runner.screen.nodelay = val
+        self._screen.nodelay = val
+
+    def addstr(self, y, x, s, attr=0):
+        self._screen.addstr(y, x, s, self._to_attr(attr))
 
     def insstr(self, y, x, s, attr=0):
-        self._runner.screen.insstr(y, x, s, self._to_attr(attr))
+        self._screen.insstr(y, x, s, self._to_attr(attr))
 
     def clrtoeol(self):
-        s = self._runner.screen.width * ' '
-        self.insstr(self._runner.screen.y, self._runner.screen.x, s)
+        s = self._screen.width * ' '
+        self.insstr(self._screen.y, self._screen.x, s)
 
     def chgat(self, y, x, n, attr):
-        self._runner.screen.chgat(y, x, n, self._to_attr(attr))
+        self._screen.chgat(y, x, n, self._to_attr(attr))
 
     def move(self, y, x):
-        self._runner.screen.move(y, x)
+        self._screen.move(y, x)
+
+    def getyx(self):
+        return self._screen.y, self._screen.x
 
     def get_wch(self):
         return self._runner._get_wch()
@@ -399,7 +416,10 @@ class DeferredRunner:
 
     def _curses_initscr(self):
         self._curses_update_lines_cols()
-        return CursesScreen(self)
+        return CursesScreen(self.screen, self)
+
+    def _curses_newwin(self, height, width):
+        return CursesScreen(Screen(width, height), self)
 
     def _curses_not_implemented(self, fn):
         def fn_inner(*args, **kwargs):

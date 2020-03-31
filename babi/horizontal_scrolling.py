@@ -1,3 +1,8 @@
+import curses
+
+from babi.cached_property import cached_property
+
+
 def line_x(x: int, width: int) -> int:
     if x + 1 < width:
         return 0
@@ -25,3 +30,17 @@ def scrolled_line(s: str, x: int, width: int) -> str:
         return f'{s[:width - 1]}»'
     else:
         return s.ljust(width)
+
+
+class _CalcWidth:
+    @cached_property
+    def _window(self) -> 'curses._CursesWindow':
+        return curses.newwin(1, 10)
+
+    def wcwidth(self, c: str) -> int:
+        self._window.addstr(0, 0, c)
+        return self._window.getyx()[1]
+
+
+wcwidth = _CalcWidth().wcwidth
+del _CalcWidth

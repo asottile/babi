@@ -122,3 +122,34 @@ def test_syntax_highlighting_to_edge_of_screen(run, tmpdir):
     with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
         h.await_text('# xxx')
         h.assert_screen_attr_equals(1, [(243, 40, 0)] * 20)
+
+
+def test_syntax_highlighting_with_tabs(run, tmpdir):
+    f = tmpdir.join('f.demo')
+    f.write('\t# 12345678901234567890\n')
+
+    with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
+        h.await_text('1234567890')
+        expected = 4 * [(236, 40, 0)] + 15 * [(243, 40, 0)] + [(236, 40, 0)]
+        h.assert_screen_attr_equals(1, expected)
+
+
+def test_syntax_highlighting_tabs_after_line_creation(run, tmpdir):
+    f = tmpdir.join('f')
+    # trailing whitespace is used to trigger highlighting
+    f.write('foo\n\txx \ny    \n')
+
+    with run(str(f), term='screen-256color') as h, and_exit(h):
+        # this looks weird, but it populates the width cache
+        h.press('Down')
+        h.press('Down')
+        h.press('Down')
+
+        # press enter after the tab
+        h.press('Up')
+        h.press('Up')
+        h.press('Right')
+        h.press('Right')
+        h.press('Enter')
+
+        h.await_text('foo\n    x\nx\ny\n')
