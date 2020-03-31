@@ -46,7 +46,6 @@ def ten_lines(tmpdir):
 
 class Screen:
     def __init__(self, width, height):
-        self.disabled = True
         self.nodelay = False
         self.width = width
         self.height = height
@@ -373,8 +372,8 @@ class DeferredRunner:
     def _curses__noop(self, *_, **__):
         pass
 
-    _curses_cbreak = _curses_noecho = _curses_nonl = _curses__noop
-    _curses_raw = _curses_use_default_colors = _curses__noop
+    _curses_cbreak = _curses_endwin = _curses_noecho = _curses__noop
+    _curses_nonl = _curses_raw = _curses_use_default_colors = _curses__noop
 
     _curses_error = curses.error  # so we don't mock the exception
 
@@ -400,11 +399,7 @@ class DeferredRunner:
 
     def _curses_initscr(self):
         self._curses_update_lines_cols()
-        self.screen.disabled = False
         return CursesScreen(self)
-
-    def _curses_endwin(self):
-        self.screen.disabled = True
 
     def _curses_not_implemented(self, fn):
         def fn_inner(*args, **kwargs):
