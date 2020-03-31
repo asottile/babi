@@ -764,15 +764,15 @@ class File:
     def rendered_y(self, margin: Margin) -> int:
         return self.buf.y - self.buf.file_y + margin.header
 
-    def rendered_x(self) -> int:
-        return self.buf.x - line_x(self.buf.x, curses.COLS)
+    def rendered_x(self, margin: Margin) -> int:
+        return self.buf.x - line_x(self.buf.x, margin.cols)
 
     def move_cursor(
             self,
             stdscr: 'curses._CursesWindow',
             margin: Margin,
     ) -> None:
-        stdscr.move(self.rendered_y(margin), self.rendered_x())
+        stdscr.move(self.rendered_y(margin), self.rendered_x(margin))
 
     def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
         to_display = min(self.buf.displayable_count, margin.body_lines)
@@ -785,11 +785,11 @@ class File:
             draw_y = i + margin.header
             l_y = self.buf.file_y + i
             x = self.buf.x if l_y == self.buf.y else 0
-            line = scrolled_line(self.buf[l_y], x, curses.COLS)
+            line = scrolled_line(self.buf[l_y], x, margin.cols)
             stdscr.insstr(draw_y, 0, line)
 
-            l_x = line_x(x, curses.COLS)
-            l_x_max = l_x + curses.COLS
+            l_x = line_x(x, margin.cols)
+            l_x_max = l_x + margin.cols
             for file_hl in self._file_hls:
                 for region in file_hl.regions[l_y]:
                     if region.x >= l_x_max:
@@ -807,9 +807,9 @@ class File:
 
                     if region.end >= l_x_max and l_x_max < len(self.buf[l_y]):
                         if file_hl.include_edge:
-                            h_e_x = curses.COLS
+                            h_e_x = margin.cols
                         else:
-                            h_e_x = curses.COLS - 1
+                            h_e_x = margin.cols - 1
                     else:
                         h_e_x = region.end - l_x
 

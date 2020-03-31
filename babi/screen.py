@@ -105,7 +105,7 @@ class Screen:
         else:
             files = ''
             version_width = len(VERSION_STR) + 2
-        centered = filename.center(curses.COLS)[version_width:]
+        centered = filename.center(self.margin.cols)[version_width:]
         s = f' {VERSION_STR} {files}{centered}{files}'
         self.stdscr.insstr(0, 0, s, curses.A_REVERSE)
 
@@ -236,13 +236,14 @@ class Screen:
         opts = [opt[0] for opt in opt_strs]
         while True:
             x = 0
+            prompt_line = self.margin.lines - 1
 
             def _write(s: str, *, attr: int = curses.A_REVERSE) -> None:
                 nonlocal x
 
-                if x >= curses.COLS:
+                if x >= self.margin.cols:
                     return
-                self.stdscr.insstr(curses.LINES - 1, x, s, attr)
+                self.stdscr.insstr(prompt_line, x, s, attr)
                 x += len(s)
 
             _write(prompt)
@@ -254,15 +255,15 @@ class Screen:
                     _write(', ')
             _write(']?')
 
-            if x < curses.COLS - 1:
-                s = ' ' * (curses.COLS - x)
-                self.stdscr.insstr(curses.LINES - 1, x, s, curses.A_REVERSE)
+            if x < self.margin.cols - 1:
+                s = ' ' * (self.margin.cols - x)
+                self.stdscr.insstr(prompt_line, x, s, curses.A_REVERSE)
                 x += 1
             else:
-                x = curses.COLS - 1
-                self.stdscr.insstr(curses.LINES - 1, x, '…', curses.A_REVERSE)
+                x = self.margin.cols - 1
+                self.stdscr.insstr(prompt_line, x, '…', curses.A_REVERSE)
 
-            self.stdscr.move(curses.LINES - 1, x)
+            self.stdscr.move(prompt_line, x)
 
             key = self.get_char()
             if key.keyname == b'KEY_RESIZE':

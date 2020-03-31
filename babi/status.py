@@ -18,14 +18,14 @@ class Status:
 
     def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
         if margin.footer or self._status:
-            stdscr.insstr(curses.LINES - 1, 0, ' ' * curses.COLS)
+            stdscr.insstr(margin.lines - 1, 0, ' ' * margin.cols)
             if self._status:
                 status = f' {self._status} '
-                x = (curses.COLS - len(status)) // 2
+                x = (margin.cols - len(status)) // 2
                 if x < 0:
                     x = 0
                     status = status.strip()
-                stdscr.insstr(curses.LINES - 1, x, status, curses.A_REVERSE)
+                stdscr.insstr(margin.lines - 1, x, status, curses.A_REVERSE)
 
     def tick(self, margin: Margin) -> None:
         # when the window is only 1-tall, hide the status quicker

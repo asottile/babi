@@ -33,18 +33,19 @@ class Prompt:
 
     def _render_prompt(self, *, base: Optional[str] = None) -> None:
         base = base or self._prompt
-        if not base or curses.COLS < 7:
+        if not base or self._screen.margin.cols < 7:
             prompt_s = ''
-        elif len(base) > curses.COLS - 6:
-            prompt_s = f'{base[:curses.COLS - 7]}…: '
+        elif len(base) > self._screen.margin.cols - 6:
+            prompt_s = f'{base[:self._screen.margin.cols - 7]}…: '
         else:
             prompt_s = f'{base}: '
-        width = curses.COLS - len(prompt_s)
+        width = self._screen.margin.cols - len(prompt_s)
         line = scrolled_line(self._s, self._x, width)
         cmd = f'{prompt_s}{line}'
-        self._screen.stdscr.insstr(curses.LINES - 1, 0, cmd, curses.A_REVERSE)
+        prompt_line = self._screen.margin.lines - 1
+        self._screen.stdscr.insstr(prompt_line, 0, cmd, curses.A_REVERSE)
         x = len(prompt_s) + self._x - line_x(self._x, width)
-        self._screen.stdscr.move(curses.LINES - 1, x)
+        self._screen.stdscr.move(prompt_line, x)
 
     def _up(self) -> None:
         self._y = max(0, self._y - 1)
