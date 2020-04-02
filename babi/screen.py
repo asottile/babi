@@ -61,6 +61,28 @@ SEQUENCE_KEYNAME = {
     '\x1b[1;6H': b'kHOM6',  # Shift + ^Home
     '\x1b[1;6F': b'kEND6',  # Shift + ^End
 }
+# windows-curses has different keynames for some keys
+KEYNAME_REWRITE = {
+    # numeric pad arrow keys
+    # - some overlay keyboards pick these as well
+    # - in xterm it seems these are mapped automatically
+    b'KEY_A2': b'KEY_UP',
+    b'KEY_C2': b'KEY_DOWN',
+    b'KEY_B3': b'KEY_RIGHT',
+    b'KEY_B1': b'KEY_LEFT',
+    # map to our M- names
+    b'ALT_U': b'M-u',
+    # arguably these names are better than the xterm names
+    b'CTL_UP': b'kUP5',
+    b'CTL_DOWN': b'kDN5',
+    b'CTL_RIGHT': b'kRIT5',
+    b'CTL_LEFT': b'kLFT5',
+    b'ALT_RIGHT': b'kRIT3',
+    b'ALT_LEFT': b'kLFT3',
+    # idk why these are different
+    b'KEY_SUP': b'KEY_SR',
+    b'KEY_SDOWN': b'KEY_SF',
+}
 
 
 class Key(NamedTuple):
@@ -208,6 +230,7 @@ class Screen:
 
         key = wch if isinstance(wch, int) else ord(wch)
         keyname = curses.keyname(key)
+        keyname = KEYNAME_REWRITE.get(keyname, keyname)
         return Key(wch, keyname)
 
     def get_char(self) -> Key:
