@@ -1,6 +1,7 @@
 import pytest
 
 from testing.runner import and_exit
+from testing.runner import trigger_command_mode
 
 
 def test_mixed_newlines(run, tmpdir):
@@ -214,3 +215,38 @@ def test_save_on_exit_resize(run, tmpdir):
         h.await_text('file is modified - save [yes, no]?')
         h.press('^C')
         h.await_text('cancelled')
+
+
+def test_vim_save_on_exit_cancel_yn(run):
+    with run() as h, and_exit(h):
+        h.press('hello')
+        h.await_text('hello')
+        trigger_command_mode(h)
+        h.press_and_enter(':q')
+        h.await_text('file is modified - save [yes, no]?')
+        h.press('^C')
+        h.await_text('cancelled')
+
+
+def test_vim_save_on_exit(run, tmpdir):
+    f = tmpdir.join('f')
+    with run(str(f)) as h:
+        h.press('hello')
+        h.await_text('hello')
+        trigger_command_mode(h)
+        h.press_and_enter(':q')
+        h.await_text('file is modified - save [yes, no]?')
+        h.press('y')
+        h.await_text(f'enter filename: {f}')
+        h.press('Enter')
+        h.await_exit()
+
+
+def test_vim_force_exit(run, tmpdir):
+    f = tmpdir.join('f')
+    with run(str(f)) as h:
+        h.press('hello')
+        h.await_text('hello')
+        trigger_command_mode(h)
+        h.press_and_enter(':q!')
+        h.await_exit()
