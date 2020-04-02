@@ -386,6 +386,8 @@ class Screen:
     def command(self) -> Optional[EditResult]:
         response = self.prompt('', history='command')
         if response == ':q':
+            return self.quit_save_modified()
+        elif response == ':q!':
             return EditResult.EXIT
         elif response == ':w':
             self.save()
