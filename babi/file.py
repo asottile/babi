@@ -623,6 +623,7 @@ class File:
         self.buf.up(margin)
         self.buf.x = len(self.buf[self.buf.y])
         self.buf[self.buf.y] += self.buf.pop(self.buf.y + 1)
+        self.buf.restore_eof_invariant()
 
     def _sort(self, margin: Margin, s_y: int, e_y: int) -> None:
         # self.buf intentionally does not support slicing so we use islice

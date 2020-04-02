@@ -35,8 +35,8 @@ class TrailingWhitespace:
             self.regions[idx] = self._trailing_ws(lines[idx])
 
     def _del_cb(self, lines: Buf, idx: int, victim: str) -> None:
-        assert idx < len(self.regions)  # currently all `del` happen on screen
-        del self.regions[idx]
+        if idx < len(self.regions):
+            del self.regions[idx]
 
     def _ins_cb(self, lines: Buf, idx: int) -> None:
         if idx < len(self.regions):

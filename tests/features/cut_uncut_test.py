@@ -132,3 +132,21 @@ def test_selection_cut_uncut_selection_offscreen_x(run):
         h.await_text_missing('hello')
         h.press('^K')
         h.await_text('hello\n')
+
+
+def test_selection_cut_uncut_at_end_of_file(run, ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('S-Down')
+        h.press('S-Right')
+        h.press('^K')
+        h.await_text_missing('line_0')
+        h.await_text_missing('line_1')
+        h.await_text('ine_1')
+
+        h.press('^End')
+        h.press('^U')
+        h.await_text('line_0\nl\n')
+        h.await_cursor_position(x=1, y=11)
+
+        h.press('Down')
+        h.await_cursor_position(x=0, y=12)
