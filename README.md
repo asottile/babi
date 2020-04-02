@@ -6,6 +6,10 @@ babi
 
 a text editor, eventually...
 
+### installation
+
+`pip install babi`
+
 ### why is it called babi?
 
 I usually use the text editor `nano`, frequently I typo this.  on a qwerty
