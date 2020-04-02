@@ -432,7 +432,7 @@ class Screen:
             self.status.update('(file changed on disk, not implemented)')
             return PromptResult.CANCELLED
 
-        with open(self.file.filename, 'w') as f:
+        with open(self.file.filename, 'w', newline='') as f:
             f.write(contents)
 
         self.file.modified = False
