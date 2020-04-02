@@ -237,7 +237,7 @@ def test_vim_save_on_exit(run, tmpdir):
         h.press_and_enter(':q')
         h.await_text('file is modified - save [yes, no]?')
         h.press('y')
-        h.await_text(f'enter filename: {f}')
+        h.await_text(f'enter filename: ')
         h.press('Enter')
         h.await_exit()
 

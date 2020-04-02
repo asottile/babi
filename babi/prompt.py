@@ -127,7 +127,7 @@ class Prompt:
             key = self._screen.get_char()
             if key.keyname == b'KEY_RESIZE':
                 self._screen.resize()
-            elif key.keyname == b'KEY_BACKSPACE' or key.keyname == b'^H':
+            elif key.keyname == b'KEY_BACKSPACE':
                 reverse_s = reverse_s[:-1]
             elif key.keyname == b'^R':
                 idx = max(0, idx - 1)
@@ -164,7 +164,6 @@ class Prompt:
         b'kLFT5': _ctrl_left,
         # editing
         b'KEY_BACKSPACE': _backspace,
-        b'^H': _backspace,  # ^Backspace
         b'KEY_DC': _delete,
         b'^K': _cut_to_end,
         # misc

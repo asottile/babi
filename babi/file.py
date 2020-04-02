@@ -670,7 +670,6 @@ class File:
         b'kEND5': ctrl_end,
         # editing
         b'KEY_BACKSPACE': backspace,
-        b'^H': backspace,  # ^Backspace
         b'KEY_DC': delete,
         b'^M': enter,
         b'^I': tab,
