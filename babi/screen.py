@@ -71,7 +71,7 @@ KEYNAME_REWRITE = {
     b'KEY_B1': b'KEY_LEFT',
     b'PADSTOP': b'KEY_DC',
     b'KEY_A3': b'KEY_PPAGE',
-    b'KEY_C3': b'KEY_DPAGE',
+    b'KEY_C3': b'KEY_NPAGE',
     b'KEY_A1': b'KEY_HOME',
     b'KEY_C1': b'KEY_END',
     # windows-curses: map to our M- names
