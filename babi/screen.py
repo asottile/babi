@@ -69,6 +69,11 @@ KEYNAME_REWRITE = {
     b'KEY_C2': b'KEY_DOWN',
     b'KEY_B3': b'KEY_RIGHT',
     b'KEY_B1': b'KEY_LEFT',
+    b'PADSTOP': b'KEY_DC',
+    b'KEY_A3': b'KEY_PPAGE',
+    b'KEY_C3': b'KEY_DPAGE',
+    b'KEY_A1': b'KEY_HOME',
+    b'KEY_C1': b'KEY_END',
     # windows-curses: map to our M- names
     b'ALT_U': b'M-u',
     # windows-curses: arguably these names are better than the xterm names
