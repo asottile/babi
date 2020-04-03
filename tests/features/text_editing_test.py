@@ -97,6 +97,24 @@ def test_delete_at_end_of_line(run, tmpdir):
         h.await_text('f *')
 
 
+def test_delete_at_end_of_last_line(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('hello')
+        h.press('End')
+        h.press('DC')
+        # should not make the file modified
+        h.await_text_missing('*')
+
+        # delete should still be functional
+        h.press('Left')
+        h.press('Left')
+        h.press('DC')
+        h.await_text('helo')
+
+
 def test_press_enter_beginning_of_file(run, tmpdir):
     f = tmpdir.join('f')
     f.write('hello world')

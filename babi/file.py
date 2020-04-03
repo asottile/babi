@@ -480,8 +480,15 @@ class File:
     @edit_action('delete text', final=False)
     @clear_selection
     def delete(self, margin: Margin) -> None:
-        # noop at end of the file
-        if self.buf.y == len(self.buf) - 1:
+        if (
+            # noop at end of the file
+            self.buf.y == len(self.buf) - 1 or
+            # noop at end of last real line
+            (
+                self.buf.y == len(self.buf) - 2 and
+                self.buf.x == len(self.buf[self.buf.y])
+            )
+        ):
             pass
         # if we're at the end of the line, collapse the line afterwards
         elif self.buf.x == len(self.buf[self.buf.y]):
