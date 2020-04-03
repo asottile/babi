@@ -130,7 +130,7 @@ class Buf:
         return victim
 
     def restore_eof_invariant(self) -> None:
-        """the file lines will always contain a blank empty string at the end'
+        """the file lines will always contain a blank empty string at the end
         to simplify rendering.  call this whenever the last line may change
         """
         if self[-1] != '':
@@ -237,8 +237,10 @@ class Buf:
     # rendered lines
 
     def rendered_line(self, idx: int, margin: Margin) -> str:
-        x = self._cursor_x if idx == self.y else 0
-        return scrolled_line(self._lines[idx].expandtabs(4), x, margin.cols)
+        line = self._lines[idx]
+        positions = self.line_positions(idx)
+        cursor_x = self._cursor_x if idx == self.y else 0
+        return scrolled_line(line, positions, cursor_x, margin.cols)
 
     # movement
 
@@ -273,7 +275,7 @@ class Buf:
         if self.x >= len(self._lines[self.y]):
             if self.y < len(self._lines) - 1:
                 self.down(margin)
-                self.x = 0
+                self.home()
         else:
             self.x += 1
 
@@ -281,9 +283,15 @@ class Buf:
         if self.x == 0:
             if self.y > 0:
                 self.up(margin)
-                self.x = len(self._lines[self.y])
+                self.end()
         else:
             self.x -= 1
+
+    def home(self) -> None:
+        self.x = 0
+
+    def end(self) -> None:
+        self.x = len(self._lines[self.y])
 
     # screen movement
 
@@ -298,3 +306,9 @@ class Buf:
             self.file_y += 1
             if self.y < self.file_y:
                 self.down(margin)
+
+    # key input
+
+    def c(self, s: str) -> None:
+        self[self.y] = self[self.y][:self.x] + s + self[self.y][self.x:]
+        self.x += len(s)

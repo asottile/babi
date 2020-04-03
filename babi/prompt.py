@@ -6,8 +6,7 @@ from typing import Tuple
 from typing import TYPE_CHECKING
 from typing import Union
 
-from babi.horizontal_scrolling import line_x
-from babi.horizontal_scrolling import scrolled_line
+from babi.buf import Buf
 
 if TYPE_CHECKING:
     from babi.main import Screen  # XXX: circular
@@ -19,17 +18,25 @@ class Prompt:
     def __init__(self, screen: 'Screen', prompt: str, lst: List[str]) -> None:
         self._screen = screen
         self._prompt = prompt
-        self._lst = lst
-        self._y = len(lst) - 1
+        self._buf = Buf(lst)
+        self._buf.y = self._buf.file_y = len(lst) - 1
         self._x = len(self._s)
 
     @property
+    def _x(self) -> int:
+        return self._buf.x
+
+    @_x.setter
+    def _x(self, x: int) -> None:
+        self._buf.x = x
+
+    @property
     def _s(self) -> str:
-        return self._lst[self._y]
+        return self._buf[self._buf.y]
 
     @_s.setter
     def _s(self, s: str) -> None:
-        self._lst[self._y] = s
+        self._buf[self._buf.y] = s
 
     def _render_prompt(self, *, base: Optional[str] = None) -> None:
         base = base or self._prompt
@@ -39,24 +46,26 @@ class Prompt:
             prompt_s = f'{base[:self._screen.margin.cols - 7]}…: '
         else:
             prompt_s = f'{base}: '
+
         width = self._screen.margin.cols - len(prompt_s)
-        line = scrolled_line(self._s, self._x, width)
-        cmd = f'{prompt_s}{line}'
+        margin = self._screen.margin._replace(cols=width)
+        cmd = f'{prompt_s}{self._buf.rendered_line(self._buf.y, margin)}'
         prompt_line = self._screen.margin.lines - 1
         self._screen.stdscr.insstr(prompt_line, 0, cmd, curses.A_REVERSE)
-        x = len(prompt_s) + self._x - line_x(self._x, width)
-        self._screen.stdscr.move(prompt_line, x)
+
+        _, x_off = self._buf.cursor_position(margin)
+        self._screen.stdscr.move(prompt_line, len(prompt_s) + x_off)
 
     def _up(self) -> None:
-        self._y = max(0, self._y - 1)
-        self._x = len(self._s)
+        self._buf.up(self._screen.margin)
+        self._x = len(self._buf[self._buf.y])
 
     def _down(self) -> None:
-        self._y = min(len(self._lst) - 1, self._y + 1)
-        self._x = len(self._s)
+        self._buf.down(self._screen.margin)
+        self._x = len(self._buf[self._buf.y])
 
     def _right(self) -> None:
-        self._x = min(len(self._s), self._x + 1)
+        self._x = min(len(self._buf[self._buf.y]), self._x + 1)
 
     def _left(self) -> None:
         self._x = max(0, self._x - 1)
@@ -65,11 +74,11 @@ class Prompt:
         self._x = 0
 
     def _end(self) -> None:
-        self._x = len(self._s)
+        self._x = len(self._buf[self._buf.y])
 
     def _ctrl_left(self) -> None:
         if self._x <= 1:
-            self._x = 0
+            self._buf.home()
         else:
             self._x -= 1
             tp = self._s[self._x - 1].isalnum()
@@ -78,7 +87,7 @@ class Prompt:
 
     def _ctrl_right(self) -> None:
         if self._x >= len(self._s) - 1:
-            self._x = len(self._s)
+            self._buf.end()
         else:
             self._x += 1
             tp = self._s[self._x].isalnum()
@@ -103,9 +112,9 @@ class Prompt:
     def _check_failed(self, idx: int, s: str) -> Tuple[bool, int]:
         failed = False
         for search_idx in range(idx, -1, -1):
-            if s in self._lst[search_idx]:
-                idx = self._y = search_idx
-                self._x = self._lst[search_idx].index(s)
+            if s in self._buf[search_idx]:
+                idx = self._buf.y = search_idx
+                self._x = self._buf[search_idx].index(s)
                 break
         else:
             failed = True
@@ -113,7 +122,7 @@ class Prompt:
 
     def _reverse_search(self) -> Union[None, str, PromptResult]:
         reverse_s = ''
-        idx = self._y
+        idx = self._buf.y
         while True:
             fail, idx = self._check_failed(idx, reverse_s)
 
@@ -174,8 +183,7 @@ class Prompt:
     }
 
     def _c(self, c: str) -> None:
-        self._s = self._s[:self._x] + c + self._s[self._x:]
-        self._x += len(c)
+        self._buf.c(c)
 
     def run(self) -> Union[PromptResult, str]:
         while True:

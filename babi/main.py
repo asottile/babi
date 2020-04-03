@@ -33,7 +33,7 @@ def _edit(screen: Screen, stdin: str) -> EditResult:
                 return ret
         elif key.keyname == b'STRING':
             assert isinstance(key.wch, str), key.wch
-            screen.file.c(key.wch, screen.margin)
+            screen.file.c(key.wch)
         else:
             screen.status.update(f'unknown key: {key}')
 

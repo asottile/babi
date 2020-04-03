@@ -9,6 +9,7 @@ from typing import Union
 from unittest import mock
 
 import pytest
+import wcwidth
 
 from babi._types import Protocol
 from babi.main import main
@@ -71,7 +72,7 @@ class Screen:
         self.attrs[y] = line_attr[:x] + new + line_attr[x + len(s):]
 
         self.y = y
-        self.x = x + len(s)
+        self.x = x + wcwidth.wcswidth(s)
 
     def insstr(self, y, x, s, attr):
         line = self.lines[y]

@@ -280,11 +280,11 @@ class File:
 
     @action
     def home(self, margin: Margin) -> None:
-        self.buf.x = 0
+        self.buf.home()
 
     @action
     def end(self, margin: Margin) -> None:
-        self.buf.x = len(self.buf[self.buf.y])
+        self.buf.end()
 
     @action
     def ctrl_up(self, margin: Margin) -> None:
@@ -698,10 +698,8 @@ class File:
 
     @edit_action('text', final=False)
     @clear_selection
-    def c(self, wch: str, margin: Margin) -> None:
-        s = self.buf[self.buf.y]
-        self.buf[self.buf.y] = s[:self.buf.x] + wch + s[self.buf.x:]
-        self.buf.x += len(wch)
+    def c(self, wch: str) -> None:
+        self.buf.c(wch)
         self.buf.restore_eof_invariant()
 
     def finalize_previous_action(self) -> None:
