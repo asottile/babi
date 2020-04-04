@@ -39,7 +39,6 @@ def json_with_comments(s: bytes) -> Any:
         idx = match.end()
         match = TOKEN.search(s, idx)
 
-    print(bio.getvalue())
     bio.seek(0)
     return json.load(bio)
 
