@@ -441,6 +441,38 @@ def test_include_repository_rule(compiler_state):
     )
 
 
+def test_include_with_nested_repositories(compiler_state):
+    compiler, state = compiler_state({
+        'scopeName': 'test',
+        'patterns': [{
+            'begin': '<', 'end': '>', 'name': 'b',
+            'patterns': [
+                {'include': '#rule1'},
+                {'include': '#rule2'},
+                {'include': '#rule3'},
+            ],
+            'repository': {
+                'rule2': {'match': '2', 'name': 'inner2'},
+                'rule3': {'match': '3', 'name': 'inner3'},
+            },
+        }],
+        'repository': {
+            'rule1': {'match': '1', 'name': 'root1'},
+            'rule2': {'match': '2', 'name': 'root2'},
+        },
+    })
+
+    state, regions = highlight_line(compiler, state, '<123>', first_line=True)
+
+    assert regions == (
+        Region(0, 1, ('test', 'b')),
+        Region(1, 2, ('test', 'b', 'root1')),
+        Region(2, 3, ('test', 'b', 'inner2')),
+        Region(3, 4, ('test', 'b', 'inner3')),
+        Region(4, 5, ('test', 'b')),
+    )
+
+
 def test_include_other_grammar(compiler_state):
     compiler, state = compiler_state(
         {

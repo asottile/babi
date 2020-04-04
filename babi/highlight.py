@@ -14,7 +14,7 @@ from typing import TypeVar
 from identify.identify import tags_from_filename
 
 from babi._types import Protocol
-from babi.fdict import FDict
+from babi.fdict import FChainMap
 from babi.reg import _Reg
 from babi.reg import _RegSet
 from babi.reg import ERR_REG
@@ -67,6 +67,8 @@ class _Rule(Protocol):
     def include(self) -> Optional[str]: ...
     @property
     def patterns(self) -> 'Tuple[_Rule, ...]': ...
+    @property
+    def repository(self) -> 'FChainMap[str, _Rule]': ...
 
 
 @uniquely_constructed
@@ -83,9 +85,24 @@ class Rule(NamedTuple):
     while_captures: Captures
     include: Optional[str]
     patterns: Tuple[_Rule, ...]
+    repository: FChainMap[str, _Rule]
 
     @classmethod
-    def from_dct(cls, dct: Dict[str, Any]) -> _Rule:
+    def make(
+            cls,
+            dct: Dict[str, Any],
+            parent_repository: FChainMap[str, _Rule],
+    ) -> _Rule:
+        if 'repository' in dct:
+            # this looks odd, but it's so we can have a self-referential
+            # immutable-after-construction chain map
+            repository_dct: Dict[str, _Rule] = {}
+            repository = FChainMap(parent_repository, repository_dct)
+            for k, sub_dct in dct['repository'].items():
+                repository_dct[k] = Rule.make(sub_dct, repository)
+        else:
+            repository = parent_repository
+
         name = _split_name(dct.get('name'))
         match = dct.get('match')
         begin = dct.get('begin')
@@ -95,7 +112,7 @@ class Rule(NamedTuple):
 
         if 'captures' in dct:
             captures = tuple(
-                (int(k), Rule.from_dct(v))
+                (int(k), Rule.make(v, repository))
                 for k, v in dct['captures'].items()
             )
         else:
@@ -103,7 +120,7 @@ class Rule(NamedTuple):
 
         if 'beginCaptures' in dct:
             begin_captures = tuple(
-                (int(k), Rule.from_dct(v))
+                (int(k), Rule.make(v, repository))
                 for k, v in dct['beginCaptures'].items()
             )
         else:
@@ -111,7 +128,7 @@ class Rule(NamedTuple):
 
         if 'endCaptures' in dct:
             end_captures = tuple(
-                (int(k), Rule.from_dct(v))
+                (int(k), Rule.make(v, repository))
                 for k, v in dct['endCaptures'].items()
             )
         else:
@@ -119,7 +136,7 @@ class Rule(NamedTuple):
 
         if 'whileCaptures' in dct:
             while_captures = tuple(
-                (int(k), Rule.from_dct(v))
+                (int(k), Rule.make(v, repository))
                 for k, v in dct['whileCaptures'].items()
             )
         else:
@@ -141,7 +158,7 @@ class Rule(NamedTuple):
         include = dct.get('include')
 
         if 'patterns' in dct:
-            patterns = tuple(Rule.from_dct(d) for d in dct['patterns'])
+            patterns = tuple(Rule.make(d, repository) for d in dct['patterns'])
         else:
             patterns = ()
 
@@ -158,29 +175,33 @@ class Rule(NamedTuple):
             while_captures=while_captures,
             include=include,
             patterns=patterns,
+            repository=repository,
         )
 
 
 @uniquely_constructed
 class Grammar(NamedTuple):
     scope_name: str
+    repository: FChainMap[str, _Rule]
     patterns: Tuple[_Rule, ...]
-    repository: FDict[str, _Rule]
 
     @classmethod
-    def from_data(cls, data: Dict[str, Any]) -> 'Grammar':
+    def make(cls, data: Dict[str, Any]) -> 'Grammar':
         scope_name = data['scopeName']
-        patterns = tuple(Rule.from_dct(dct) for dct in data['patterns'])
         if 'repository' in data:
-            repository = FDict({
-                k: Rule.from_dct(dct) for k, dct in data['repository'].items()
-            })
+            # this looks odd, but it's so we can have a self-referential
+            # immutable-after-construction chain map
+            repository_dct: Dict[str, _Rule] = {}
+            repository = FChainMap(repository_dct)
+            for k, dct in data['repository'].items():
+                repository_dct[k] = Rule.make(dct, repository)
         else:
-            repository = FDict({})
+            repository = FChainMap()
+        patterns = tuple(Rule.make(d, repository) for d in data['patterns'])
         return cls(
             scope_name=scope_name,
-            patterns=patterns,
             repository=repository,
+            patterns=patterns,
         )
 
 
@@ -530,22 +551,23 @@ class Compiler:
     def _include(
             self,
             grammar: Grammar,
+            repository: FChainMap[str, _Rule],
             s: str,
     ) -> Tuple[List[str], Tuple[_Rule, ...]]:
         if s == '$self':
             return self._patterns(grammar, grammar.patterns)
         elif s == '$base':
             grammar = self._grammars.grammar_for_scope(self._root_scope)
-            return self._include(grammar, '$self')
+            return self._include(grammar, grammar.repository, '$self')
         elif s.startswith('#'):
-            return self._patterns(grammar, (grammar.repository[s[1:]],))
+            return self._patterns(grammar, (repository[s[1:]],))
         elif '#' not in s:
             grammar = self._grammars.grammar_for_scope(s)
-            return self._include(grammar, '$self')
+            return self._include(grammar, grammar.repository, '$self')
         else:
             scope, _, s = s.partition('#')
             grammar = self._grammars.grammar_for_scope(scope)
-            return self._include(grammar, f'#{s}')
+            return self._include(grammar, grammar.repository, f'#{s}')
 
     @functools.lru_cache(maxsize=None)
     def _patterns(
@@ -557,7 +579,9 @@ class Compiler:
         ret_rules: List[_Rule] = []
         for rule in rules:
             if rule.include is not None:
-                tmp_regs, tmp_rules = self._include(grammar, rule.include)
+                tmp_regs, tmp_rules = self._include(
+                    grammar, rule.repository, rule.include,
+                )
                 ret_regs.extend(tmp_regs)
                 ret_rules.extend(tmp_rules)
             elif rule.match is None and rule.begin is None and rule.patterns:
@@ -669,7 +693,7 @@ class Grammars:
             pass
 
         raw = self._raw_for_scope(scope)
-        ret = self._parsed[scope] = Grammar.from_data(raw)
+        ret = self._parsed[scope] = Grammar.make(raw)
         return ret
 
     def compiler_for_scope(self, scope: str) -> Compiler:
