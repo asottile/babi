@@ -657,7 +657,7 @@ class Grammars:
             os.path.splitext(filename)[0]: os.path.join(directory, filename)
             for directory in directories
             if os.path.exists(directory)
-            for filename in os.listdir(directory)
+            for filename in sorted(os.listdir(directory))
             if filename.endswith('.json')
         }
 
