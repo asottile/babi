@@ -131,12 +131,19 @@ class Screen:
             filename += ' *'
         if len(self.files) > 1:
             files = f'[{self.i + 1}/{len(self.files)}] '
-            version_width = len(VERSION_STR) + 2 + len(files)
         else:
             files = ''
-            version_width = len(VERSION_STR) + 2
-        centered = filename.center(self.margin.cols)[version_width:]
-        s = f' {VERSION_STR} {files}{centered}{files}'
+
+        before, after = f' {VERSION_STR} {files}', f'{files}'
+        room_for_filename = self.margin.cols - 2 * len(before)
+        if len(filename) > room_for_filename:
+            truncate = '... '
+            if len(truncate) >= room_for_filename:
+                truncate = ''
+            filename = truncate + filename[-room_for_filename + len(truncate):]
+
+        centered = filename.center(self.margin.cols)
+        s = before + centered[len(before) - 1:-len(after) - 1] + after
         self.stdscr.insstr(0, 0, s, curses.A_REVERSE)
 
     def _get_sequence_home_end(self, wch: str) -> str:
