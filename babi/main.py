@@ -1,9 +1,12 @@
 import argparse
 import curses
 import os
+import re
 import sys
+from typing import List
 from typing import Optional
 from typing import Sequence
+from typing import Tuple
 
 from babi.buf import Buf
 from babi.file import File
@@ -14,10 +17,11 @@ from babi.screen import make_stdscr
 from babi.screen import Screen
 
 CONSOLE = 'CONIN$' if sys.platform == 'win32' else '/dev/tty'
+POSITION_RE = re.compile(r'^\+-?\d+$')
 
 
 def _edit(screen: Screen, stdin: str) -> EditResult:
-    screen.file.ensure_loaded(screen.status, stdin)
+    screen.file.ensure_loaded(screen.status, screen.margin, stdin)
 
     while True:
         screen.status.tick(screen.margin)
@@ -40,35 +44,36 @@ def _edit(screen: Screen, stdin: str) -> EditResult:
 
 def c_main(
         stdscr: 'curses._CursesWindow',
-        args: argparse.Namespace,
+        filenames: List[Optional[str]],
+        positions: List[int],
         stdin: str,
+        perf: Perf,
 ) -> int:
-    with perf_log(args.perf_log) as perf:
-        screen = Screen(stdscr, args.filenames or [None], perf)
-        with screen.history.save():
-            while screen.files:
-                screen.i = screen.i % len(screen.files)
-                res = _edit(screen, stdin)
-                if res == EditResult.EXIT:
-                    del screen.files[screen.i]
-                    # always go to the next file except at the end
-                    screen.i = min(screen.i, len(screen.files) - 1)
-                    screen.status.clear()
-                elif res == EditResult.NEXT:
-                    screen.i += 1
-                    screen.status.clear()
-                elif res == EditResult.PREV:
-                    screen.i -= 1
-                    screen.status.clear()
-                elif res == EditResult.OPEN:
-                    screen.i = len(screen.files) - 1
-                else:
-                    raise AssertionError(f'unreachable {res}')
+    screen = Screen(stdscr, filenames, positions, perf)
+    with screen.history.save():
+        while screen.files:
+            screen.i = screen.i % len(screen.files)
+            res = _edit(screen, stdin)
+            if res == EditResult.EXIT:
+                del screen.files[screen.i]
+                # always go to the next file except at the end
+                screen.i = min(screen.i, len(screen.files) - 1)
+                screen.status.clear()
+            elif res == EditResult.NEXT:
+                screen.i += 1
+                screen.status.clear()
+            elif res == EditResult.PREV:
+                screen.i -= 1
+                screen.status.clear()
+            elif res == EditResult.OPEN:
+                screen.i = len(screen.files) - 1
+            else:
+                raise AssertionError(f'unreachable {res}')
     return 0
 
 
-def _key_debug(stdscr: 'curses._CursesWindow') -> int:
-    screen = Screen(stdscr, ['<<key debug>>'], Perf())
+def _key_debug(stdscr: 'curses._CursesWindow', perf: Perf) -> int:
+    screen = Screen(stdscr, ['<<key debug>>'], [0], perf)
     screen.file.buf = Buf([''])
 
     while True:
@@ -83,6 +88,37 @@ def _key_debug(stdscr: 'curses._CursesWindow') -> int:
             screen.resize()
         if key.wch == 'q':
             return 0
+
+
+def _filenames(filenames: List[str]) -> Tuple[List[Optional[str]], List[int]]:
+    if not filenames:
+        return [None], [0]
+
+    ret_filenames: List[Optional[str]] = []
+    ret_positions = []
+
+    filenames_iter = iter(filenames)
+    for filename in filenames_iter:
+        if POSITION_RE.match(filename):
+            # in the success case we get:
+            #
+            # position_s = +...
+            # filename = (the next thing)
+            #
+            # in the error case we only need to reset `position_s` as
+            # `filename` is already correct
+            position_s = filename
+            try:
+                filename = next(filenames_iter)
+            except StopIteration:
+                position_s = '+0'
+            ret_positions.append(int(position_s[1:]))
+            ret_filenames.append(filename)
+        else:
+            ret_positions.append(0)
+            ret_filenames.append(filename)
+
+    return ret_filenames, ret_positions
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -102,11 +138,12 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     else:
         stdin = ''
 
-    with make_stdscr() as stdscr:
+    with perf_log(args.perf_log) as perf, make_stdscr() as stdscr:
         if args.key_debug:
-            return _key_debug(stdscr)
+            return _key_debug(stdscr, perf)
         else:
-            return c_main(stdscr, args, stdin)
+            filenames, positions = _filenames(args.filenames)
+            return c_main(stdscr, filenames, positions, stdin, perf)
 
 
 if __name__ == '__main__':

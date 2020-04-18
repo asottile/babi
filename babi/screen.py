@@ -103,14 +103,15 @@ class Screen:
             self,
             stdscr: 'curses._CursesWindow',
             filenames: List[Optional[str]],
+            initial_lines: List[int],
             perf: Perf,
     ) -> None:
         self.stdscr = stdscr
         self.color_manager = ColorManager.make()
         self.hl_factories = (Syntax.from_screen(stdscr, self.color_manager),)
         self.files = [
-            File(filename, self.color_manager, self.hl_factories)
-            for filename in filenames
+            File(filename, line, self.color_manager, self.hl_factories)
+            for filename, line in zip(filenames, initial_lines)
         ]
         self.i = 0
         self.history = History()
@@ -489,7 +490,7 @@ class Screen:
     def open_file(self) -> Optional[EditResult]:
         response = self.prompt('enter filename', history='open')
         if response is not PromptResult.CANCELLED:
-            opened = File(response, self.color_manager, self.hl_factories)
+            opened = File(response, 0, self.color_manager, self.hl_factories)
             self.files.append(opened)
             return EditResult.OPEN
         else:

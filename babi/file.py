@@ -198,10 +198,12 @@ class File:
     def __init__(
             self,
             filename: Optional[str],
+            initial_line: int,
             color_manager: ColorManager,
             hl_factories: Tuple[HLFactory, ...],
     ) -> None:
         self.filename = filename
+        self.initial_line = initial_line
         self.modified = False
         self.buf = Buf([])
         self.nl = '\n'
@@ -215,7 +217,12 @@ class File:
         self.selection = Selection()
         self._file_hls: Tuple[FileHL, ...] = ()
 
-    def ensure_loaded(self, status: Status, stdin: str) -> None:
+    def ensure_loaded(
+            self,
+            status: Status,
+            margin: Margin,
+            stdin: str,
+    ) -> None:
         if self.buf:
             return
 
@@ -256,6 +263,8 @@ class File:
         )
         for file_hl in self._file_hls:
             file_hl.register_callbacks(self.buf)
+
+        self.go_to_line(self.initial_line, margin)
 
     def __repr__(self) -> str:
         return f'<{type(self).__name__} {self.filename!r}>'
