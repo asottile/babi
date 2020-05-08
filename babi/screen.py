@@ -81,6 +81,8 @@ KEYNAME_REWRITE = {
     b'CTL_DOWN': b'kDN5',
     b'CTL_RIGHT': b'kRIT5',
     b'CTL_LEFT': b'kLFT5',
+    b'CTL_HOME': b'kHOM5',
+    b'CTL_END': b'kEND5',
     b'ALT_RIGHT': b'kRIT3',
     b'ALT_LEFT': b'kLFT3',
     # windows-curses: idk why these are different
