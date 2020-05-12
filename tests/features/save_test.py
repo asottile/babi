@@ -133,7 +133,7 @@ def test_save_via_ctrl_o(run, tmpdir):
     with run(str(f)) as h, and_exit(h):
         h.press('hello world')
         h.press('^O')
-        h.await_text(f'enter filename: ')
+        h.await_text('enter filename: ')
         h.press('Enter')
         h.await_text('saved! (1 line written)')
     assert f.read() == 'hello world\n'
@@ -237,7 +237,7 @@ def test_vim_save_on_exit(run, tmpdir):
         h.press_and_enter(':q')
         h.await_text('file is modified - save [yes, no]?')
         h.press('y')
-        h.await_text(f'enter filename: ')
+        h.await_text('enter filename: ')
         h.press('Enter')
         h.await_exit()
 
