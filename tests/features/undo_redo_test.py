@@ -1,3 +1,5 @@
+import pytest
+
 from testing.runner import and_exit
 
 
@@ -9,7 +11,8 @@ def test_nothing_to_undo_redo(run):
         h.await_text('nothing to redo!')
 
 
-def test_undo_redo(run):
+@pytest.mark.parametrize('r', ('M-U', 'M-e'))
+def test_undo_redo(run, r):
     with run() as h, and_exit(h):
         h.press('hello')
         h.await_text('hello')
@@ -17,7 +20,7 @@ def test_undo_redo(run):
         h.await_text('undo: text')
         h.await_text_missing('hello')
         h.await_text_missing(' *')
-        h.press('M-U')
+        h.press(r)
         h.await_text('redo: text')
         h.await_text('hello')
         h.await_text(' *')
