@@ -516,10 +516,13 @@ class Screen:
         return EditResult.EXIT
 
     def background(self) -> None:
-        curses.endwin()
-        os.kill(os.getpid(), signal.SIGSTOP)
-        self.stdscr = _init_screen()
-        self.resize()
+        if sys.platform == 'win32':  # pragma: win32 cover
+            self.status.update('cannot run babi in background on Windows')
+        else:  # pragma: win32 no cover
+            curses.endwin()
+            os.kill(os.getpid(), signal.SIGSTOP)
+            self.stdscr = _init_screen()
+            self.resize()
 
     DISPATCH = {
         b'KEY_RESIZE': resize,
