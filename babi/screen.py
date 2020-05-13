@@ -85,6 +85,7 @@ KEYNAME_REWRITE = {
     b'CTL_END': b'kEND5',
     b'ALT_RIGHT': b'kRIT3',
     b'ALT_LEFT': b'kLFT3',
+    b'ALT_E': b'M-e',
     # windows-curses: idk why these are different
     b'KEY_SUP': b'KEY_SR',
     b'KEY_SDOWN': b'KEY_SF',
@@ -529,6 +530,7 @@ class Screen:
         b'^U': uncut,
         b'M-u': undo,
         b'M-U': redo,
+        b'M-e': redo,
         b'^W': search,
         b'^\\': replace,
         b'^[': command,
