@@ -92,6 +92,7 @@ KEYNAME_REWRITE = {
     b'^?': b'KEY_BACKSPACE',
     # linux, perhaps others
     b'^H': b'KEY_BACKSPACE',  # ^Backspace on my keyboard
+    b'PADENTER': b'^M',  # Enter on numpad
 }
 
 
