@@ -641,9 +641,9 @@ class File:
         self.buf[self.buf.y] += self.buf.pop(self.buf.y + 1)
         self.buf.restore_eof_invariant()
 
-    def _sort(self, margin: Margin, s_y: int, e_y: int) -> None:
+    def _sort(self, margin: Margin, s_y: int, e_y: int, reverse: bool) -> None:
         # self.buf intentionally does not support slicing so we use islice
-        lines = sorted(itertools.islice(self.buf, s_y, e_y))
+        lines = sorted(itertools.islice(self.buf, s_y, e_y), reverse=reverse)
         for i, line in zip(range(s_y, e_y), lines):
             self.buf[i] = line
 
@@ -652,17 +652,17 @@ class File:
         self.buf.scroll_screen_if_needed(margin)
 
     @edit_action('sort', final=True)
-    def sort(self, margin: Margin) -> None:
-        self._sort(margin, 0, len(self.buf) - 1)
+    def sort(self, margin: Margin, reverse: bool = False) -> None:
+        self._sort(margin, 0, len(self.buf) - 1, reverse=reverse)
 
     @edit_action('sort selection', final=True)
     @clear_selection
-    def sort_selection(self, margin: Margin) -> None:
+    def sort_selection(self, margin: Margin, reverse: bool = False) -> None:
         (s_y, _), (e_y, _) = self.selection.get()
         e_y = min(e_y + 1, len(self.buf) - 1)
         if self.buf[e_y - 1] == '':
             e_y -= 1
-        self._sort(margin, s_y, e_y)
+        self._sort(margin, s_y, e_y, reverse=reverse)
 
     DISPATCH = {
         # movement
