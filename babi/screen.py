@@ -433,6 +433,12 @@ class Screen:
             else:
                 self.file.sort(self.margin)
             self.status.update('sorted!')
+        elif response == ':sort!':
+            if self.file.selection.start:
+                self.file.sort_selection(self.margin, reverse=True)
+            else:
+                self.file.sort(self.margin, reverse=True)
+            self.status.update('sorted!')
         elif response is not PromptResult.CANCELLED:
             self.status.update(f'invalid command: {response}')
         return None
