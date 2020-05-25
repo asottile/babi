@@ -226,7 +226,10 @@ class Screen:
         if self._buffered_input is not None:
             wch, self._buffered_input = self._buffered_input, None
         else:
-            wch = self.stdscr.get_wch()
+            try:
+                wch = self.stdscr.get_wch()
+            except curses.error:  # pragma: no cover (macos bug?)
+                wch = self.stdscr.get_wch()
         if isinstance(wch, str) and wch == '\x1b':
             wch = self._get_sequence(wch)
             if len(wch) == 2:
