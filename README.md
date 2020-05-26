@@ -87,7 +87,7 @@ this opens the file, displays it, and can be edited and can save! unknown keys
 are displayed as errors in the status bar.  babi will scroll if the cursor
 goes off screen either from resize events or from movement.  babi can edit
 multiple files.  babi has a command mode (so you can quit it like vim
-<kbd>:q</kbd>!).  babi also support syntax highlighting
+<kbd>:q</kbd>!).  babi also supports syntax highlighting
 
 ![](https://i.fluffy.cc/5WFZBJ4mWs7wtThD9strQnGlJqw4Z9KS.png)
 
