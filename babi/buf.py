@@ -19,11 +19,11 @@ DelCallback = Callable[['Buf', int, str], None]
 InsCallback = Callable[['Buf', int], None]
 
 
-def _offsets(s: str) -> Tuple[int, ...]:
+def _offsets(s: str, tab_size: int) -> Tuple[int, ...]:
     ret = [0]
     for c in s:
         if c == '\t':
-            ret.append(ret[-1] + (4 - ret[-1] % 4))
+            ret.append(ret[-1] + (tab_size - ret[-1] % tab_size))
         else:
             ret.append(ret[-1] + wcwidth(c))
     return tuple(ret)
@@ -57,8 +57,9 @@ class DelModification(NamedTuple):
 
 
 class Buf:
-    def __init__(self, lines: List[str]) -> None:
+    def __init__(self, lines: List[str], tab_size: int = 4) -> None:
         self._lines = lines
+        self.tab_size = tab_size
         self.file_y = self.y = self._x = self._x_hint = 0
 
         self._set_callbacks: List[SetCallback] = [self._set_cb]
@@ -135,6 +136,10 @@ class Buf:
         """
         if self[-1] != '':
             self.append('')
+
+    def set_tab_size(self, tab_size: int) -> None:
+        self.tab_size = tab_size
+        self._positions = [None]
 
     # event handling
 
@@ -219,7 +224,8 @@ class Buf:
         self._extend_positions(idx)
         value = self._positions[idx]
         if value is None:
-            value = self._positions[idx] = _offsets(self._lines[idx])
+            value = _offsets(self._lines[idx], self.tab_size)
+            self._positions[idx] = value
         return value
 
     def line_x(self, margin: Margin) -> int:
@@ -238,7 +244,8 @@ class Buf:
 
     def rendered_line(self, idx: int, margin: Margin) -> str:
         x = self._cursor_x if idx == self.y else 0
-        return scrolled_line(self._lines[idx].expandtabs(4), x, margin.cols)
+        expanded = self._lines[idx].expandtabs(self.tab_size)
+        return scrolled_line(expanded, x, margin.cols)
 
     # movement
 

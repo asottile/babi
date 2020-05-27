@@ -244,7 +244,7 @@ class File:
                     status.update('(new file)')
             lines, self.nl, mixed, self.sha256 = get_lines(io.StringIO(''))
 
-        self.buf = Buf(lines)
+        self.buf = Buf(lines, self.buf.tab_size)
 
         if mixed:
             status.update(f'mixed newlines will be converted to {self.nl!r}')
@@ -523,16 +523,16 @@ class File:
         (s_y, _), (e_y, _) = self.selection.get()
         for l_y in range(s_y, e_y + 1):
             if self.buf[l_y]:
-                self.buf[l_y] = ' ' * 4 + self.buf[l_y]
+                self.buf[l_y] = ' ' * self.buf.tab_size + self.buf[l_y]
                 if l_y == self.buf.y:
-                    self.buf.x += 4
+                    self.buf.x += self.buf.tab_size
                 if l_y == sel_y and sel_x != 0:
-                    sel_x += 4
+                    sel_x += self.buf.tab_size
         self.selection.set(sel_y, sel_x, self.buf.y, self.buf.x)
 
     @edit_action('insert tab', final=False)
     def _tab(self, margin: Margin) -> None:
-        n = 4 - self.buf.x % 4
+        n = self.buf.tab_size - self.buf.x % self.buf.tab_size
         line = self.buf[self.buf.y]
         self.buf[self.buf.y] = line[:self.buf.x] + n * ' ' + line[self.buf.x:]
         self.buf.x += n
@@ -544,9 +544,8 @@ class File:
         else:
             self._tab(margin)
 
-    @staticmethod
-    def _dedent_line(s: str) -> int:
-        bound = min(len(s), 4)
+    def _dedent_line(self, s: str) -> int:
+        bound = min(len(s), self.buf.tab_size)
         i = 0
         while i < bound and s[i] == ' ':
             i += 1

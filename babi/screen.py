@@ -421,7 +421,9 @@ class Screen:
 
     def command(self) -> Optional[EditResult]:
         response = self.prompt('', history='command')
-        if response == ':q':
+        if response is PromptResult.CANCELLED:
+            pass
+        elif response == ':q':
             return self.quit_save_modified()
         elif response == ':q!':
             return EditResult.EXIT
@@ -442,7 +444,20 @@ class Screen:
             else:
                 self.file.sort(self.margin, reverse=True)
             self.status.update('sorted!')
-        elif response is not PromptResult.CANCELLED:
+        elif response.startswith((':tabstop ', ':tabsize ')):
+            _, _, tab_size = response.partition(' ')
+            try:
+                parsed_tab_size = int(tab_size)
+            except ValueError:
+                self.status.update(f'invalid size: {tab_size}')
+            else:
+                if parsed_tab_size <= 0:
+                    self.status.update(f'invalid size: {parsed_tab_size}')
+                else:
+                    for file in self.files:
+                        file.buf.set_tab_size(parsed_tab_size)
+                    self.status.update('updated!')
+        else:
             self.status.update(f'invalid command: {response}')
         return None
 
