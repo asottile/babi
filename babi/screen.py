@@ -417,6 +417,10 @@ class Screen:
                 'replace with', history='replace', allow_empty=True,
             )
             if response is not PromptResult.CANCELLED:
+                if response != '':
+                    # escaping last character example backslash '\'
+                    r = response[-1].encode('unicode-escape').decode()
+                    response = response[:-1] + r
                 self.file.replace(self, search_response, response)
 
     def command(self) -> Optional[EditResult]:
