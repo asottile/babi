@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 
 from testing.runner import and_exit
@@ -302,16 +304,26 @@ def test_replace_with_multiple_newline_characters(run, ten_lines):
         h.await_text('li\nne\n1\n\nline_2')
 
 
-def test_replace_replace_with_ending_backslash(run, ten_lines):
+@pytest.mark.parametrize(
+    'repl, expected', [
+        (r'ohai\ ', 'ohai\\'),
+        (r'a\ga ', 'a\\ga'),
+        pytest.param(
+            r'a\pa ', 'a\\pa',
+            marks=pytest.mark.skipif(
+                sys.version_info < (3, 7),
+                reason='fail only on 3.7',
+            ),
+        ),
+    ],
+)
+def test_replace_replace_with_backslash_crash(run, ten_lines, repl, expected):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
         h.press_and_enter('line_0')
         h.await_text('replace with:')
-        h.press_and_enter('ohai\\')
+        h.press_and_enter(repl[:-1])
         h.await_text('replace [yes, no, all]?')
         h.press('y')
-        h.await_text_missing('line_0')
-        h.await_text('ohai\\')
-        h.await_text(' *')
-        h.await_text('replaced 1 occurrence')
+        h.await_text(f'invalid replace text: {expected}')
