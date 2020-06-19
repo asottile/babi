@@ -411,16 +411,17 @@ class Screen:
             self.file.search(response, self.status, self.margin)
 
     def replace(self) -> None:
+        backslash_re = re.compile(r'^([^\\]*)\\(?!n)(?!1)([^\\]|\\\\)*$')
         search_response = self._get_search_re('search (to replace)')
         if search_response is not PromptResult.CANCELLED:
             response = self.prompt(
                 'replace with', history='replace', allow_empty=True,
             )
             if response is not PromptResult.CANCELLED:
-                try:
-                    self.file.replace(self, search_response, response)
-                except re.error:
+                if backslash_re.match(response):
                     self.status.update(f'invalid replace text: {response}')
+                else:
+                    self.file.replace(self, search_response, response)
 
     def command(self) -> Optional[EditResult]:
         response = self.prompt('', history='command')
