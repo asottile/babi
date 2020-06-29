@@ -2,6 +2,7 @@ import argparse
 import curses
 import os
 import re
+import signal
 import sys
 from typing import List
 from typing import Optional
@@ -137,6 +138,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         os.dup2(tty, sys.stdin.fileno())
     else:
         stdin = ''
+
+    # ignore backgrounding signals, we'll handle those in curses
+    # fixes a problem with ^Z on termination which would break the terminal
+    if sys.platform != 'win32':  # pragma: win32 no cover  # pragma: no branch
+        signal.signal(signal.SIGTSTP, signal.SIG_IGN)
 
     with perf_log(args.perf_log) as perf, make_stdscr() as stdscr:
         if args.key_debug:
