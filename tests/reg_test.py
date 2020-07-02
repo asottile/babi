@@ -35,9 +35,8 @@ def test_reg_other_escapes_left_untouched():
 def test_reg_not_out_of_bounds_at_end():
     # the only way this is triggerable is with an illegal regex, we'd rather
     # produce an error about the regex being wrong than an IndexError
-    reg = _Reg('\\A\\')
     with pytest.raises(onigurumacffi.OnigError) as excinfo:
-        reg.search('\\', 0, first_line=False, boundary=False)
+        _Reg('\\A\\')
     msg, = excinfo.value.args
     assert msg == 'end pattern at escape'
 
