@@ -273,6 +273,7 @@ class CompiledRegsetRule(CompiledRule, Protocol):
 class Entry(NamedTuple):
     scope: Tuple[str, ...]
     rule: CompiledRule
+    start: Tuple[str, int]
     reg: _Reg = ERR_REG
     boundary: bool = False
 
@@ -284,7 +285,7 @@ def _inner_capture_parse(
         scope: Scope,
         rule: CompiledRule,
 ) -> Regions:
-    state = State.root(Entry(scope + rule.name, rule))
+    state = State.root(Entry(scope + rule.name, rule, (s, 0)))
     _, regions = highlight_line(compiler, state, s, first_line=False)
     return tuple(
         r._replace(start=r.start + start, end=r.end + start) for r in regions
@@ -440,7 +441,8 @@ class EndRule(NamedTuple):
 
         boundary = match.end() == len(match.string)
         reg = make_reg(expand_escaped(match, self.end))
-        state = state.push(Entry(next_scope, self, reg, boundary))
+        start = (match.string, match.start())
+        state = state.push(Entry(next_scope, self, start, reg, boundary))
         regions = _captures(compiler, scope, match, self.begin_captures)
         return state, True, regions
 
@@ -455,7 +457,16 @@ class EndRule(NamedTuple):
         if m.start() > pos:
             ret.append(Region(pos, m.start(), state.cur.scope))
         ret.extend(_captures(compiler, state.cur.scope, m, self.end_captures))
-        return state.pop(), m.end(), False, tuple(ret)
+        # this is probably a bug in the grammar, but it pushed and popped at
+        # the same position.
+        # we'll advance the highlighter by one position to get past the loop
+        # this appears to be what vs code does as well
+        if state.entries[-1].start == (m.string, m.end()):
+            ret.append(Region(m.end(), m.end() + 1, state.cur.scope))
+            end = m.end() + 1
+        else:
+            end = m.end()
+        return state.pop(), end, False, tuple(ret)
 
     def search(
             self,
@@ -501,7 +512,9 @@ class WhileRule(NamedTuple):
 
         boundary = match.end() == len(match.string)
         reg = make_reg(expand_escaped(match, self.while_))
-        state = state.push_while(self, Entry(next_scope, self, reg, boundary))
+        start = (match.string, match.start())
+        entry = Entry(next_scope, self, start, reg, boundary)
+        state = state.push_while(self, entry)
         regions = _captures(compiler, scope, match, self.begin_captures)
         return state, True, regions
 
@@ -541,7 +554,7 @@ class Compiler:
         self._rule_to_grammar: Dict[_Rule, Grammar] = {}
         self._c_rules: Dict[_Rule, CompiledRule] = {}
         root = self._compile_root(grammar)
-        self.root_state = State.root(Entry(root.name, root))
+        self.root_state = State.root(Entry(root.name, root, ('', 0)))
 
     def _visit_rule(self, grammar: Grammar, rule: _Rule) -> _Rule:
         self._rule_to_grammar[rule] = grammar

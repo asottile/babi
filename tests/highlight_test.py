@@ -637,3 +637,25 @@ def test_backslash_z(compiler_state):
     assert regions2 == (
         Region(0, 6, ('test', 'comment')),
     )
+
+
+def test_buggy_begin_end_grammar(compiler_state):
+    # before this would result in an infinite loop of start / end
+    compiler, state = compiler_state({
+        'scopeName': 'test',
+        'patterns': [
+            {
+                'begin': '(?=</style)',
+                'end': '(?=</style)',
+                'name': 'css',
+            },
+        ],
+    })
+
+    state, regions = highlight_line(compiler, state, 'test </style', True)
+
+    assert regions == (
+        Region(0, 5, ('test',)),
+        Region(5, 6, ('test', 'css')),
+        Region(6, 12, ('test',)),
+    )
