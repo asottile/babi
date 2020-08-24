@@ -6,6 +6,7 @@ import hashlib
 import io
 import itertools
 import os.path
+import re
 from typing import Any
 from typing import Callable
 from typing import cast
@@ -37,6 +38,8 @@ if TYPE_CHECKING:
     from babi.main import Screen  # XXX: circular
 
 TCallable = TypeVar('TCallable', bound=Callable[..., Any])
+
+WS_RE = re.compile(r'^\s*')
 
 
 def get_lines(sio: IO[str]) -> Tuple[List[str], str, bool, str]:
@@ -650,6 +653,13 @@ class File:
         self.buf.x = 0
         self.buf.scroll_screen_if_needed(margin)
 
+    def _selection_lines(self) -> Tuple[int, int]:
+        (s_y, _), (e_y, _) = self.selection.get()
+        e_y = min(e_y + 1, len(self.buf) - 1)
+        if self.buf[e_y - 1] == '':
+            e_y -= 1
+        return s_y, e_y
+
     @edit_action('sort', final=True)
     def sort(self, margin: Margin, reverse: bool = False) -> None:
         self._sort(margin, 0, len(self.buf) - 1, reverse=reverse)
@@ -657,11 +667,45 @@ class File:
     @edit_action('sort selection', final=True)
     @clear_selection
     def sort_selection(self, margin: Margin, reverse: bool = False) -> None:
-        (s_y, _), (e_y, _) = self.selection.get()
-        e_y = min(e_y + 1, len(self.buf) - 1)
-        if self.buf[e_y - 1] == '':
-            e_y -= 1
+        s_y, e_y = self._selection_lines()
         self._sort(margin, s_y, e_y, reverse=reverse)
+
+    def _is_commented(self, lineno: int, prefix: str) -> bool:
+        return self.buf[lineno].lstrip().startswith(prefix)
+
+    def _comment_remove(self, lineno: int, prefix: str) -> None:
+        line = self.buf[lineno]
+        ws_match = WS_RE.match(line)
+        assert ws_match is not None
+        ws_len = len(ws_match[0])
+        rest_offset = ws_len + len(prefix)
+        if line.startswith(prefix, ws_len):
+            self.buf[lineno] = f'{ws_match[0]}{line[rest_offset:].lstrip()}'
+
+    def _comment_add(self, lineno: int, prefix: str) -> None:
+        line = self.buf[lineno]
+        ws_match = WS_RE.match(line)
+        assert ws_match is not None
+        ws_len = len(ws_match[0])
+        self.buf[lineno] = f'{ws_match[0]}{prefix} {line[ws_len:]}'
+
+    @edit_action('comment', final=True)
+    def toggle_comment(self, prefix: str) -> None:
+        if self._is_commented(self.buf.y, prefix):
+            self._comment_remove(self.buf.y, prefix)
+        else:
+            self._comment_add(self.buf.y, prefix)
+
+    @edit_action('comment selection', final=True)
+    @clear_selection
+    def toggle_comment_selection(self, prefix: str) -> None:
+        s_y, e_y = self._selection_lines()
+        commented = self._is_commented(s_y, prefix)
+        for lineno in range(s_y, e_y):
+            if commented:
+                self._comment_remove(lineno, prefix)
+            else:
+                self._comment_add(lineno, prefix)
 
     DISPATCH = {
         # movement
