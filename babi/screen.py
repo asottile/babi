@@ -457,6 +457,13 @@ class Screen:
                     for file in self.files:
                         file.buf.set_tab_size(parsed_tab_size)
                     self.status.update('updated!')
+        elif response == ':comment' or response.startswith(':comment '):
+            _, _, comment = response.partition(' ')
+            comment = (comment or '#').strip()
+            if self.file.selection.start:
+                self.file.toggle_comment_selection(comment)
+            else:
+                self.file.toggle_comment(comment)
         else:
             self.status.update(f'invalid command: {response}')
         return None
