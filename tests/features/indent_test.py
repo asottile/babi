@@ -1,4 +1,5 @@
 from testing.runner import and_exit
+from testing.runner import trigger_command_mode
 
 
 def test_indent_at_beginning_of_line(run):
@@ -85,6 +86,20 @@ def test_dedent_selection(run, tmpdir):
             h.press('S-Down')
         h.press('BTab')
         h.await_text('\n1\n2\n    3\n')
+
+
+def test_dedent_selection_with_noexpandtabs(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('1\n\t2\n\t\t3\n')
+    with run(str(f)) as h, and_exit(h):
+        trigger_command_mode(h)
+        h.press_and_enter(':noexpandtabs')
+        h.await_text('updated!')
+        for _ in range(3):
+            h.press('S-Down')
+        h.press('BTab')
+        h.press('^S')
+    assert f.read() == '1\n2\n\t3\n'
 
 
 def test_dedent_beginning_of_line(run, tmpdir):

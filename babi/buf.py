@@ -59,6 +59,7 @@ class DelModification(NamedTuple):
 class Buf:
     def __init__(self, lines: List[str], tab_size: int = 4) -> None:
         self._lines = lines
+        self.expandtabs = True
         self.tab_size = tab_size
         self.file_y = self.y = self._x = self._x_hint = 0
 
@@ -241,6 +242,13 @@ class Buf:
         return y, x
 
     # rendered lines
+
+    @property
+    def tab_string(self) -> str:
+        if self.expandtabs:
+            return ' ' * self.tab_size
+        else:
+            return '\t'
 
     def rendered_line(self, idx: int, margin: Margin) -> str:
         x = self._cursor_x if idx == self.y else 0
