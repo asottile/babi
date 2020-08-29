@@ -73,3 +73,27 @@ def test_comment_with_trailing_whitespace(run, ten_lines):
         h.press_and_enter(':comment //   ')
 
         h.await_text('// line_0\nline_1\n')
+
+
+def test_comment_cursor_at_end_of_line(run, ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('# ')
+        h.press('End')
+        h.await_cursor_position(x=8, y=1)
+
+        trigger_command_mode(h)
+        h.press_and_enter(':comment')
+
+        h.await_cursor_position(x=6, y=1)
+
+
+def test_add_comment_moves_cursor(run, ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('End')
+
+        h.await_cursor_position(x=6, y=1)
+
+        trigger_command_mode(h)
+        h.press_and_enter(':comment')
+
+        h.await_cursor_position(x=8, y=1)
