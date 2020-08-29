@@ -153,3 +153,8 @@ def test_syntax_highlighting_tabs_after_line_creation(run, tmpdir):
         h.press('Enter')
 
         h.await_text('foo\n    x\nx\ny\n')
+
+
+def test_does_not_crash_with_no_color_support(run):
+    with run(term='xterm-mono') as h, and_exit(h):
+        pass
