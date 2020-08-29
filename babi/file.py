@@ -681,13 +681,18 @@ class File:
         rest_offset = ws_len + len(prefix)
         if line.startswith(prefix, ws_len):
             self.buf[lineno] = f'{ws_match[0]}{line[rest_offset:].lstrip()}'
+            if self.buf.y == lineno and self.buf.x > ws_len:
+                self.buf.x -= len(line) - len(self.buf[lineno])
 
     def _comment_add(self, lineno: int, prefix: str) -> None:
+        prefix = f'{prefix} '
         line = self.buf[lineno]
         ws_match = WS_RE.match(line)
         assert ws_match is not None
         ws_len = len(ws_match[0])
-        self.buf[lineno] = f'{ws_match[0]}{prefix} {line[ws_len:]}'
+        self.buf[lineno] = f'{ws_match[0]}{prefix}{line[ws_len:]}'
+        if lineno == self.buf.y:
+            self.buf.x += len(prefix)
 
     @edit_action('comment', final=True)
     def toggle_comment(self, prefix: str) -> None:
