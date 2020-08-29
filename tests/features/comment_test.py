@@ -97,3 +97,18 @@ def test_add_comment_moves_cursor(run, ten_lines):
         h.press_and_enter(':comment')
 
         h.await_cursor_position(x=8, y=1)
+
+
+def test_do_not_move_if_cursor_before_comment(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('\t\tfoo')
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('Right')
+
+        h.await_cursor_position(x=4, y=1)
+
+        trigger_command_mode(h)
+        h.press_and_enter(':comment')
+
+        h.await_cursor_position(x=4, y=1)
