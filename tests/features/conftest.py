@@ -303,6 +303,7 @@ class DeferredRunner:
         self.color_pairs = {0: (7, 0)}
         self.screen = Screen(width, height)
         self._n_colors, self._can_change_color = {
+            'xterm-mono': (0, False),
             'screen': (8, False),
             'screen-256color': (256, False),
             'xterm-256color': (256, True),

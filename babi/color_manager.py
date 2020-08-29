@@ -33,14 +33,17 @@ class ColorManager(NamedTuple):
         return self.raw_color_pair(fg_i, bg_i)
 
     def raw_color_pair(self, fg: int, bg: int) -> int:
-        try:
-            return self.raw_pairs[(fg, bg)]
-        except KeyError:
-            pass
+        if curses.COLORS > 0:
+            try:
+                return self.raw_pairs[(fg, bg)]
+            except KeyError:
+                pass
 
-        n = self.raw_pairs[(fg, bg)] = len(self.raw_pairs) + 1
-        curses.init_pair(n, fg, bg)
-        return n
+            n = self.raw_pairs[(fg, bg)] = len(self.raw_pairs) + 1
+            curses.init_pair(n, fg, bg)
+            return n
+        else:
+            return 0
 
     @classmethod
     def make(cls) -> 'ColorManager':
