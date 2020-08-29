@@ -691,7 +691,7 @@ class File:
         assert ws_match is not None
         ws_len = len(ws_match[0])
         self.buf[lineno] = f'{ws_match[0]}{prefix}{line[ws_len:]}'
-        if lineno == self.buf.y:
+        if lineno == self.buf.y and self.buf.x > ws_len:
             self.buf.x += len(prefix)
 
     @edit_action('comment', final=True)
