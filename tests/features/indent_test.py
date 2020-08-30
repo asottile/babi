@@ -12,11 +12,12 @@ def test_indent_at_beginning_of_line(run):
 
 def test_indent_not_full_tab(run):
     with run() as h, and_exit(h):
-        h.press('h')
+        h.press('hello')
+        h.press('Home')
+        h.press('Right')
         h.press('Tab')
-        h.press('ello')
         h.await_text('h   ello')
-        h.await_cursor_position(x=8, y=1)
+        h.await_cursor_position(x=4, y=1)
 
 
 def test_indent_fixes_eof(run):
