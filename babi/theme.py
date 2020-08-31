@@ -147,5 +147,5 @@ class Theme(NamedTuple):
         if not os.path.exists(filename):
             return cls.blank()
         else:
-            with open(filename) as f:
+            with open(filename, encoding='UTF-8') as f:
                 return cls.from_dct(json.load(f))

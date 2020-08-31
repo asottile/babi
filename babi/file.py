@@ -236,7 +236,7 @@ class File:
             sio = io.StringIO(stdin)
             lines, self.nl, mixed, self.sha256 = get_lines(sio)
         elif self.filename is not None and os.path.isfile(self.filename):
-            with open(self.filename, newline='') as f:
+            with open(self.filename, encoding='UTF-8', newline='') as f:
                 lines, self.nl, mixed, self.sha256 = get_lines(f)
         else:
             if self.filename is not None:

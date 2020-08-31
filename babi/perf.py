@@ -36,7 +36,7 @@ class Perf:
     def save_profiles(self, filename: str) -> None:
         assert self._prof is not None
         self._prof.dump_stats(f'{filename}.pstats')
-        with open(filename, 'w') as f:
+        with open(filename, 'w', encoding='UTF-8') as f:
             f.write('μs\tevent\n')
             for name, duration in self._records:
                 f.write(f'{int(duration * 1000 * 1000)}\t{name}\n')

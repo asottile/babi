@@ -133,7 +133,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     if '-' in args.filenames:
         print('reading stdin...', file=sys.stderr)
-        stdin = sys.stdin.read()
+        stdin = sys.stdin.buffer.read().decode()
         tty = os.open(CONSOLE, os.O_RDONLY)
         os.dup2(tty, sys.stdin.fileno())
     else:

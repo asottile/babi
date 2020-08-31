@@ -688,7 +688,7 @@ class Grammars:
             pass
 
         grammar_path = self._scope_to_files.pop(scope)
-        with open(grammar_path) as f:
+        with open(grammar_path, encoding='UTF-8') as f:
             ret = self._raw[scope] = json.load(f)
 
         file_types = frozenset(ret.get('fileTypes', ()))
