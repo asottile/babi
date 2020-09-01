@@ -37,7 +37,7 @@ def _highlight_output(theme: Theme, compiler: Compiler, filename: str) -> int:
 
     if theme.default.bg is not None:
         print('\x1b[48;2;{r};{g};{b}m'.format(**theme.default.bg._asdict()))
-    with open(filename) as f:
+    with open(filename, encoding='UTF-8') as f:
         for line_idx, line in enumerate(f):
             first_line = line_idx == 0
             state, regions = highlight_line(compiler, state, line, first_line)
@@ -54,7 +54,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     parser.add_argument('filename')
     args = parser.parse_args(argv)
 
-    with open(args.filename) as f:
+    with open(args.filename, encoding='UTF-8') as f:
         first_line = next(f, '')
 
     theme = Theme.from_filename(args.theme)

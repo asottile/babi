@@ -483,7 +483,7 @@ class Screen:
                 self.file.filename = filename
 
         if os.path.isfile(self.file.filename):
-            with open(self.file.filename, newline='') as f:
+            with open(self.file.filename, encoding='UTF-8', newline='') as f:
                 *_, sha256 = get_lines(f)
         else:
             sha256 = hashlib.sha256(b'').hexdigest()
@@ -496,7 +496,7 @@ class Screen:
             self.status.update('(file changed on disk, not implemented)')
             return PromptResult.CANCELLED
 
-        with open(self.file.filename, 'w', newline='') as f:
+        with open(self.file.filename, 'w', encoding='UTF-8', newline='') as f:
             f.write(contents)
 
         self.file.modified = False
