@@ -457,6 +457,14 @@ class Screen:
                     for file in self.files:
                         file.buf.set_tab_size(parsed_tab_size)
                     self.status.update('updated!')
+        elif response.startswith(':expandtabs'):
+            for file in self.files:
+                file.buf.expandtabs = True
+            self.status.update('updated!')
+        elif response.startswith(':noexpandtabs'):
+            for file in self.files:
+                file.buf.expandtabs = False
+            self.status.update('updated!')
         elif response == ':comment' or response.startswith(':comment '):
             _, _, comment = response.partition(' ')
             comment = (comment or '#').strip()

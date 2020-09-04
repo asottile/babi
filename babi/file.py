@@ -524,20 +524,29 @@ class File:
         assert self.selection.start is not None
         sel_y, sel_x = self.selection.start
         (s_y, _), (e_y, _) = self.selection.get()
+        tab_string = self.buf.tab_string
+        tab_size = len(tab_string)
         for l_y in range(s_y, e_y + 1):
             if self.buf[l_y]:
-                self.buf[l_y] = ' ' * self.buf.tab_size + self.buf[l_y]
+                self.buf[l_y] = tab_string + self.buf[l_y]
                 if l_y == self.buf.y:
-                    self.buf.x += self.buf.tab_size
+                    self.buf.x += tab_size
                 if l_y == sel_y and sel_x != 0:
-                    sel_x += self.buf.tab_size
+                    sel_x += tab_size
         self.selection.set(sel_y, sel_x, self.buf.y, self.buf.x)
 
     @edit_action('insert tab', final=False)
     def _tab(self, margin: Margin) -> None:
-        n = self.buf.tab_size - self.buf.x % self.buf.tab_size
+        tab_string = self.buf.tab_string
+        if tab_string == '\t':
+            n = 1
+        else:
+            n = self.buf.tab_size - self.buf.x % self.buf.tab_size
+            tab_string = tab_string[:n]
         line = self.buf[self.buf.y]
-        self.buf[self.buf.y] = line[:self.buf.x] + n * ' ' + line[self.buf.x:]
+        self.buf[self.buf.y] = (
+            line[:self.buf.x] + tab_string + line[self.buf.x:]
+        )
         self.buf.x += n
         self.buf.restore_eof_invariant()
 
@@ -548,9 +557,9 @@ class File:
             self._tab(margin)
 
     def _dedent_line(self, s: str) -> int:
-        bound = min(len(s), self.buf.tab_size)
+        bound = min(len(s), len(self.buf.tab_string))
         i = 0
-        while i < bound and s[i] == ' ':
+        while i < bound and s[i] in (' ', '\t'):
             i += 1
         return i
 
