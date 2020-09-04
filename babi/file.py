@@ -673,44 +673,55 @@ class File:
     def _is_commented(self, lineno: int, prefix: str) -> bool:
         return self.buf[lineno].lstrip().startswith(prefix)
 
+    def _indent(self, lineno: int) -> str:
+        ws_match = WS_RE.match(self.buf[lineno])
+        assert ws_match is not None
+        return ws_match[0]
+
+    def _minimum_indent_for_selection(self) -> int:
+        s_y, e_y = self._selection_lines()
+        return min(len(self._indent(lineno)) for lineno in range(s_y, e_y))
+
     def _comment_remove(self, lineno: int, prefix: str) -> None:
         line = self.buf[lineno]
-        ws_match = WS_RE.match(line)
-        assert ws_match is not None
-        ws_len = len(ws_match[0])
-        rest_offset = ws_len + len(prefix)
-        if line.startswith(prefix, ws_len):
-            self.buf[lineno] = f'{ws_match[0]}{line[rest_offset:].lstrip()}'
-            if self.buf.y == lineno and self.buf.x > ws_len:
-                self.buf.x -= len(line) - len(self.buf[lineno])
+        indent = self._indent(lineno)
+        ws_len = len(indent)
 
-    def _comment_add(self, lineno: int, prefix: str) -> None:
-        prefix = f'{prefix} '
+        if line.startswith(f'{prefix} ', ws_len):
+            self.buf[lineno] = f'{indent}{line[ws_len + len(prefix) + 1:]}'
+        elif line.startswith(prefix, ws_len):
+            self.buf[lineno] = f'{indent}{line[ws_len + len(prefix):]}'
+
+        if self.buf.y == lineno and self.buf.x > ws_len:
+            self.buf.x -= len(line) - len(self.buf[lineno])
+
+    def _comment_add(self, lineno: int, prefix: str, s_offset: int) -> None:
         line = self.buf[lineno]
-        ws_match = WS_RE.match(line)
-        assert ws_match is not None
-        ws_len = len(ws_match[0])
-        self.buf[lineno] = f'{ws_match[0]}{prefix}{line[ws_len:]}'
-        if lineno == self.buf.y and self.buf.x > ws_len:
-            self.buf.x += len(prefix)
+
+        self.buf[lineno] = f'{line[:s_offset]}{prefix} {line[s_offset:]}'
+
+        if lineno == self.buf.y and self.buf.x > s_offset:
+            self.buf.x += len(self.buf[lineno]) - len(line)
 
     @edit_action('comment', final=True)
     def toggle_comment(self, prefix: str) -> None:
         if self._is_commented(self.buf.y, prefix):
             self._comment_remove(self.buf.y, prefix)
         else:
-            self._comment_add(self.buf.y, prefix)
+            ws_len = len(self._indent(self.buf.y))
+            self._comment_add(self.buf.y, prefix, ws_len)
 
     @edit_action('comment selection', final=True)
     @clear_selection
     def toggle_comment_selection(self, prefix: str) -> None:
         s_y, e_y = self._selection_lines()
         commented = self._is_commented(s_y, prefix)
+        minimum_indent = self._minimum_indent_for_selection()
         for lineno in range(s_y, e_y):
             if commented:
                 self._comment_remove(lineno, prefix)
             else:
-                self._comment_add(lineno, prefix)
+                self._comment_add(lineno, prefix, minimum_indent)
 
     DISPATCH = {
         # movement
