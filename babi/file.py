@@ -707,7 +707,10 @@ class File:
     def _comment_add(self, lineno: int, prefix: str, s_offset: int) -> None:
         line = self.buf[lineno]
 
-        self.buf[lineno] = f'{line[:s_offset]}{prefix} {line[s_offset:]}'
+        if not line:
+            self.buf[lineno] = f'{prefix}'
+        else:
+            self.buf[lineno] = f'{line[:s_offset]}{prefix} {line[s_offset:]}'
 
         if lineno == self.buf.y and self.buf.x > s_offset:
             self.buf.x += len(self.buf[lineno]) - len(line)
