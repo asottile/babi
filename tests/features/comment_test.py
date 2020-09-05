@@ -21,6 +21,20 @@ def test_comment_some_code(run, ten_lines):
         h.await_text('# line_0\n# line_1\nline_2\n')
 
 
+def test_comment_empty_line_trailing_whitespace(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('1\n\n2\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('S-Down')
+        h.press('S-Down')
+
+        trigger_command_mode(h)
+        h.press_and_enter(':comment')
+
+        h.await_text('# 1\n#\n# 2')
+
+
 def test_comment_some_code_with_alternate_comment_character(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('S-Down')
