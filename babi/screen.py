@@ -520,6 +520,8 @@ class Screen:
                 action.end_modified = not first
                 action.start_modified = True
                 first = False
+
+        self.file.refresh_syntax()
         return None
 
     def save_filename(self) -> Optional[PromptResult]:

@@ -220,6 +220,21 @@ class File:
         self.selection = Selection()
         self._file_hls: Tuple[FileHL, ...] = ()
 
+    def refresh_syntax(self) -> None:
+        file_hls = []
+        for factory in self._hl_factories:
+            if self.filename is not None:
+                hl = factory.file_highlighter(self.filename, self.buf[0])
+                file_hls.append(hl)
+            else:
+                file_hls.append(factory.blank_file_highlighter())
+        self._file_hls = (
+            *file_hls,
+            self._trailing_whitespace, self._replace_hl, self.selection,
+        )
+        for file_hl in self._file_hls:
+            file_hl.register_callbacks(self.buf)
+
     def ensure_loaded(
             self,
             status: Status,
@@ -253,20 +268,7 @@ class File:
             status.update(f'mixed newlines will be converted to {self.nl!r}')
             self.modified = True
 
-        file_hls = []
-        for factory in self._hl_factories:
-            if self.filename is not None:
-                hl = factory.file_highlighter(self.filename, self.buf[0])
-                file_hls.append(hl)
-            else:
-                file_hls.append(factory.blank_file_highlighter())
-        self._file_hls = (
-            *file_hls,
-            self._trailing_whitespace, self._replace_hl, self.selection,
-        )
-        for file_hl in self._file_hls:
-            file_hl.register_callbacks(self.buf)
-
+        self.refresh_syntax()
         self.go_to_line(self.initial_line, margin)
 
     def __repr__(self) -> str:
