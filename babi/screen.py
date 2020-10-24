@@ -38,6 +38,8 @@ EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV OPEN')
 SEQUENCE_KEYNAME = {
     '\x1bOH': b'KEY_HOME',
     '\x1bOF': b'KEY_END',
+    '\x1b[1~': b'KEY_HOME',
+    '\x1b[4~': b'KEY_END',
     '\x1b[1;2A': b'KEY_SR',
     '\x1b[1;2B': b'KEY_SF',
     '\x1b[1;2C': b'KEY_SRIGHT',
@@ -60,6 +62,7 @@ SEQUENCE_KEYNAME = {
     '\x1b[1;6D': b'kLFT6',  # Shift + ^Left
     '\x1b[1;6H': b'kHOM6',  # Shift + ^Home
     '\x1b[1;6F': b'kEND6',  # Shift + ^End
+    '\x1b[~': b'KEY_BTAB',  # Shift + Tab
 }
 KEYNAME_REWRITE = {
     # windows-curses: numeric pad arrow keys
