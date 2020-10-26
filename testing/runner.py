@@ -70,6 +70,8 @@ def to_attrs(screen, width):
 class PrintsErrorRunner(Runner):
     def __init__(self, *args, **kwargs):
         self._prev_screenshot = None
+        self.shutdown_called = False
+        self.report_file = '/tmp/report.txt'
         super().__init__(*args, **kwargs)
 
     def screenshot(self, *args, **kwargs):
@@ -208,6 +210,10 @@ class PrintsErrorRunner(Runner):
         except AssertionError:  # pragma: no cover (only on failure)
             self.screenshot()
             raise
+
+    def __del__(self):
+       self.shutdown_called = True
+
 
 
 @contextlib.contextmanager
