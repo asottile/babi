@@ -72,14 +72,15 @@ def test_delete_at_end_of_file(run, tmpdir):
         h.await_text_missing('*')
 
 
-def test_delete_removes_character_afterwards(run, tmpdir):
+@pytest.mark.parametrize('key', ('DC', '^D'))
+def test_delete_removes_character_afterwards(run, tmpdir, key):
     f = tmpdir.join('f')
     f.write('hello world')
 
     with run(str(f)) as h, and_exit(h):
         h.await_text('hello world')
         h.press('Right')
-        h.press('DC')
+        h.press(key)
         h.await_text('hllo world')
         h.await_text('f *')
 

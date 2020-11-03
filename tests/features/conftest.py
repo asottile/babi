@@ -290,6 +290,7 @@ KEYS = [
     Key('^_', b'^_', '\x1f'),
     Key('^\\', b'^\\', '\x1c'),
     Key('!resize', b'KEY_RESIZE', curses.KEY_RESIZE),
+    Key('^D', b'^D', '\x04'),
 ]
 KEYS_TMUX = {k.tmux: k.wch for k in KEYS}
 KEYS_CURSES = {k.value: k.curses for k in KEYS}
