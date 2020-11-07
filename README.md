@@ -1,5 +1,6 @@
 [![Build Status](https://dev.azure.com/asottile/asottile/_apis/build/status/asottile.babi?branchName=master)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=29&branchName=master)
 [![Azure DevOps coverage](https://img.shields.io/azure-devops/coverage/asottile/asottile/29/master.svg)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=29&branchName=master)
+[![pre-commit.ci status](https://results.pre-commit.ci/badge/github/asottile/babi/master.svg)](https://results.pre-commit.ci/latest/github/asottile/babi/master)
 
 ![babi logo](https://user-images.githubusercontent.com/1810591/89981369-9ed84e80-dc28-11ea-9708-5f4c49c09632.png)
 
