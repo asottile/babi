@@ -589,7 +589,10 @@ class Screen:
 
 def _init_screen() -> 'curses._CursesWindow':
     # set the escape delay so curses does not pause waiting for sequences
-    if sys.version_info >= (3, 9):  # pragma: no cover
+    if (
+            sys.version_info >= (3, 9) and
+            hasattr(curses, 'set_escdelay')
+    ):  # pragma: no cover
         curses.set_escdelay(25)
     else:  # pragma: no cover
         os.environ.setdefault('ESCDELAY', '25')
