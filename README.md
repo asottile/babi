@@ -18,6 +18,13 @@ a text editor, eventually...
 I used to use the text editor `nano`, frequently I typo this.  on a qwerty
 keyboard, when the right hand is shifted left by one, `nano` becomes `babi`.
 
+### babi vs. nano
+
+here is a youtube video where I discuss the motivation for creating and using
+`babi` instead of `nano`:
+
+[![youtube video about babi](https://img.youtube.com/vi/WyR1hAGmR3g/mqdefault.jpg)](https://youtu.be/WyR1hAGmR3g)
+
 ### quitting babi
 
 currently you can quit `babi` by using <kbd>^X</kbd> (or via <kbd>esc</kbd> +
