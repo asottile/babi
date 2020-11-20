@@ -273,7 +273,7 @@ class Screen:
             prompt: str,
             opt_strs: Tuple[str, ...],
     ) -> Union[str, PromptResult]:
-        opts = [opt[0] for opt in opt_strs]
+        opts = {opt[0] for opt in opt_strs}
         while True:
             x = 0
             prompt_line = self.margin.lines - 1
@@ -310,8 +310,8 @@ class Screen:
                 self.resize()
             elif key.keyname == b'^C':
                 return self.status.cancelled()
-            elif isinstance(key.wch, str) and key.wch in opts:
-                return key.wch
+            elif isinstance(key.wch, str) and key.wch.lower() in opts:
+                return key.wch.lower()
 
     def prompt(
             self,
