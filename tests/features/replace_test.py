@@ -30,7 +30,8 @@ def test_replace_cancel_at_replace_string(run):
         h.await_text('cancelled')
 
 
-def test_replace_actual_contents(run, ten_lines):
+@pytest.mark.parametrize('key', ('y', 'Y'))
+def test_replace_actual_contents(run, ten_lines, key):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('^\\')
         h.await_text('search (to replace):')
@@ -38,7 +39,7 @@ def test_replace_actual_contents(run, ten_lines):
         h.await_text('replace with:')
         h.press_and_enter('ohai')
         h.await_text('replace [yes, no, all]?')
-        h.press('y')
+        h.press(key)
         h.await_text_missing('line_0')
         h.await_text('ohai')
         h.await_text(' *')
