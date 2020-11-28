@@ -176,3 +176,20 @@ def test_buf_pop_idx():
     buf.apply(modifications)
 
     assert lst == ['a', 'b', 'c']
+
+
+@pytest.mark.parametrize(
+    ('lines', 'exp_tab_size'),
+    (
+        pytest.param(['a', '  b', '    c'], 2, id='not_default'),
+        pytest.param(['a', '\tb', 'c'], 4, id='hard_tab'),
+        pytest.param(['a', 'b', 'c'], 4, id='unknown'),
+        pytest.param(['a', '    ', '  b'], 2, id='tr_ws_first'),
+        pytest.param(['a', '\t\t', '\tb'], 4, id='tr_ws_first_hard_tab'),
+        pytest.param(['a', '  ', 'b'], 4, id='tr_ws_unknown'),
+        pytest.param([], 4, id='empty'),
+    ),
+)
+def test_buf_get_tabsize(lines, exp_tab_size):
+    buf = Buf(lines)
+    assert buf.tab_size == exp_tab_size
