@@ -11,9 +11,10 @@ from typing import Any
 import cson  # pip install cson
 
 TOKEN = re.compile(br'(\\\\|\\"|"|//|\n)')
+COMMAS = re.compile(br'(?<=[}\]"\']),(?!\s*[{["\'])')
 
 
-def json_with_comments(s: bytes) -> Any:
+def _remove_js_comments(s: bytes) -> bytes:
     bio = io.BytesIO()
 
     idx = 0
@@ -39,11 +40,24 @@ def json_with_comments(s: bytes) -> Any:
         idx = match.end()
         match = TOKEN.search(s, idx)
 
-    bio.seek(0)
-    return json.load(bio)
+    return bio.getvalue()
 
 
-STRATEGIES = (json.loads, plistlib.loads, cson.loads, json_with_comments)
+def json_with_comments(s: bytes) -> Any:
+    return json.loads(_remove_js_comments(s))
+
+
+def json_rm_commas(s: bytes) -> Any:
+    return json.loads(re.sub(COMMAS, b'', _remove_js_comments(s)))
+
+
+STRATEGIES = (
+    json.loads,
+    plistlib.loads,
+    cson.loads,
+    json_with_comments,
+    json_rm_commas
+)
 
 
 def main() -> int:
