@@ -56,7 +56,7 @@ STRATEGIES = (
     plistlib.loads,
     cson.loads,
     json_with_comments,
-    json_rm_commas
+    json_rm_commas,
 )
 
 
