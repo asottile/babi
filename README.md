@@ -27,8 +27,7 @@ here is a youtube video where I discuss the motivation for creating and using
 
 ### quitting babi
 
-currently you can quit `babi` by using <kbd>^X</kbd> (or via <kbd>esc</kbd> +
-<kbd>:q</kbd>).
+you can't quit babi. babi is for life. awcCarpet
 
 ### key combinations
 
