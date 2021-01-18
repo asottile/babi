@@ -476,7 +476,11 @@ class File:
         if self.buf.y == 0 and self.buf.x == 0:
             pass
         # backspace at the end of the file does not change the contents
-        elif self.buf.y == len(self.buf) - 1:
+        elif (
+                self.buf.y == len(self.buf) - 1 and
+                # still allow backspace if there are 2+ blank lines
+                self.buf[self.buf.y - 1] != ''
+        ):
             self.buf.left(margin)
         # at the beginning of the line, we join the current line and
         # the previous line
