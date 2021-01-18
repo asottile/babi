@@ -50,6 +50,18 @@ def test_backspace_at_end_of_file_still_allows_scrolling_down(run, tmpdir):
         h.await_text_missing('*')
 
 
+def test_backspace_deletes_newline_at_end_of_file(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('foo\n\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('^End')
+        h.press('BSpace')
+        h.press('^S')
+
+    assert f.read() == 'foo\n'
+
+
 @pytest.mark.parametrize('key', ('BSpace', '^H'))
 def test_backspace_deletes_text(run, tmpdir, key):
     f = tmpdir.join('f')
