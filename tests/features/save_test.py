@@ -128,6 +128,18 @@ def test_save_file_when_it_did_not_exist(run, tmpdir):
     assert f.read() == 'hello world\n'
 
 
+def test_saving_file_permission_denied(run, tmpdir):
+    f = tmpdir.join('f').ensure()
+    f.chmod(0o400)
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('hello world')
+        h.press('^S')
+        # the filename message is missing as it is too long to be captured
+        h.await_text('cannot save file: [Errno 13] Permission denied:')
+        h.await_text(' *')
+
+
 def test_save_via_ctrl_o(run, tmpdir):
     f = tmpdir.join('f')
     with run(str(f)) as h, and_exit(h):

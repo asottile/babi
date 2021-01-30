@@ -508,8 +508,14 @@ class Screen:
             self.status.update('(file changed on disk, not implemented)')
             return PromptResult.CANCELLED
 
-        with open(self.file.filename, 'w', encoding='UTF-8', newline='') as f:
-            f.write(contents)
+        try:
+            with open(
+                self.file.filename, 'w', encoding='UTF-8', newline='',
+            ) as f:
+                f.write(contents)
+        except OSError as e:
+            self.status.update(f'cannot save file: {e}')
+            return PromptResult.CANCELLED
 
         self.file.modified = False
         self.file.sha256 = sha256_to_save
