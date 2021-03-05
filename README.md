@@ -87,6 +87,25 @@ here's a modified vs dark plus theme that works:
 ./bin/download-theme vs-dark-asottile https://gist.github.com/asottile/b465856c82b1aaa4ba8c7c6314a72e13/raw/22d602fb355fb12b04f176a733941ba5713bc36c/vs_dark_asottile.json
 ```
 
+### keyboard shortcuts on macos
+
+to get the most out of babi's built in keyboard shortcuts, a few settings must
+be changed on macos with Terminal.app:
+
+- in **System Preferences**: **Keyboard** > **Shortcuts** >
+  **Mission Control**: disable or rebind "Move left a space" and
+  "Move right a space" (the defaults `⌃ →` and `⌃ ←` conflict)
+- in **Terminal.app**: **Terminal** > **Preferences** > **Profiles** >
+  **Keyboard**:
+    - check **Use Option as Meta key**
+    - ensure the following keys are enabled:
+        - `⌃ →`: `\033[1;5C`
+        - `⌃ ←`: `\033[1;5D`
+        - `⇧ ↑`: `\033[1;2A`
+        - `⇧ ↓`: `\033[1;2B`
+        - `⇧ →`: `\033[1;2C`
+        - `⇧ ←`: `\033[1;2D`
+
 ## demos
 
 most things work!  here's a few screenshots
