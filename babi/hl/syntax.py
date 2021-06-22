@@ -115,8 +115,7 @@ class FileSyntax:
             state = self._states[-1]
 
         for i in range(len(self._states), idx):
-            # https://github.com/python/mypy/issues/8579
-            state, regions = self._hl(state, lines[i], i == 0)  # type: ignore
+            state, regions = self._hl(state, lines[i], i == 0)
             self._states.append(state)
             self.regions.append(regions)
 
