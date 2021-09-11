@@ -162,6 +162,18 @@ def test_save_via_ctrl_o_set_filename(run, tmpdir):
     assert f.read() == 'hello world\n'
 
 
+def test_save_via_ctrl_o_new_filename(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('wat\n')
+    with run(str(f)) as h, and_exit(h):
+        h.press('^O')
+        h.await_text('enter filename: ')
+        h.press_and_enter('new')
+        h.await_text('saved! (1 line written)')
+    assert f.read() == 'wat\n'
+    assert tmpdir.join('fnew').read() == 'wat\n'
+
+
 @pytest.mark.parametrize('key', ('^C', 'Enter'))
 def test_save_via_ctrl_o_cancelled(run, key):
     with run() as h, and_exit(h):

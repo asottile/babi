@@ -494,17 +494,17 @@ class Screen:
             else:
                 self.file.filename = filename
 
-        if os.path.isfile(self.file.filename):
+        if not os.path.isfile(self.file.filename):
+            sha256: Optional[str] = None
+        else:
             with open(self.file.filename, encoding='UTF-8', newline='') as f:
                 *_, sha256 = get_lines(f)
-        else:
-            sha256 = hashlib.sha256(b'').hexdigest()
 
         contents = self.file.nl.join(self.file.buf)
         sha256_to_save = hashlib.sha256(contents.encode()).hexdigest()
 
         # the file on disk is the same as when we opened it
-        if sha256 not in (self.file.sha256, sha256_to_save):
+        if sha256 not in (None, self.file.sha256, sha256_to_save):
             self.status.update('(file changed on disk, not implemented)')
             return PromptResult.CANCELLED
 
