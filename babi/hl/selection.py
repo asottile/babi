@@ -1,8 +1,7 @@
+from __future__ import annotations
+
 import collections
 import curses
-from typing import Dict
-from typing import Optional
-from typing import Tuple
 
 from babi.buf import Buf
 from babi.hl.interface import HL
@@ -13,9 +12,9 @@ class Selection:
     include_edge = True
 
     def __init__(self) -> None:
-        self.regions: Dict[int, HLs] = collections.defaultdict(tuple)
-        self.start: Optional[Tuple[int, int]] = None
-        self.end: Optional[Tuple[int, int]] = None
+        self.regions: dict[int, HLs] = collections.defaultdict(tuple)
+        self.start: tuple[int, int] | None = None
+        self.end: tuple[int, int] | None = None
 
     def register_callbacks(self, buf: Buf) -> None:
         """our highlight regions are populated in other ways"""
@@ -39,7 +38,7 @@ class Selection:
                 )
             self.regions[e_y] = (HL(x=0, end=e_x, attr=attr),)
 
-    def get(self) -> Tuple[Tuple[int, int], Tuple[int, int]]:
+    def get(self) -> tuple[tuple[int, int], tuple[int, int]]:
         assert self.start is not None and self.end is not None
         if self.start < self.end:
             return self.start, self.end

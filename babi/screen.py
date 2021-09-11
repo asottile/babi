@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import curses
 import enum
@@ -7,12 +9,8 @@ import re
 import signal
 import sys
 from typing import Generator
-from typing import List
 from typing import NamedTuple
-from typing import Optional
 from typing import Pattern
-from typing import Tuple
-from typing import Union
 
 from babi.color_manager import ColorManager
 from babi.file import Action
@@ -102,16 +100,16 @@ KEYNAME_REWRITE = {
 
 
 class Key(NamedTuple):
-    wch: Union[int, str]
+    wch: int | str
     keyname: bytes
 
 
 class Screen:
     def __init__(
             self,
-            stdscr: 'curses._CursesWindow',
-            filenames: List[Optional[str]],
-            initial_lines: List[int],
+            stdscr: curses._CursesWindow,
+            filenames: list[str | None],
+            initial_lines: list[int],
             perf: Perf,
     ) -> None:
         self.stdscr = stdscr
@@ -126,9 +124,9 @@ class Screen:
         self.perf = perf
         self.status = Status()
         self.margin = Margin.from_current_screen()
-        self.cut_buffer: Tuple[str, ...] = ()
+        self.cut_buffer: tuple[str, ...] = ()
         self.cut_selection = False
-        self._buffered_input: Union[int, str, None] = None
+        self._buffered_input: int | str | None = None
 
     @property
     def file(self) -> File:
@@ -271,8 +269,8 @@ class Screen:
     def quick_prompt(
             self,
             prompt: str,
-            opt_strs: Tuple[str, ...],
-    ) -> Union[str, PromptResult]:
+            opt_strs: tuple[str, ...],
+    ) -> str | PromptResult:
         opts = {opt[0] for opt in opt_strs}
         while True:
             x = 0
@@ -318,10 +316,10 @@ class Screen:
             prompt: str,
             *,
             allow_empty: bool = False,
-            history: Optional[str] = None,
+            history: str | None = None,
             default_prev: bool = False,
-            default: Optional[str] = None,
-    ) -> Union[str, PromptResult]:
+            default: str | None = None,
+    ) -> str | PromptResult:
         default = default or ''
         self.status.clear()
         if history is not None:
@@ -378,7 +376,7 @@ class Screen:
         else:
             self.file.uncut(self.cut_buffer, self.margin)
 
-    def _get_search_re(self, prompt: str) -> Union[Pattern[str], PromptResult]:
+    def _get_search_re(self, prompt: str) -> Pattern[str] | PromptResult:
         response = self.prompt(prompt, history='search', default_prev=True)
         if response is PromptResult.CANCELLED:
             return response
@@ -391,8 +389,8 @@ class Screen:
     def _undo_redo(
             self,
             op: str,
-            from_stack: List[Action],
-            to_stack: List[Action],
+            from_stack: list[Action],
+            to_stack: list[Action],
     ) -> None:
         if not from_stack:
             self.status.update(f'nothing to {op}!')
@@ -423,7 +421,7 @@ class Screen:
             if response is not PromptResult.CANCELLED:
                 self.file.replace(self, search_response, response)
 
-    def command(self) -> Optional[EditResult]:
+    def command(self) -> EditResult | None:
         response = self.prompt('', history='command')
         if response is PromptResult.CANCELLED:
             pass
@@ -480,7 +478,7 @@ class Screen:
             self.status.update(f'invalid command: {response}')
         return None
 
-    def save(self) -> Optional[PromptResult]:
+    def save(self) -> PromptResult | None:
         self.file.finalize_previous_action()
 
         # TODO: make directories if they don't exist
@@ -495,7 +493,7 @@ class Screen:
                 self.file.filename = filename
 
         if not os.path.isfile(self.file.filename):
-            sha256: Optional[str] = None
+            sha256: str | None = None
         else:
             with open(self.file.filename, encoding='UTF-8', newline='') as f:
                 *_, sha256 = get_lines(f)
@@ -532,7 +530,7 @@ class Screen:
                 first = False
         return None
 
-    def save_filename(self) -> Optional[PromptResult]:
+    def save_filename(self) -> PromptResult | None:
         response = self.prompt('enter filename', default=self.file.filename)
         if response is PromptResult.CANCELLED:
             return PromptResult.CANCELLED
@@ -540,7 +538,7 @@ class Screen:
             self.file.filename = response
             return self.save()
 
-    def open_file(self) -> Optional[EditResult]:
+    def open_file(self) -> EditResult | None:
         response = self.prompt('enter filename', history='open')
         if response is not PromptResult.CANCELLED:
             opened = File(response, 0, self.color_manager, self.hl_factories)
@@ -549,7 +547,7 @@ class Screen:
         else:
             return None
 
-    def quit_save_modified(self) -> Optional[EditResult]:
+    def quit_save_modified(self) -> EditResult | None:
         if self.file.modified:
             response = self.quick_prompt(
                 'file is modified - save', ('yes', 'no'),
@@ -597,7 +595,7 @@ class Screen:
     }
 
 
-def _init_screen() -> 'curses._CursesWindow':
+def _init_screen() -> curses._CursesWindow:
     # set the escape delay so curses does not pause waiting for sequences
     if (
             sys.version_info >= (3, 9) and
@@ -623,7 +621,7 @@ def _init_screen() -> 'curses._CursesWindow':
 
 
 @contextlib.contextmanager
-def make_stdscr() -> Generator['curses._CursesWindow', None, None]:
+def make_stdscr() -> Generator[curses._CursesWindow, None, None]:
     """essentially `curses.wrapper` but split out to implement ^Z"""
     try:
         yield _init_screen()

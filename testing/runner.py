@@ -1,9 +1,9 @@
+from __future__ import annotations
+
 import contextlib
 import curses
 import enum
 import re
-from typing import List
-from typing import Tuple
 
 from hecate import Runner
 
@@ -34,7 +34,7 @@ def to_attrs(screen, width):
     fg = bg = -1
     attr = 0
     idx = 0
-    ret: List[List[Tuple[int, int, int]]]
+    ret: list[list[tuple[int, int, int]]]
     ret = [[] for _ in range(len(screen.splitlines()))]
 
     for tp, match in tokenize_colors(screen):

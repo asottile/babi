@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import curses
 
 from babi.screen import VERSION_STR

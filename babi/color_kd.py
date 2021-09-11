@@ -1,9 +1,8 @@
+from __future__ import annotations
+
 import functools
 import itertools
-from typing import List
 from typing import NamedTuple
-from typing import Optional
-from typing import Tuple
 
 from babi._types import Protocol
 from babi.color import Color
@@ -19,19 +18,19 @@ class KD(Protocol):
     @property
     def n(self) -> int: ...
     @property
-    def left(self) -> Optional['KD']: ...
+    def left(self) -> KD | None: ...
     @property
-    def right(self) -> Optional['KD']: ...
+    def right(self) -> KD | None: ...
 
 
 class _KD(NamedTuple):
     color: Color
     n: int
-    left: Optional[KD]
-    right: Optional[KD]
+    left: KD | None
+    right: KD | None
 
 
-def _build(colors: List[Tuple[Color, int]], depth: int = 0) -> Optional[KD]:
+def _build(colors: list[tuple[Color, int]], depth: int = 0) -> KD | None:
     if not colors:
         return None
 
@@ -46,11 +45,11 @@ def _build(colors: List[Tuple[Color, int]], depth: int = 0) -> Optional[KD]:
     )
 
 
-def nearest(color: Color, colors: Optional[KD]) -> int:
+def nearest(color: Color, colors: KD | None) -> int:
     best = 0
     dist = 2 ** 32
 
-    def _search(kd: Optional[KD], *, depth: int) -> None:
+    def _search(kd: KD | None, *, depth: int) -> None:
         nonlocal best
         nonlocal dist
 
@@ -77,7 +76,7 @@ def nearest(color: Color, colors: Optional[KD]) -> int:
 
 
 @functools.lru_cache(maxsize=1)
-def make_256() -> Optional[KD]:
+def make_256() -> KD | None:
     vals = (0, 95, 135, 175, 215, 255)
     colors = [
         (Color(r, g, b), i)

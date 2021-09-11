@@ -1,18 +1,17 @@
+from __future__ import annotations
+
 import contextlib
 import cProfile
 import time
 from typing import Generator
-from typing import List
-from typing import Optional
-from typing import Tuple
 
 
 class Perf:
     def __init__(self) -> None:
-        self._prof: Optional[cProfile.Profile] = None
-        self._records: List[Tuple[str, float]] = []
-        self._name: Optional[str] = None
-        self._time: Optional[float] = None
+        self._prof: cProfile.Profile | None = None
+        self._records: list[tuple[str, float]] = []
+        self._name: str | None = None
+        self._time: float | None = None
 
     def start(self, name: str) -> None:
         if self._prof:
@@ -43,7 +42,7 @@ class Perf:
 
 
 @contextlib.contextmanager
-def perf_log(filename: Optional[str]) -> Generator[Perf, None, None]:
+def perf_log(filename: str | None) -> Generator[Perf, None, None]:
     perf = Perf()
     if filename is None:
         yield perf

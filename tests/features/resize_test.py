@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from babi.screen import VERSION_STR
 from testing.runner import and_exit
 

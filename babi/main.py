@@ -1,13 +1,12 @@
+from __future__ import annotations
+
 import argparse
 import curses
 import os
 import re
 import signal
 import sys
-from typing import List
-from typing import Optional
 from typing import Sequence
-from typing import Tuple
 
 from babi.buf import Buf
 from babi.file import File
@@ -44,9 +43,9 @@ def _edit(screen: Screen, stdin: str) -> EditResult:
 
 
 def c_main(
-        stdscr: 'curses._CursesWindow',
-        filenames: List[Optional[str]],
-        positions: List[int],
+        stdscr: curses._CursesWindow,
+        filenames: list[str | None],
+        positions: list[int],
         stdin: str,
         perf: Perf,
 ) -> int:
@@ -73,7 +72,7 @@ def c_main(
     return 0
 
 
-def _key_debug(stdscr: 'curses._CursesWindow', perf: Perf) -> int:
+def _key_debug(stdscr: curses._CursesWindow, perf: Perf) -> int:
     screen = Screen(stdscr, ['<<key debug>>'], [0], perf)
     screen.file.buf = Buf([''])
 
@@ -91,11 +90,11 @@ def _key_debug(stdscr: 'curses._CursesWindow', perf: Perf) -> int:
             return 0
 
 
-def _filenames(filenames: List[str]) -> Tuple[List[Optional[str]], List[int]]:
+def _filenames(filenames: list[str]) -> tuple[list[str | None], list[int]]:
     if not filenames:
         return [None], [0]
 
-    ret_filenames: List[Optional[str]] = []
+    ret_filenames: list[str | None] = []
     ret_positions = []
 
     filenames_iter = iter(filenames)
@@ -122,7 +121,7 @@ def _filenames(filenames: List[str]) -> Tuple[List[Optional[str]], List[int]]:
     return ret_filenames, ret_positions
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', metavar='filename', nargs='*')
     parser.add_argument('--perf-log')
