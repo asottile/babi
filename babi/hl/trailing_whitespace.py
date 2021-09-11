@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import curses
-from typing import List
 
 from babi.buf import Buf
 from babi.color_manager import ColorManager
@@ -13,7 +14,7 @@ class TrailingWhitespace:
     def __init__(self, color_manager: ColorManager) -> None:
         self._color_manager = color_manager
 
-        self.regions: List[HLs] = []
+        self.regions: list[HLs] = []
 
     def _trailing_ws(self, line: str) -> HLs:
         if not line:

@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 import argparse
-from typing import Optional
 from typing import Sequence
 
 from babi.highlight import Compiler
@@ -47,7 +48,7 @@ def _highlight_output(theme: Theme, compiler: Compiler, filename: str) -> int:
     return 0
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('--theme', default=xdg_config('theme.json'))
     parser.add_argument('--grammar-dir', default=prefix_data('grammar_v1'))

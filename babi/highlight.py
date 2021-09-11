@@ -1,13 +1,11 @@
+from __future__ import annotations
+
 import functools
 import json
 import os.path
 from typing import Any
-from typing import Dict
-from typing import FrozenSet
-from typing import List
 from typing import Match
 from typing import NamedTuple
-from typing import Optional
 from typing import Tuple
 from typing import TypeVar
 
@@ -34,7 +32,7 @@ def uniquely_constructed(t: T) -> T:
     return t
 
 
-def _split_name(s: Optional[str]) -> Tuple[str, ...]:
+def _split_name(s: str | None) -> tuple[str, ...]:
     if s is None:
         return ()
     else:
@@ -44,17 +42,17 @@ def _split_name(s: Optional[str]) -> Tuple[str, ...]:
 class _Rule(Protocol):
     """hax for recursive types python/mypy#731"""
     @property
-    def name(self) -> Tuple[str, ...]: ...
+    def name(self) -> tuple[str, ...]: ...
     @property
-    def match(self) -> Optional[str]: ...
+    def match(self) -> str | None: ...
     @property
-    def begin(self) -> Optional[str]: ...
+    def begin(self) -> str | None: ...
     @property
-    def end(self) -> Optional[str]: ...
+    def end(self) -> str | None: ...
     @property
-    def while_(self) -> Optional[str]: ...
+    def while_(self) -> str | None: ...
     @property
-    def content_name(self) -> Tuple[str, ...]: ...
+    def content_name(self) -> tuple[str, ...]: ...
     @property
     def captures(self) -> Captures: ...
     @property
@@ -64,39 +62,39 @@ class _Rule(Protocol):
     @property
     def while_captures(self) -> Captures: ...
     @property
-    def include(self) -> Optional[str]: ...
+    def include(self) -> str | None: ...
     @property
-    def patterns(self) -> 'Tuple[_Rule, ...]': ...
+    def patterns(self) -> tuple[_Rule, ...]: ...
     @property
-    def repository(self) -> 'FChainMap[str, _Rule]': ...
+    def repository(self) -> FChainMap[str, _Rule]: ...
 
 
 @uniquely_constructed
 class Rule(NamedTuple):
-    name: Tuple[str, ...]
-    match: Optional[str]
-    begin: Optional[str]
-    end: Optional[str]
-    while_: Optional[str]
-    content_name: Tuple[str, ...]
+    name: tuple[str, ...]
+    match: str | None
+    begin: str | None
+    end: str | None
+    while_: str | None
+    content_name: tuple[str, ...]
     captures: Captures
     begin_captures: Captures
     end_captures: Captures
     while_captures: Captures
-    include: Optional[str]
-    patterns: Tuple[_Rule, ...]
+    include: str | None
+    patterns: tuple[_Rule, ...]
     repository: FChainMap[str, _Rule]
 
     @classmethod
     def make(
             cls,
-            dct: Dict[str, Any],
+            dct: dict[str, Any],
             parent_repository: FChainMap[str, _Rule],
     ) -> _Rule:
         if 'repository' in dct:
             # this looks odd, but it's so we can have a self-referential
             # immutable-after-construction chain map
-            repository_dct: Dict[str, _Rule] = {}
+            repository_dct: dict[str, _Rule] = {}
             repository = FChainMap(parent_repository, repository_dct)
             for k, sub_dct in dct['repository'].items():
                 repository_dct[k] = Rule.make(sub_dct, repository)
@@ -183,15 +181,15 @@ class Rule(NamedTuple):
 class Grammar(NamedTuple):
     scope_name: str
     repository: FChainMap[str, _Rule]
-    patterns: Tuple[_Rule, ...]
+    patterns: tuple[_Rule, ...]
 
     @classmethod
-    def make(cls, data: Dict[str, Any]) -> 'Grammar':
+    def make(cls, data: dict[str, Any]) -> Grammar:
         scope_name = data['scopeName']
         if 'repository' in data:
             # this looks odd, but it's so we can have a self-referential
             # immutable-after-construction chain map
-            repository_dct: Dict[str, _Rule] = {}
+            repository_dct: dict[str, _Rule] = {}
             repository = FChainMap(repository_dct)
             for k, dct in data['repository'].items():
                 repository_dct[k] = Rule.make(dct, repository)
@@ -212,54 +210,54 @@ class Region(NamedTuple):
 
 
 class State(NamedTuple):
-    entries: Tuple['Entry', ...]
-    while_stack: Tuple[Tuple['WhileRule', int], ...]
+    entries: tuple[Entry, ...]
+    while_stack: tuple[tuple[WhileRule, int], ...]
 
     @classmethod
-    def root(cls, entry: 'Entry') -> 'State':
+    def root(cls, entry: Entry) -> State:
         return cls((entry,), ())
 
     @property
-    def cur(self) -> 'Entry':
+    def cur(self) -> Entry:
         return self.entries[-1]
 
-    def push(self, entry: 'Entry') -> 'State':
+    def push(self, entry: Entry) -> State:
         return self._replace(entries=(*self.entries, entry))
 
-    def pop(self) -> 'State':
+    def pop(self) -> State:
         return self._replace(entries=self.entries[:-1])
 
-    def push_while(self, rule: 'WhileRule', entry: 'Entry') -> 'State':
+    def push_while(self, rule: WhileRule, entry: Entry) -> State:
         entries = (*self.entries, entry)
         while_stack = (*self.while_stack, (rule, len(entries)))
         return self._replace(entries=entries, while_stack=while_stack)
 
-    def pop_while(self) -> 'State':
+    def pop_while(self) -> State:
         entries, while_stack = self.entries[:-1], self.while_stack[:-1]
         return self._replace(entries=entries, while_stack=while_stack)
 
 
 class CompiledRule(Protocol):
     @property
-    def name(self) -> Tuple[str, ...]: ...
+    def name(self) -> tuple[str, ...]: ...
 
     def start(
             self,
-            compiler: 'Compiler',
+            compiler: Compiler,
             match: Match[str],
             state: State,
-    ) -> Tuple[State, bool, Regions]:
+    ) -> tuple[State, bool, Regions]:
         ...
 
     def search(
             self,
-            compiler: 'Compiler',
+            compiler: Compiler,
             state: State,
             line: str,
             pos: int,
             first_line: bool,
             boundary: bool,
-    ) -> Optional[Tuple[State, int, bool, Regions]]:
+    ) -> tuple[State, int, bool, Regions] | None:
         ...
 
 
@@ -267,19 +265,19 @@ class CompiledRegsetRule(CompiledRule, Protocol):
     @property
     def regset(self) -> _RegSet: ...
     @property
-    def u_rules(self) -> Tuple[_Rule, ...]: ...
+    def u_rules(self) -> tuple[_Rule, ...]: ...
 
 
 class Entry(NamedTuple):
-    scope: Tuple[str, ...]
+    scope: tuple[str, ...]
     rule: CompiledRule
-    start: Tuple[str, int]
+    start: tuple[str, int]
     reg: _Reg = ERR_REG
     boundary: bool = False
 
 
 def _inner_capture_parse(
-        compiler: 'Compiler',
+        compiler: Compiler,
         start: int,
         s: str,
         scope: Scope,
@@ -293,12 +291,12 @@ def _inner_capture_parse(
 
 
 def _captures(
-        compiler: 'Compiler',
+        compiler: Compiler,
         scope: Scope,
         match: Match[str],
         captures: Captures,
 ) -> Regions:
-    ret: List[Region] = []
+    ret: list[Region] = []
     pos, pos_end = match.span()
     for i, u_rule in captures:
         try:
@@ -347,12 +345,12 @@ def _captures(
 
 def _do_regset(
         idx: int,
-        match: Optional[Match[str]],
+        match: Match[str] | None,
         rule: CompiledRegsetRule,
-        compiler: 'Compiler',
+        compiler: Compiler,
         state: State,
         pos: int,
-) -> Optional[Tuple[State, int, bool, Regions]]:
+) -> tuple[State, int, bool, Regions] | None:
     if match is None:
         return None
 
@@ -369,73 +367,73 @@ def _do_regset(
 
 @uniquely_constructed
 class PatternRule(NamedTuple):
-    name: Tuple[str, ...]
+    name: tuple[str, ...]
     regset: _RegSet
-    u_rules: Tuple[_Rule, ...]
+    u_rules: tuple[_Rule, ...]
 
     def start(
             self,
-            compiler: 'Compiler',
+            compiler: Compiler,
             match: Match[str],
             state: State,
-    ) -> Tuple[State, bool, Regions]:
+    ) -> tuple[State, bool, Regions]:
         raise AssertionError(f'unreachable {self}')
 
     def search(
             self,
-            compiler: 'Compiler',
+            compiler: Compiler,
             state: State,
             line: str,
             pos: int,
             first_line: bool,
             boundary: bool,
-    ) -> Optional[Tuple[State, int, bool, Regions]]:
+    ) -> tuple[State, int, bool, Regions] | None:
         idx, match = self.regset.search(line, pos, first_line, boundary)
         return _do_regset(idx, match, self, compiler, state, pos)
 
 
 @uniquely_constructed
 class MatchRule(NamedTuple):
-    name: Tuple[str, ...]
+    name: tuple[str, ...]
     captures: Captures
 
     def start(
             self,
-            compiler: 'Compiler',
+            compiler: Compiler,
             match: Match[str],
             state: State,
-    ) -> Tuple[State, bool, Regions]:
+    ) -> tuple[State, bool, Regions]:
         scope = state.cur.scope + self.name
         return state, False, _captures(compiler, scope, match, self.captures)
 
     def search(
             self,
-            compiler: 'Compiler',
+            compiler: Compiler,
             state: State,
             line: str,
             pos: int,
             first_line: bool,
             boundary: bool,
-    ) -> Optional[Tuple[State, int, bool, Regions]]:
+    ) -> tuple[State, int, bool, Regions] | None:
         raise AssertionError(f'unreachable {self}')
 
 
 @uniquely_constructed
 class EndRule(NamedTuple):
-    name: Tuple[str, ...]
-    content_name: Tuple[str, ...]
+    name: tuple[str, ...]
+    content_name: tuple[str, ...]
     begin_captures: Captures
     end_captures: Captures
     end: str
     regset: _RegSet
-    u_rules: Tuple[_Rule, ...]
+    u_rules: tuple[_Rule, ...]
 
     def start(
             self,
-            compiler: 'Compiler',
+            compiler: Compiler,
             match: Match[str],
             state: State,
-    ) -> Tuple[State, bool, Regions]:
+    ) -> tuple[State, bool, Regions]:
         scope = state.cur.scope + self.name
         next_scope = scope + self.content_name
 
@@ -448,11 +446,11 @@ class EndRule(NamedTuple):
 
     def _end_ret(
             self,
-            compiler: 'Compiler',
+            compiler: Compiler,
             state: State,
             pos: int,
             m: Match[str],
-    ) -> Tuple[State, int, bool, Regions]:
+    ) -> tuple[State, int, bool, Regions]:
         ret = []
         if m.start() > pos:
             ret.append(Region(pos, m.start(), state.cur.scope))
@@ -470,13 +468,13 @@ class EndRule(NamedTuple):
 
     def search(
             self,
-            compiler: 'Compiler',
+            compiler: Compiler,
             state: State,
             line: str,
             pos: int,
             first_line: bool,
             boundary: bool,
-    ) -> Optional[Tuple[State, int, bool, Regions]]:
+    ) -> tuple[State, int, bool, Regions] | None:
         end_match = state.cur.reg.search(line, pos, first_line, boundary)
         if end_match is not None and end_match.start() == pos:
             return self._end_ret(compiler, state, pos, end_match)
@@ -493,20 +491,20 @@ class EndRule(NamedTuple):
 
 @uniquely_constructed
 class WhileRule(NamedTuple):
-    name: Tuple[str, ...]
-    content_name: Tuple[str, ...]
+    name: tuple[str, ...]
+    content_name: tuple[str, ...]
     begin_captures: Captures
     while_captures: Captures
     while_: str
     regset: _RegSet
-    u_rules: Tuple[_Rule, ...]
+    u_rules: tuple[_Rule, ...]
 
     def start(
             self,
-            compiler: 'Compiler',
+            compiler: Compiler,
             match: Match[str],
             state: State,
-    ) -> Tuple[State, bool, Regions]:
+    ) -> tuple[State, bool, Regions]:
         scope = state.cur.scope + self.name
         next_scope = scope + self.content_name
 
@@ -520,13 +518,13 @@ class WhileRule(NamedTuple):
 
     def continues(
             self,
-            compiler: 'Compiler',
+            compiler: Compiler,
             state: State,
             line: str,
             pos: int,
             first_line: bool,
             boundary: bool,
-    ) -> Optional[Tuple[int, bool, Regions]]:
+    ) -> tuple[int, bool, Regions] | None:
         match = state.cur.reg.match(line, pos, first_line, boundary)
         if match is None:
             return None
@@ -536,23 +534,23 @@ class WhileRule(NamedTuple):
 
     def search(
             self,
-            compiler: 'Compiler',
+            compiler: Compiler,
             state: State,
             line: str,
             pos: int,
             first_line: bool,
             boundary: bool,
-    ) -> Optional[Tuple[State, int, bool, Regions]]:
+    ) -> tuple[State, int, bool, Regions] | None:
         idx, match = self.regset.search(line, pos, first_line, boundary)
         return _do_regset(idx, match, self, compiler, state, pos)
 
 
 class Compiler:
-    def __init__(self, grammar: Grammar, grammars: 'Grammars') -> None:
+    def __init__(self, grammar: Grammar, grammars: Grammars) -> None:
         self._root_scope = grammar.scope_name
         self._grammars = grammars
-        self._rule_to_grammar: Dict[_Rule, Grammar] = {}
-        self._c_rules: Dict[_Rule, CompiledRule] = {}
+        self._rule_to_grammar: dict[_Rule, Grammar] = {}
+        self._c_rules: dict[_Rule, CompiledRule] = {}
         root = self._compile_root(grammar)
         self.root_state = State.root(Entry(root.name, root, ('', 0)))
 
@@ -566,7 +564,7 @@ class Compiler:
             grammar: Grammar,
             repository: FChainMap[str, _Rule],
             s: str,
-    ) -> Tuple[List[str], Tuple[_Rule, ...]]:
+    ) -> tuple[list[str], tuple[_Rule, ...]]:
         if s == '$self':
             return self._patterns(grammar, grammar.patterns)
         elif s == '$base':
@@ -586,10 +584,10 @@ class Compiler:
     def _patterns(
             self,
             grammar: Grammar,
-            rules: Tuple[_Rule, ...],
-    ) -> Tuple[List[str], Tuple[_Rule, ...]]:
+            rules: tuple[_Rule, ...],
+    ) -> tuple[list[str], tuple[_Rule, ...]]:
         ret_regs = []
-        ret_rules: List[_Rule] = []
+        ret_rules: list[_Rule] = []
         for rule in rules:
             if rule.include is not None:
                 tmp_regs, tmp_rules = self._include(
@@ -676,12 +674,12 @@ class Grammars:
 
         unknown_grammar = {'scopeName': 'source.unknown', 'patterns': []}
         self._raw = {'source.unknown': unknown_grammar}
-        self._file_types: List[Tuple[FrozenSet[str], str]] = []
-        self._first_line: List[Tuple[_Reg, str]] = []
-        self._parsed: Dict[str, Grammar] = {}
-        self._compiled: Dict[str, Compiler] = {}
+        self._file_types: list[tuple[frozenset[str], str]] = []
+        self._first_line: list[tuple[_Reg, str]] = []
+        self._parsed: dict[str, Grammar] = {}
+        self._compiled: dict[str, Compiler] = {}
 
-    def _raw_for_scope(self, scope: str) -> Dict[str, Any]:
+    def _raw_for_scope(self, scope: str) -> dict[str, Any]:
         try:
             return self._raw[scope]
         except KeyError:
@@ -747,12 +745,12 @@ class Grammars:
 
 
 def highlight_line(
-        compiler: 'Compiler',
+        compiler: Compiler,
         state: State,
         line: str,
         first_line: bool,
-) -> Tuple[State, Regions]:
-    ret: List[Region] = []
+) -> tuple[State, Regions]:
+    ret: list[Region] = []
     pos = 0
     boundary = state.cur.boundary
 

@@ -1,12 +1,11 @@
+from __future__ import annotations
+
 import bisect
 import contextlib
 from typing import Callable
 from typing import Generator
 from typing import Iterator
-from typing import List
 from typing import NamedTuple
-from typing import Optional
-from typing import Tuple
 
 from babi._types import Protocol
 from babi.horizontal_scrolling import line_x
@@ -19,7 +18,7 @@ DelCallback = Callable[['Buf', int, str], None]
 InsCallback = Callable[['Buf', int], None]
 
 
-def _offsets(s: str, tab_size: int) -> Tuple[int, ...]:
+def _offsets(s: str, tab_size: int) -> tuple[int, ...]:
     ret = [0]
     for c in s:
         if c == '\t':
@@ -30,14 +29,14 @@ def _offsets(s: str, tab_size: int) -> Tuple[int, ...]:
 
 
 class Modification(Protocol):
-    def __call__(self, buf: 'Buf') -> None: ...
+    def __call__(self, buf: Buf) -> None: ...
 
 
 class SetModification(NamedTuple):
     idx: int
     s: str
 
-    def __call__(self, buf: 'Buf') -> None:
+    def __call__(self, buf: Buf) -> None:
         buf[self.idx] = self.s
 
 
@@ -45,29 +44,29 @@ class InsModification(NamedTuple):
     idx: int
     s: str
 
-    def __call__(self, buf: 'Buf') -> None:
+    def __call__(self, buf: Buf) -> None:
         buf.insert(self.idx, self.s)
 
 
 class DelModification(NamedTuple):
     idx: int
 
-    def __call__(self, buf: 'Buf') -> None:
+    def __call__(self, buf: Buf) -> None:
         del buf[self.idx]
 
 
 class Buf:
-    def __init__(self, lines: List[str], tab_size: int = 4) -> None:
+    def __init__(self, lines: list[str], tab_size: int = 4) -> None:
         self._lines = lines
         self.expandtabs = True
         self.tab_size = tab_size
         self.file_y = self.y = self._x = self._x_hint = 0
 
-        self._set_callbacks: List[SetCallback] = [self._set_cb]
-        self._del_callbacks: List[DelCallback] = [self._del_cb]
-        self._ins_callbacks: List[InsCallback] = [self._ins_cb]
+        self._set_callbacks: list[SetCallback] = [self._set_cb]
+        self._del_callbacks: list[DelCallback] = [self._del_cb]
+        self._ins_callbacks: list[InsCallback] = [self._ins_cb]
 
-        self._positions: List[Optional[Tuple[int, ...]]] = []
+        self._positions: list[tuple[int, ...] | None] = []
 
     # read only interface
 
@@ -163,16 +162,16 @@ class Buf:
         self._ins_callbacks.remove(cb)
 
     @contextlib.contextmanager
-    def record(self) -> Generator[List[Modification], None, None]:
-        modifications: List[Modification] = []
+    def record(self) -> Generator[list[Modification], None, None]:
+        modifications: list[Modification] = []
 
-        def set_cb(buf: 'Buf', idx: int, victim: str) -> None:
+        def set_cb(buf: Buf, idx: int, victim: str) -> None:
             modifications.append(SetModification(idx, victim))
 
-        def del_cb(buf: 'Buf', idx: int, victim: str) -> None:
+        def del_cb(buf: Buf, idx: int, victim: str) -> None:
             modifications.append(InsModification(idx, victim))
 
-        def ins_cb(buf: 'Buf', idx: int) -> None:
+        def ins_cb(buf: Buf, idx: int) -> None:
             modifications.append(DelModification(idx))
 
         self.add_set_callback(set_cb)
@@ -185,7 +184,7 @@ class Buf:
             self.remove_del_callback(del_cb)
             self.remove_set_callback(set_cb)
 
-    def apply(self, modifications: List[Modification]) -> List[Modification]:
+    def apply(self, modifications: list[Modification]) -> list[Modification]:
         with self.record() as ret_modifications:
             for modification in reversed(modifications):
                 modification(self)
@@ -209,19 +208,19 @@ class Buf:
     def _extend_positions(self, idx: int) -> None:
         self._positions.extend([None] * (1 + idx - len(self._positions)))
 
-    def _set_cb(self, buf: 'Buf', idx: int, victim: str) -> None:
+    def _set_cb(self, buf: Buf, idx: int, victim: str) -> None:
         self._extend_positions(idx)
         self._positions[idx] = None
 
-    def _del_cb(self, buf: 'Buf', idx: int, victim: str) -> None:
+    def _del_cb(self, buf: Buf, idx: int, victim: str) -> None:
         self._extend_positions(idx)
         del self._positions[idx]
 
-    def _ins_cb(self, buf: 'Buf', idx: int) -> None:
+    def _ins_cb(self, buf: Buf, idx: int) -> None:
         self._extend_positions(idx)
         self._positions.insert(idx, None)
 
-    def line_positions(self, idx: int) -> Tuple[int, ...]:
+    def line_positions(self, idx: int) -> tuple[int, ...]:
         self._extend_positions(idx)
         value = self._positions[idx]
         if value is None:
@@ -236,7 +235,7 @@ class Buf:
     def _cursor_x(self) -> int:
         return self.line_positions(self.y)[self.x]
 
-    def cursor_position(self, margin: Margin) -> Tuple[int, int]:
+    def cursor_position(self, margin: Margin) -> tuple[int, int]:
         y = self.y - self.file_y + margin.header
         x = self._cursor_x - self.line_x(margin)
         return y, x

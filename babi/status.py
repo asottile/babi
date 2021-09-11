@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import curses
 
 from babi.margin import Margin
@@ -16,7 +18,7 @@ class Status:
     def clear(self) -> None:
         self._status = ''
 
-    def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
+    def draw(self, stdscr: curses._CursesWindow, margin: Margin) -> None:
         if margin.footer or self._status:
             stdscr.insstr(margin.lines - 1, 0, ' ' * margin.cols)
             if self._status:

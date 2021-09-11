@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import collections
 import contextlib
 import curses
-from typing import Dict
 from typing import Generator
 
 from babi.buf import Buf
@@ -13,7 +14,7 @@ class Replace:
     include_edge = True
 
     def __init__(self) -> None:
-        self.regions: Dict[int, HLs] = collections.defaultdict(tuple)
+        self.regions: dict[int, HLs] = collections.defaultdict(tuple)
 
     def highlight_until(self, lines: Buf, idx: int) -> None:
         """our highlight regions are populated in other ways"""

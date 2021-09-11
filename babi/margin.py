@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import curses
 from typing import NamedTuple
 
@@ -31,5 +33,5 @@ class Margin(NamedTuple):
         return int(self.lines / 2 + .5)
 
     @classmethod
-    def from_current_screen(cls) -> 'Margin':
+    def from_current_screen(cls) -> Margin:
         return cls(curses.LINES, curses.COLS)

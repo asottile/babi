@@ -1,10 +1,8 @@
+from __future__ import annotations
+
 import curses
 import enum
-from typing import List
-from typing import Optional
-from typing import Tuple
 from typing import TYPE_CHECKING
-from typing import Union
 
 from babi.horizontal_scrolling import line_x
 from babi.horizontal_scrolling import scrolled_line
@@ -16,7 +14,7 @@ PromptResult = enum.Enum('PromptResult', 'CANCELLED')
 
 
 class Prompt:
-    def __init__(self, screen: 'Screen', prompt: str, lst: List[str]) -> None:
+    def __init__(self, screen: Screen, prompt: str, lst: list[str]) -> None:
         self._screen = screen
         self._prompt = prompt
         self._lst = lst
@@ -31,7 +29,7 @@ class Prompt:
     def _s(self, s: str) -> None:
         self._lst[self._y] = s
 
-    def _render_prompt(self, *, base: Optional[str] = None) -> None:
+    def _render_prompt(self, *, base: str | None = None) -> None:
         base = base or self._prompt
         if not base or self._screen.margin.cols < 7:
             prompt_s = ''
@@ -100,7 +98,7 @@ class Prompt:
     def _resize(self) -> None:
         self._screen.resize()
 
-    def _check_failed(self, idx: int, s: str) -> Tuple[bool, int]:
+    def _check_failed(self, idx: int, s: str) -> tuple[bool, int]:
         failed = False
         for search_idx in range(idx, -1, -1):
             if s in self._lst[search_idx]:
@@ -111,7 +109,7 @@ class Prompt:
             failed = True
         return failed, idx
 
-    def _reverse_search(self) -> Union[None, str, PromptResult]:
+    def _reverse_search(self) -> None | str | PromptResult:
         reverse_s = ''
         idx = self._y
         while True:
@@ -177,7 +175,7 @@ class Prompt:
         self._s = self._s[:self._x] + c + self._s[self._x:]
         self._x += len(c)
 
-    def run(self) -> Union[PromptResult, str]:
+    def run(self) -> PromptResult | str:
         while True:
             self._render_prompt()
 

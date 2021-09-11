@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import collections
 import contextlib
 import curses
@@ -12,15 +14,11 @@ from typing import Callable
 from typing import cast
 from typing import Generator
 from typing import IO
-from typing import List
 from typing import Match
 from typing import NamedTuple
-from typing import Optional
 from typing import Pattern
-from typing import Tuple
 from typing import TYPE_CHECKING
 from typing import TypeVar
-from typing import Union
 
 from babi.buf import Buf
 from babi.buf import Modification
@@ -42,7 +40,7 @@ TCallable = TypeVar('TCallable', bound=Callable[..., Any])
 WS_RE = re.compile(r'^\s*')
 
 
-def get_lines(sio: IO[str]) -> Tuple[List[str], str, bool, str]:
+def get_lines(sio: IO[str]) -> tuple[list[str], str, bool, str]:
     sha256 = hashlib.sha256()
     lines = []
     newlines = collections.Counter({'\n': 0})  # default to `\n`
@@ -64,7 +62,7 @@ def get_lines(sio: IO[str]) -> Tuple[List[str], str, bool, str]:
 
 class Action:
     def __init__(
-            self, *, name: str, modifications: List[Modification],
+            self, *, name: str, modifications: list[Modification],
             start_x: int, start_y: int, start_modified: bool,
             end_x: int, end_y: int, end_modified: bool,
             final: bool,
@@ -79,7 +77,7 @@ class Action:
         self.end_modified = end_modified
         self.final = final
 
-    def apply(self, file: 'File') -> 'Action':
+    def apply(self, file: File) -> Action:
         action = Action(
             name=self.name, modifications=file.buf.apply(self.modifications),
             start_x=self.end_x, start_y=self.end_y,
@@ -98,7 +96,7 @@ class Action:
 
 def action(func: TCallable) -> TCallable:
     @functools.wraps(func)
-    def action_inner(self: 'File', *args: Any, **kwargs: Any) -> Any:
+    def action_inner(self: File, *args: Any, **kwargs: Any) -> Any:
         self.finalize_previous_action()
         return func(self, *args, **kwargs)
     return cast(TCallable, action_inner)
@@ -111,7 +109,7 @@ def edit_action(
 ) -> Callable[[TCallable], TCallable]:
     def edit_action_decorator(func: TCallable) -> TCallable:
         @functools.wraps(func)
-        def edit_action_inner(self: 'File', *args: Any, **kwargs: Any) -> Any:
+        def edit_action_inner(self: File, *args: Any, **kwargs: Any) -> Any:
             with self.edit_action_context(name, final=final):
                 return func(self, *args, **kwargs)
         return cast(TCallable, edit_action_inner)
@@ -120,7 +118,7 @@ def edit_action(
 
 def keep_selection(func: TCallable) -> TCallable:
     @functools.wraps(func)
-    def keep_selection_inner(self: 'File', *args: Any, **kwargs: Any) -> Any:
+    def keep_selection_inner(self: File, *args: Any, **kwargs: Any) -> Any:
         with self.select():
             return func(self, *args, **kwargs)
     return cast(TCallable, keep_selection_inner)
@@ -128,7 +126,7 @@ def keep_selection(func: TCallable) -> TCallable:
 
 def clear_selection(func: TCallable) -> TCallable:
     @functools.wraps(func)
-    def clear_selection_inner(self: 'File', *args: Any, **kwargs: Any) -> Any:
+    def clear_selection_inner(self: File, *args: Any, **kwargs: Any) -> Any:
         ret = func(self, *args, **kwargs)
         self.selection.clear()
         return ret
@@ -143,7 +141,7 @@ class Found(NamedTuple):
 class _SearchIter:
     def __init__(
             self,
-            file: 'File',
+            file: File,
             reg: Pattern[str],
             *,
             offset: int,
@@ -155,7 +153,7 @@ class _SearchIter:
         self._start_x = file.buf.x + offset
         self._start_y = file.buf.y
 
-    def __iter__(self) -> '_SearchIter':
+    def __iter__(self) -> _SearchIter:
         return self
 
     def _stop_if_past_original(self, y: int, match: Match[str]) -> Found:
@@ -168,7 +166,7 @@ class _SearchIter:
             raise StopIteration()
         return Found(y, match)
 
-    def __next__(self) -> Tuple[int, Match[str]]:
+    def __next__(self) -> tuple[int, Match[str]]:
         x = self.file.buf.x + self.offset
         y = self.file.buf.y
 
@@ -200,25 +198,25 @@ class _SearchIter:
 class File:
     def __init__(
             self,
-            filename: Optional[str],
+            filename: str | None,
             initial_line: int,
             color_manager: ColorManager,
-            hl_factories: Tuple[HLFactory, ...],
+            hl_factories: tuple[HLFactory, ...],
     ) -> None:
         self.filename = filename
         self.initial_line = initial_line
         self.modified = False
         self.buf = Buf([])
         self.nl = '\n'
-        self.sha256: Optional[str] = None
+        self.sha256: str | None = None
         self._in_edit_action = False
-        self.undo_stack: List[Action] = []
-        self.redo_stack: List[Action] = []
+        self.undo_stack: list[Action] = []
+        self.redo_stack: list[Action] = []
         self._hl_factories = hl_factories
         self._trailing_whitespace = TrailingWhitespace(color_manager)
         self._replace_hl = Replace()
         self.selection = Selection()
-        self._file_hls: Tuple[FileHL, ...] = ()
+        self._file_hls: tuple[FileHL, ...] = ()
 
     def ensure_loaded(
             self,
@@ -395,14 +393,14 @@ class File:
     @clear_selection
     def replace(
             self,
-            screen: 'Screen',
+            screen: Screen,
             reg: Pattern[str],
             replace: str,
     ) -> None:
         self.finalize_previous_action()
 
         count = 0
-        res: Union[str, PromptResult] = ''
+        res: str | PromptResult = ''
         search = _SearchIter(self, reg, offset=0)
         for line_y, match in search:
             end = match.end()
@@ -597,7 +595,7 @@ class File:
 
     @edit_action('cut selection', final=True)
     @clear_selection
-    def cut_selection(self, margin: Margin) -> Tuple[str, ...]:
+    def cut_selection(self, margin: Margin) -> tuple[str, ...]:
         ret = []
         (s_y, s_x), (e_y, e_x) = self.selection.get()
         if s_y == e_y:
@@ -617,7 +615,7 @@ class File:
         self.buf.scroll_screen_if_needed(margin)
         return tuple(ret)
 
-    def cut(self, cut_buffer: Tuple[str, ...]) -> Tuple[str, ...]:
+    def cut(self, cut_buffer: tuple[str, ...]) -> tuple[str, ...]:
         # only continue a cut if the last action is a non-final cut
         if not self._continue_last_action('cut'):
             cut_buffer = ()
@@ -630,7 +628,7 @@ class File:
                 self.buf.x = 0
                 return cut_buffer + (victim,)
 
-    def _uncut(self, cut_buffer: Tuple[str, ...], margin: Margin) -> None:
+    def _uncut(self, cut_buffer: tuple[str, ...], margin: Margin) -> None:
         for cut_line in cut_buffer:
             line = self.buf[self.buf.y]
             before, after = line[:self.buf.x], line[self.buf.x:]
@@ -641,14 +639,14 @@ class File:
 
     @edit_action('uncut', final=True)
     @clear_selection
-    def uncut(self, cut_buffer: Tuple[str, ...], margin: Margin) -> None:
+    def uncut(self, cut_buffer: tuple[str, ...], margin: Margin) -> None:
         self._uncut(cut_buffer, margin)
 
     @edit_action('uncut selection', final=True)
     @clear_selection
     def uncut_selection(
             self,
-            cut_buffer: Tuple[str, ...], margin: Margin,
+            cut_buffer: tuple[str, ...], margin: Margin,
     ) -> None:
         self._uncut(cut_buffer, margin)
         self.buf.up(margin)
@@ -666,7 +664,7 @@ class File:
         self.buf.x = 0
         self.buf.scroll_screen_if_needed(margin)
 
-    def _selection_lines(self) -> Tuple[int, int]:
+    def _selection_lines(self) -> tuple[int, int]:
         (s_y, _), (e_y, _) = self.selection.get()
         e_y = min(e_y + 1, len(self.buf) - 1)
         if self.buf[e_y - 1] == '':
@@ -852,12 +850,12 @@ class File:
 
     def move_cursor(
             self,
-            stdscr: 'curses._CursesWindow',
+            stdscr: curses._CursesWindow,
             margin: Margin,
     ) -> None:
         stdscr.move(*self.buf.cursor_position(margin))
 
-    def draw(self, stdscr: 'curses._CursesWindow', margin: Margin) -> None:
+    def draw(self, stdscr: curses._CursesWindow, margin: Margin) -> None:
         to_display = min(self.buf.displayable_count, margin.body_lines)
 
         for file_hl in self._file_hls:

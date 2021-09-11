@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from babi import color_kd
 from babi.color import Color
 

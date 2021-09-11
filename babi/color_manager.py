@@ -1,21 +1,20 @@
+from __future__ import annotations
+
 import curses
-from typing import Dict
 from typing import NamedTuple
-from typing import Optional
-from typing import Tuple
 
 from babi import color_kd
 from babi.color import Color
 
 
-def _color_to_curses(color: Color) -> Tuple[int, int, int]:
+def _color_to_curses(color: Color) -> tuple[int, int, int]:
     factor = 1000 / 255
     return int(color.r * factor), int(color.g * factor), int(color.b * factor)
 
 
 class ColorManager(NamedTuple):
-    colors: Dict[Color, int]
-    raw_pairs: Dict[Tuple[int, int], int]
+    colors: dict[Color, int]
+    raw_pairs: dict[tuple[int, int], int]
 
     def init_color(self, color: Color) -> None:
         if curses.can_change_color():
@@ -27,7 +26,7 @@ class ColorManager(NamedTuple):
         else:
             self.colors[color] = -1
 
-    def color_pair(self, fg: Optional[Color], bg: Optional[Color]) -> int:
+    def color_pair(self, fg: Color | None, bg: Color | None) -> int:
         fg_i = self.colors[fg] if fg is not None else -1
         bg_i = self.colors[bg] if bg is not None else -1
         return self.raw_color_pair(fg_i, bg_i)
@@ -46,5 +45,5 @@ class ColorManager(NamedTuple):
             return 0
 
     @classmethod
-    def make(cls) -> 'ColorManager':
+    def make(cls) -> ColorManager:
         return cls({}, {})

@@ -1,8 +1,8 @@
+from __future__ import annotations
+
 import functools
 import re
 from typing import Match
-from typing import Optional
-from typing import Tuple
 
 import onigurumacffi
 
@@ -42,7 +42,7 @@ class _Reg:
             pos: int,
             first_line: bool,
             boundary: bool,
-    ) -> Optional[Match[str]]:
+    ) -> Match[str] | None:
         return self._reg.search(line, pos, flags=_FLAGS[first_line, boundary])
 
     def match(
@@ -51,7 +51,7 @@ class _Reg:
             pos: int,
             first_line: bool,
             boundary: bool,
-    ) -> Optional[Match[str]]:
+    ) -> Match[str] | None:
         return self._reg.match(line, pos, flags=_FLAGS[first_line, boundary])
 
 
@@ -70,7 +70,7 @@ class _RegSet:
             pos: int,
             first_line: bool,
             boundary: bool,
-    ) -> Tuple[int, Optional[Match[str]]]:
+    ) -> tuple[int, Match[str] | None]:
         return self._set.search(line, pos, flags=_FLAGS[first_line, boundary])
 
 

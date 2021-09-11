@@ -1,11 +1,10 @@
+from __future__ import annotations
+
 import functools
 import json
 import os.path
 from typing import Any
-from typing import Dict
 from typing import NamedTuple
-from typing import Optional
-from typing import Tuple
 
 from babi._types import Protocol
 from babi.color import Color
@@ -13,32 +12,32 @@ from babi.fdict import FDict
 
 
 class Style(NamedTuple):
-    fg: Optional[Color]
-    bg: Optional[Color]
+    fg: Color | None
+    bg: Color | None
     b: bool
     i: bool
     u: bool
 
     @classmethod
-    def blank(cls) -> 'Style':
+    def blank(cls) -> Style:
         return cls(fg=None, bg=None, b=False, i=False, u=False)
 
 
 class PartialStyle(NamedTuple):
-    fg: Optional[Color] = None
-    bg: Optional[Color] = None
-    b: Optional[bool] = None
-    i: Optional[bool] = None
-    u: Optional[bool] = None
+    fg: Color | None = None
+    bg: Color | None = None
+    b: bool | None = None
+    i: bool | None = None
+    u: bool | None = None
 
-    def overlay_on(self, dct: Dict[str, Any]) -> None:
+    def overlay_on(self, dct: dict[str, Any]) -> None:
         for attr in self._fields:
             value = getattr(self, attr)
             if value is not None:
                 dct[attr] = value
 
     @classmethod
-    def from_dct(cls, dct: Dict[str, Any]) -> 'PartialStyle':
+    def from_dct(cls, dct: dict[str, Any]) -> PartialStyle:
         kv = cls()._asdict()
         if 'foreground' in dct:
             kv['fg'] = Color.parse(dct['foreground'])
@@ -57,7 +56,7 @@ class _TrieNode(Protocol):
     @property
     def style(self) -> PartialStyle: ...
     @property
-    def children(self) -> FDict[str, '_TrieNode']: ...
+    def children(self) -> FDict[str, _TrieNode]: ...
 
 
 class TrieNode(NamedTuple):
@@ -65,7 +64,7 @@ class TrieNode(NamedTuple):
     children: FDict[str, _TrieNode]
 
     @classmethod
-    def from_dct(cls, dct: Dict[str, Any]) -> _TrieNode:
+    def from_dct(cls, dct: dict[str, Any]) -> _TrieNode:
         children = FDict({
             k: TrieNode.from_dct(v) for k, v in dct['children'].items()
         })
@@ -77,7 +76,7 @@ class Theme(NamedTuple):
     rules: _TrieNode
 
     @functools.lru_cache(maxsize=None)
-    def select(self, scope: Tuple[str, ...]) -> Style:
+    def select(self, scope: tuple[str, ...]) -> Style:
         if not scope:
             return self.default
         else:
@@ -92,7 +91,7 @@ class Theme(NamedTuple):
             return Style(**style)
 
     @classmethod
-    def from_dct(cls, data: Dict[str, Any]) -> 'Theme':
+    def from_dct(cls, data: dict[str, Any]) -> Theme:
         default = Style.blank()._asdict()
 
         for k in ('foreground', 'editor.foreground'):
@@ -105,7 +104,7 @@ class Theme(NamedTuple):
                 default['bg'] = Color.parse(data['colors'][k])
                 break
 
-        root: Dict[str, Any] = {'children': {}}
+        root: dict[str, Any] = {'children': {}}
         rules = data.get('tokenColors', []) + data.get('settings', [])
         for rule in rules:
             if 'scope' not in rule:
@@ -139,11 +138,11 @@ class Theme(NamedTuple):
         return cls(Style(**default), TrieNode.from_dct(root))
 
     @classmethod
-    def blank(cls) -> 'Theme':
+    def blank(cls) -> Theme:
         return cls(Style.blank(), TrieNode.from_dct({'children': {}}))
 
     @classmethod
-    def from_filename(cls, filename: str) -> 'Theme':
+    def from_filename(cls, filename: str) -> Theme:
         if not os.path.exists(filename):
             return cls.blank()
         else:

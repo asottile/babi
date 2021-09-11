@@ -1,11 +1,10 @@
+from __future__ import annotations
+
 import curses
 import functools
 import math
 from typing import Callable
-from typing import List
 from typing import NamedTuple
-from typing import Optional
-from typing import Tuple
 
 from babi.buf import Buf
 from babi.color_manager import ColorManager
@@ -21,8 +20,6 @@ from babi.user_data import prefix_data
 from babi.user_data import xdg_config
 from babi.user_data import xdg_data
 
-A_ITALIC = getattr(curses, 'A_ITALIC', 0x80000000)  # new in py37
-
 
 class FileSyntax:
     include_edge = False
@@ -37,12 +34,12 @@ class FileSyntax:
         self._theme = theme
         self._color_manager = color_manager
 
-        self.regions: List[HLs] = []
-        self._states: List[State] = []
+        self.regions: list[HLs] = []
+        self._states: list[State] = []
 
         # this will be assigned a functools.lru_cache per instance for
         # better hit rate and memory usage
-        self._hl: Optional[Callable[[State, str, bool], Tuple[State, HLs]]]
+        self._hl: Callable[[State, str, bool], tuple[State, HLs]] | None
         self._hl = None
 
     def attr(self, style: Style) -> int:
@@ -50,7 +47,7 @@ class FileSyntax:
         return (
             curses.color_pair(pair) |
             curses.A_BOLD * style.b |
-            A_ITALIC * style.i |
+            curses.A_ITALIC * style.i |
             curses.A_UNDERLINE * style.u
         )
 
@@ -59,7 +56,7 @@ class FileSyntax:
             state: State,
             line: str,
             first_line: bool,
-    ) -> Tuple[State, HLs]:
+    ) -> tuple[State, HLs]:
         new_state, regions = highlight_line(
             self._compiler, state, f'{line}\n', first_line=first_line,
         )
@@ -68,7 +65,7 @@ class FileSyntax:
         new_end = regions[-1]._replace(end=regions[-1].end - 1)
         regions = regions[:-1] + (new_end,)
 
-        regs: List[HL] = []
+        regs: list[HL] = []
         for r in regions:
             style = self._theme.select(r.scope)
             if style == self._theme.default:
@@ -133,7 +130,7 @@ class Syntax(NamedTuple):
         compiler = self.grammars.blank_compiler()
         return FileSyntax(compiler, self.theme, self.color_manager)
 
-    def _init_screen(self, stdscr: 'curses._CursesWindow') -> None:
+    def _init_screen(self, stdscr: curses._CursesWindow) -> None:
         default_fg, default_bg = self.theme.default.fg, self.theme.default.bg
         all_colors = {c for c in (default_fg, default_bg) if c is not None}
         todo = list(self.theme.rules.children.values())
@@ -154,9 +151,9 @@ class Syntax(NamedTuple):
     @classmethod
     def from_screen(
             cls,
-            stdscr: 'curses._CursesWindow',
+            stdscr: curses._CursesWindow,
             color_manager: ColorManager,
-    ) -> 'Syntax':
+    ) -> Syntax:
         grammars = Grammars(prefix_data('grammar_v1'), xdg_data('grammar_v1'))
         theme = Theme.from_filename(xdg_config('theme.json'))
         ret = cls(grammars, theme, color_manager)

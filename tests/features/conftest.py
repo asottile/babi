@@ -1,11 +1,10 @@
+from __future__ import annotations
+
 import contextlib
 import curses
 import os
 import sys
-from typing import List
 from typing import NamedTuple
-from typing import Tuple
-from typing import Union
 from unittest import mock
 
 import pytest
@@ -148,7 +147,7 @@ class AssertScreenLineEquals(NamedTuple):
 
 class AssertScreenAttrEquals(NamedTuple):
     n: int
-    attr: List[Tuple[int, int, int]]
+    attr: list[tuple[int, int, int]]
 
     def __call__(self, screen: Screen) -> None:
         assert screen.attrs[self.n] == self.attr
@@ -170,7 +169,7 @@ class Resize(NamedTuple):
 
 
 class KeyPress(NamedTuple):
-    wch: Union[int, str]
+    wch: int | str
 
     def __call__(self, screen: Screen) -> None:
         raise AssertionError('unreachable')
@@ -236,7 +235,7 @@ class CursesScreen:
 class Key(NamedTuple):
     tmux: str
     curses: bytes
-    wch: Union[int, str]
+    wch: int | str
 
     @property
     def value(self) -> int:
@@ -300,7 +299,7 @@ class DeferredRunner:
     def __init__(self, command, width=80, height=24, term='screen'):
         self.command = command
         self._i = 0
-        self._ops: List[Op] = []
+        self._ops: list[Op] = []
         self.color_pairs = {0: (7, 0)}
         self.screen = Screen(width, height)
         self._n_colors, self._can_change_color = {

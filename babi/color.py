@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import NamedTuple
 
 # TODO: find a standard which defines these
@@ -11,7 +13,7 @@ class Color(NamedTuple):
     b: int
 
     @classmethod
-    def parse(cls, s: str) -> 'Color':
+    def parse(cls, s: str) -> Color:
         if s.startswith('#') and len(s) >= 7:
             return cls(r=int(s[1:3], 16), g=int(s[3:5], 16), b=int(s[5:7], 16))
         elif s.startswith('#'):

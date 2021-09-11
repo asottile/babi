@@ -1,18 +1,18 @@
+from __future__ import annotations
+
 import collections
 import contextlib
 import os.path
-from typing import Dict
 from typing import Generator
-from typing import List
 
 from babi.user_data import xdg_data
 
 
 class History:
     def __init__(self) -> None:
-        self._orig_len: Dict[str, int] = collections.defaultdict(int)
-        self.data: Dict[str, List[str]] = collections.defaultdict(list)
-        self.prev: Dict[str, str] = {}
+        self._orig_len: dict[str, int] = collections.defaultdict(int)
+        self.data: dict[str, list[str]] = collections.defaultdict(list)
+        self.prev: dict[str, str] = {}
 
     @contextlib.contextmanager
     def save(self) -> Generator[None, None, None]:
