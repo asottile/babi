@@ -20,6 +20,8 @@ from babi.user_data import prefix_data
 from babi.user_data import xdg_config
 from babi.user_data import xdg_data
 
+A_ITALIC = getattr(curses, 'A_ITALIC', 0x80000000)  # not always present
+
 
 class FileSyntax:
     include_edge = False
@@ -47,7 +49,7 @@ class FileSyntax:
         return (
             curses.color_pair(pair) |
             curses.A_BOLD * style.b |
-            curses.A_ITALIC * style.i |
+            A_ITALIC * style.i |
             curses.A_UNDERLINE * style.u
         )
 
