@@ -7,6 +7,7 @@ import hashlib
 import os
 import re
 import signal
+import sre_parse
 import sys
 from typing import Generator
 from typing import NamedTuple
@@ -419,7 +420,12 @@ class Screen:
                 'replace with', history='replace', allow_empty=True,
             )
             if response is not PromptResult.CANCELLED:
-                self.file.replace(self, search_response, response)
+                try:
+                    sre_parse.parse_template(response, search_response)
+                except re.error:
+                    self.status.update('invalid replacement string')
+                else:
+                    self.file.replace(self, search_response, response)
 
     def command(self) -> EditResult | None:
         response = self.prompt('', history='command')

@@ -22,6 +22,16 @@ def test_replace_invalid_regex(run):
         h.await_text("invalid regex: '('")
 
 
+def test_replace_invalid_replacement(run, ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^\\')
+        h.await_text('search (to replace):')
+        h.press_and_enter('line_0')
+        h.await_text('replace with:')
+        h.press_and_enter('\\')
+        h.await_text('invalid replacement string')
+
+
 def test_replace_cancel_at_replace_string(run):
     with run() as h, and_exit(h):
         h.press('^\\')
