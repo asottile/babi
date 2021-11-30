@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import sys
 
-if sys.version_info >= (3, 8):  # pragma: no cover (>=py38)
+if sys.version_info >= (3, 8):  # pragma: >=3.8 cover
     from functools import cached_property
-else:  # pragma: no cover (<py38)
+else:  # pragma: <3.8 cover
     from typing import Callable
     from typing import Generic
     from typing import TypeVar

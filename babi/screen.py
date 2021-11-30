@@ -25,9 +25,9 @@ from babi.prompt import Prompt
 from babi.prompt import PromptResult
 from babi.status import Status
 
-if sys.version_info >= (3, 8):  # pragma: no cover (py38+)
+if sys.version_info >= (3, 8):  # pragma: >=3.8 cover
     import importlib.metadata as importlib_metadata
-else:  # pragma: no cover (<py38)
+else:  # pragma: <3.8 cover
     import importlib_metadata
 
 VERSION_STR = f'babi v{importlib_metadata.version("babi")}'
@@ -606,9 +606,9 @@ def _init_screen() -> curses._CursesWindow:
     if (
             sys.version_info >= (3, 9) and
             hasattr(curses, 'set_escdelay')
-    ):  # pragma: no cover
+    ):  # pragma: >=3.9 cover
         curses.set_escdelay(25)
-    else:  # pragma: no cover
+    else:  # pragma: <3.9 cover
         os.environ.setdefault('ESCDELAY', '25')
 
     stdscr = curses.initscr()
