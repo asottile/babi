@@ -440,3 +440,92 @@ def test_indentation_using_tabs(run, tmpdir):
         h.await_cursor_position(x=4, y=2)
         h.press('Up')
         h.await_cursor_position(x=4, y=1)
+
+
+def test_goto_previous_paragraph(run, tmpdir):
+    src = '''\
+class A:
+    def __init__(self):
+        self._test = 1
+
+
+def another_test():
+    pass
+
+yet_another_test = None
+
+# comment
+'''
+    f = tmpdir.join('f')
+    f.write(src)
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('^End')
+        h.await_cursor_position(x=0, y=12)
+
+        h.press('M-Up')
+        h.await_cursor_position(x=0, y=11)
+
+        h.press('M-Up')
+        h.await_cursor_position(x=0, y=9)
+
+        h.press('End')
+        h.await_cursor_position(x=23, y=9)
+
+        h.press('M-Up')
+        h.await_cursor_position(x=0, y=7)
+
+        h.press('M-Up')
+        h.await_cursor_position(x=0, y=6)
+
+        h.press('M-Up')
+        h.await_cursor_position(x=0, y=3)
+
+        h.press('M-Up')
+        h.await_cursor_position(x=0, y=1)
+
+        h.press('M-Up')
+        h.await_cursor_position(x=0, y=1)
+
+
+def test_goto_next_paragraph(run, tmpdir):
+    src = '''\
+class A:
+    def __init__(self):
+        self._test = 1
+
+
+def another_test():
+    pass
+
+yet_another_test = None
+
+# comment
+'''
+    f = tmpdir.join('f')
+    f.write(src)
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('M-Down')
+        h.await_cursor_position(x=0, y=3)
+
+        h.press('M-Down')
+        h.await_cursor_position(x=0, y=6)
+
+        h.press('M-Down')
+        h.await_cursor_position(x=0, y=7)
+
+        h.press('M-Down')
+        h.await_cursor_position(x=0, y=9)
+
+        h.press('End')
+        h.await_cursor_position(x=23, y=9)
+
+        h.press('M-Down')
+        h.await_cursor_position(x=0, y=11)
+
+        h.press('M-Down')
+        h.await_cursor_position(x=0, y=12)
+
+        h.press('M-Down')
+        h.await_cursor_position(x=0, y=12)

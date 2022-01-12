@@ -262,6 +262,8 @@ KEYS = [
     Key('^Left', b'kLFT5', 545),
     Key('^Home', b'kHOM5', 535),
     Key('^End', b'kEND5', 530),
+    Key('M-Up', b'kUP3', 564),
+    Key('M-Down', b'kDN3', 523),
     Key('M-Right', b'kRIT3', 558),
     Key('M-Left', b'kLFT3', 543),
     Key('S-Up', b'KEY_SR', curses.KEY_SR),
