@@ -276,3 +276,31 @@ def test_vim_force_exit(run, tmpdir):
         trigger_command_mode(h)
         h.press_and_enter(':q!')
         h.await_exit()
+
+
+def test_save_and_exit_to_uncreated_directory(run, tmpdir):
+    f = tmpdir.join('test/nested/dirs/f')
+    with run(str(f)) as h:
+        h.press('hello')
+        h.await_text('hello')
+        h.press_and_enter('^X')
+        h.await_text('file is modified - save [yes, no]?')
+        h.press('y')
+        h.await_text('enter filename: ')
+        h.press('Enter')
+        h.await_exit()
+    assert f.read() == 'hello\n'
+
+
+def test_save_and_exit_to_dot_file(run, tmpdir):
+    f = tmpdir.join('.f')
+    with run(str(f)) as h:
+        h.press('hello')
+        h.await_text('hello')
+        h.press_and_enter('^X')
+        h.await_text('file is modified - save [yes, no]?')
+        h.press('y')
+        h.await_text('enter filename: ')
+        h.press('Enter')
+        h.await_exit()
+    assert f.read() == 'hello\n'
