@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from testing.runner import and_exit
@@ -294,19 +292,15 @@ def test_save_and_exit_to_uncreated_directory(run, tmpdir):
     assert f.read() == 'hello\n'
 
 
-@pytest.mark.parametrize('dot_file', ('.f',))
-def test_save_and_exit_to_dot_file(run, dot_file):
-    with open(dot_file, 'w+') as f:
-        with run(dot_file) as h:
-            h.press('hello')
-            h.await_text('hello')
-            h.press_and_enter('^X')
-            h.await_text('file is modified - save [yes, no]?')
-            h.press('y')
-            h.await_text('enter filename: ')
-            h.press('Enter')
-            h.await_exit()
-        try:
-            assert f.read() == 'hello\n'
-        finally:
-            os.remove(os.path.abspath(dot_file))
+def test_save_and_exit_to_dot_file(run, tmpdir):
+    f = tmpdir.join('.f')
+    with run(str(f)) as h:
+        h.press('hello')
+        h.await_text('hello')
+        h.press_and_enter('^X')
+        h.await_text('file is modified - save [yes, no]?')
+        h.press('y')
+        h.await_text('enter filename: ')
+        h.press('Enter')
+        h.await_exit()
+    assert f.read() == 'hello\n'
