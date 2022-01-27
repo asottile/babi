@@ -512,7 +512,8 @@ class Screen:
             return PromptResult.CANCELLED
 
         try:
-            os.makedirs(os.path.dirname(self.file.filename), exist_ok=True)
+            dir_path = os.path.dirname(os.path.abspath(self.file.filename))
+            os.makedirs(dir_path, exist_ok=True)
             with open(
                 self.file.filename, 'w', encoding='UTF-8', newline='',
             ) as f:

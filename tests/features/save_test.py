@@ -280,13 +280,28 @@ def test_vim_force_exit(run, tmpdir):
 
 def test_save_on_exit_with_not_existing_directory(run, tmpdir):
     f = tmpdir.join('test/nested/dirs/f')
-    with run(str(f)) as fake_h:
-        fake_h.press('hello')
-        fake_h.await_text('hello')
-        fake_h.press('^X')
-        fake_h.await_text('file is modified - save [yes, no]?')
-        fake_h.press('y')
-        fake_h.await_text('enter filename: ')
-        fake_h.press('Enter')
-        fake_h.await_exit()
+    with run(str(f)) as h:
+        h.press('hello')
+        h.await_text('hello')
+        h.press('^X')
+        h.await_text('file is modified - save [yes, no]?')
+        h.press('y')
+        h.await_text('enter filename: ')
+        h.press('Enter')
+        h.await_exit()
     assert f.read() == 'hello\n'
+
+
+def test_save_to_current_directory(run, tmpdir):
+    with tmpdir.as_cwd():
+        f = tmpdir.join('f')
+        with run(str(f)) as h:
+            h.press('hello')
+            h.await_text('hello')
+            h.press_and_enter('^X')
+            h.await_text('file is modified - save [yes, no]?')
+            h.press('y')
+            h.await_text('enter filename: ')
+            h.press('Enter')
+            h.await_exit()
+        assert f.read() == 'hello\n'
