@@ -487,7 +487,6 @@ class Screen:
     def save(self) -> PromptResult | None:
         self.file.finalize_previous_action()
 
-        # TODO: make directories if they don't exist
         # TODO: maybe use mtime / stat as a shortcut for hashing below
         # TODO: strip trailing whitespace?
         # TODO: save atomically?
@@ -513,6 +512,7 @@ class Screen:
             return PromptResult.CANCELLED
 
         try:
+            os.makedirs(os.path.dirname(self.file.filename), exist_ok=True)
             with open(
                 self.file.filename, 'w', encoding='UTF-8', newline='',
             ) as f:

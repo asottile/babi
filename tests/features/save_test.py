@@ -276,3 +276,17 @@ def test_vim_force_exit(run, tmpdir):
         trigger_command_mode(h)
         h.press_and_enter(':q!')
         h.await_exit()
+
+
+def test_save_on_exit_with_not_existing_directory(run, tmpdir):
+    f = tmpdir.join('test/nested/dirs/f')
+    with run(str(f)) as fake_h:
+        fake_h.press('hello')
+        fake_h.await_text('hello')
+        fake_h.press('^X')
+        fake_h.await_text('file is modified - save [yes, no]?')
+        fake_h.press('y')
+        fake_h.await_text('enter filename: ')
+        fake_h.press('Enter')
+        fake_h.await_exit()
+    assert f.read() == 'hello\n'
