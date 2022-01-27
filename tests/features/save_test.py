@@ -293,14 +293,15 @@ def test_save_and_exit_to_uncreated_directory(run, tmpdir):
 
 
 def test_save_and_exit_to_dot_file(run, tmpdir):
-    f = tmpdir.join('.f')
-    with run(str(f)) as h:
-        h.press('hello')
-        h.await_text('hello')
-        h.press_and_enter('^X')
-        h.await_text('file is modified - save [yes, no]?')
-        h.press('y')
-        h.await_text('enter filename: ')
-        h.press('Enter')
-        h.await_exit()
-    assert f.read() == 'hello\n'
+    with tmpdir.as_cwd():
+        f = tmpdir.join('f')
+        with run(str(f)) as h:
+            h.press('hello')
+            h.await_text('hello')
+            h.press_and_enter('^X')
+            h.await_text('file is modified - save [yes, no]?')
+            h.press('y')
+            h.await_text('enter filename: ')
+            h.press('Enter')
+            h.await_exit()
+        assert f.read() == 'hello\n'
