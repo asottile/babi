@@ -295,19 +295,19 @@ def test_save_and_exit_to_uncreated_directory(run, tmpdir):
 
 
 def test_save_and_exit_with_relative_file(run, tmpdir):
+    current_cwd = os.getcwd()
+    os.chdir(tmpdir)
+    f = tmpdir.join('f')
+    with run(str(f)) as h:
+        h.press('hello')
+        h.await_text('hello')
+        h.press_and_enter('^X')
+        h.await_text('file is modified - save [yes, no]?')
+        h.press('y')
+        h.await_text('enter filename: ')
+        h.press('Enter')
+        h.await_exit()
     try:
-        current_cwd = os.getcwd()
-        os.chdir(tmpdir)
-        f = tmpdir.join('f')
-        with run(str(f)) as h:
-            h.press('hello')
-            h.await_text('hello')
-            h.press_and_enter('^X')
-            h.await_text('file is modified - save [yes, no]?')
-            h.press('y')
-            h.await_text('enter filename: ')
-            h.press('Enter')
-            h.await_exit()
         assert f.read() == 'hello\n'
     finally:
         os.chdir(current_cwd)
