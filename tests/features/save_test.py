@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import os
-
 import pytest
 
 from testing.runner import and_exit
@@ -295,9 +293,7 @@ def test_save_and_exit_to_uncreated_directory(run, tmpdir):
 
 
 def test_save_and_exit_with_relative_file(run, tmpdir):
-    try:
-        current_cwd = os.getcwd()
-        os.chdir(tmpdir)
+    with tmpdir.as_cwd():
         f = tmpdir.join('f')
         with run(str(f)) as h:
             h.press('hello')
@@ -309,5 +305,3 @@ def test_save_and_exit_with_relative_file(run, tmpdir):
             h.press('Enter')
             h.await_exit()
         assert f.read() == 'hello\n'
-    finally:
-        os.chdir(current_cwd)
