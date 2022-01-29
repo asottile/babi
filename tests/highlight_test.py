@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import stat
+
 import pytest
 
 from babi.highlight import highlight_line
@@ -11,6 +13,17 @@ def test_grammar_matches_extension_only_name(make_grammars):
     grammars = make_grammars(data)
     compiler = grammars.compiler_for_file('.bashrc', 'alias nano=babi')
     assert compiler.root_state.entries[0].scope[0] == 'shell'
+
+
+def test_file_without_extension(tmpdir, make_grammars):
+    f = tmpdir.join('f')
+    f.write('#!/usr/bin/env python3')
+    f.chmod(stat.S_IRWXU)
+
+    data = {'scopeName': 'source.python', 'patterns': []}
+    grammars = make_grammars(data)
+    compiler = grammars.compiler_for_file(str(f), f.read())
+    assert compiler.root_state.entries[0].scope[0] == 'source.python'
 
 
 def test_grammar_matches_via_identify_tag(make_grammars):

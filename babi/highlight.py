@@ -10,6 +10,7 @@ from typing import Tuple
 from typing import TypeVar
 
 from identify.identify import tags_from_filename
+from identify.identify import tags_from_path
 
 from babi._types import Protocol
 from babi.fdict import FChainMap
@@ -721,7 +722,11 @@ class Grammars:
         return self.compiler_for_scope('source.unknown')
 
     def compiler_for_file(self, filename: str, first_line: str) -> Compiler:
-        for tag in tags_from_filename(filename) - {'text'}:
+        try:
+            tags = tags_from_path(filename)
+        except ValueError:
+            tags = tags_from_filename(filename)
+        for tag in tags - {'text'}:
             try:
                 # TODO: this doesn't always match even if we detect it
                 return self.compiler_for_scope(f'source.{tag}')
