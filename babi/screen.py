@@ -477,11 +477,11 @@ class Screen:
                     for file in self.files:
                         file.buf.set_tab_size(parsed_tab_size)
                     self.status.update('updated!')
-        elif response.startswith(':expandtabs'):
+        elif response == ':expandtabs':
             for file in self.files:
                 file.buf.expandtabs = True
             self.status.update('updated!')
-        elif response.startswith(':noexpandtabs'):
+        elif response == ':noexpandtabs':
             for file in self.files:
                 file.buf.expandtabs = False
             self.status.update('updated!')
