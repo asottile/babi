@@ -50,15 +50,28 @@ def c_main(
         perf: Perf,
 ) -> int:
     screen = Screen(stdscr, filenames, positions, perf)
+
+    def _exit_current() -> None:
+        del screen.files[screen.i]
+        # always go to the next file except at the end
+        screen.i = min(screen.i, len(screen.files) - 1)
+        screen.status.clear()
+
     with screen.history.save():
         while screen.files:
             screen.i = screen.i % len(screen.files)
             res = _edit(screen, stdin)
             if res == EditResult.EXIT:
-                del screen.files[screen.i]
-                # always go to the next file except at the end
-                screen.i = min(screen.i, len(screen.files) - 1)
-                screen.status.clear()
+                _exit_current()
+            elif res == EditResult.EXIT_ALL:
+                while screen.files:
+                    screen.draw()
+                    if screen.quit_save_modified() == EditResult.EXIT:
+                        _exit_current()
+                    else:
+                        break  # pragma: no cover (py38+ cpython/coverage bug)
+            elif res == EditResult.EXIT_ALL_FORCE:
+                break
             elif res == EditResult.NEXT:
                 screen.i += 1
                 screen.status.clear()

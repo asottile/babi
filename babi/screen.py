@@ -31,7 +31,6 @@ else:  # pragma: <3.8 cover
     import importlib_metadata
 
 VERSION_STR = f'babi v{importlib_metadata.version("babi")}'
-EditResult = enum.Enum('EditResult', 'EXIT NEXT PREV OPEN')
 
 # TODO: find a place to populate these, surely there's a database somewhere
 SEQUENCE_KEYNAME = {
@@ -98,6 +97,15 @@ KEYNAME_REWRITE = {
     b'^D': b'KEY_DC',
     b'PADENTER': b'^M',  # Enter on numpad
 }
+
+
+class EditResult(enum.Enum):
+    EXIT = enum.auto()
+    EXIT_ALL = enum.auto()
+    EXIT_ALL_FORCE = enum.auto()
+    NEXT = enum.auto()
+    PREV = enum.auto()
+    OPEN = enum.auto()
 
 
 class Key(NamedTuple):
@@ -431,6 +439,10 @@ class Screen:
         response = self.prompt('', history='command')
         if response is PromptResult.CANCELLED:
             pass
+        elif response == ':qall':
+            return EditResult.EXIT_ALL
+        elif response == ':qall!':
+            return EditResult.EXIT_ALL_FORCE
         elif response == ':q':
             return self.quit_save_modified()
         elif response == ':q!':
