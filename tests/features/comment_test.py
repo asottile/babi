@@ -205,3 +205,10 @@ def test_remove_comment_with_comment_elsewhere_in_line(run, tmpdir, comment):
         h.press_and_enter(':comment')
 
         h.await_text('\nprint("not a # comment here!")\n')
+
+
+def test_comment_incorrect_number_of_args(run):
+    with run() as h, and_exit(h):
+        trigger_command_mode(h)
+        h.press_and_enter(':comment # #')
+        h.await_text('`:comment`: expected 0 or 1 args but got 2')

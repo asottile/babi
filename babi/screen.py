@@ -9,6 +9,7 @@ import re
 import signal
 import sre_parse
 import sys
+from typing import Callable
 from typing import Generator
 from typing import NamedTuple
 from typing import Pattern
@@ -106,6 +107,11 @@ class EditResult(enum.Enum):
     NEXT = enum.auto()
     PREV = enum.auto()
     OPEN = enum.auto()
+
+
+class Command(NamedTuple):
+    callback: Callable[[Screen, list[str]], EditResult | None]
+    nargs: str | int = 0
 
 
 class Key(NamedTuple):
@@ -435,66 +441,105 @@ class Screen:
                 else:
                     self.file.replace(self, search_response, response)
 
+    def _command_w(self, args: list[str]) -> None:
+        self.save()
+
+    def _command_wq(self, args: list[str]) -> EditResult:
+        self.save()
+        return EditResult.EXIT
+
+    def _command_sort(self, args: list[str]) -> None:
+        if self.file.selection.start:
+            self.file.sort_selection(self.margin)
+        else:
+            self.file.sort(self.margin)
+        self.status.update('sorted!')
+
+    def _command_sort_bang(self, args: list[str]) -> None:
+        if self.file.selection.start:
+            self.file.sort_selection(self.margin, reverse=True)
+        else:
+            self.file.sort(self.margin, reverse=True)
+        self.status.update('sorted!')
+
+    def _command_tabsize(self, args: list[str]) -> None:
+        tab_size, = args
+        try:
+            parsed_tab_size = int(tab_size)
+        except ValueError:
+            self.status.update(f'invalid size: {tab_size}')
+        else:
+            if parsed_tab_size <= 0:
+                self.status.update(f'invalid size: {parsed_tab_size}')
+            else:
+                for file in self.files:
+                    file.buf.set_tab_size(parsed_tab_size)
+                self.status.update('updated!')
+
+    def _command_expandtabs(self, args: list[str]) -> None:
+        for file in self.files:
+            file.buf.expandtabs = True
+        self.status.update('updated!')
+
+    def _command_noexpandtabs(self, args: list[str]) -> None:
+        for file in self.files:
+            file.buf.expandtabs = False
+        self.status.update('updated!')
+
+    def _command_comment(self, args: list[str]) -> None:
+        if len(args) == 1:
+            comment, = args
+        else:
+            comment = '#'
+        if self.file.selection.start:
+            self.file.toggle_comment_selection(comment)
+        else:
+            self.file.toggle_comment(comment)
+
+    COMMANDS = {
+        ':qall': Command(lambda self, args: EditResult.EXIT_ALL),
+        ':qall!': Command(lambda self, args: EditResult.EXIT_ALL_FORCE),
+        ':q': Command(lambda self, args: self.quit_save_modified()),
+        ':q!': Command(lambda self, args: EditResult.EXIT),
+        ':w': Command(_command_w),
+        ':wq': Command(_command_wq),
+        ':sort': Command(_command_sort),
+        ':sort!': Command(_command_sort_bang),
+        ':tabstop': Command(_command_tabsize, nargs=1),
+        ':tabsize': Command(_command_tabsize, nargs=1),
+        ':expandtabs': Command(_command_expandtabs),
+        ':noexpandtabs': Command(_command_noexpandtabs),
+        ':comment': Command(_command_comment, nargs='?'),
+    }
+
     def command(self) -> EditResult | None:
         response = self.prompt('', history='command')
         if response is PromptResult.CANCELLED:
-            pass
-        elif response == ':qall':
-            return EditResult.EXIT_ALL
-        elif response == ':qall!':
-            return EditResult.EXIT_ALL_FORCE
-        elif response == ':q':
-            return self.quit_save_modified()
-        elif response == ':q!':
-            return EditResult.EXIT
-        elif response == ':w':
-            self.save()
-        elif response == ':wq':
-            self.save()
-            return EditResult.EXIT
-        elif response == ':sort':
-            if self.file.selection.start:
-                self.file.sort_selection(self.margin)
-            else:
-                self.file.sort(self.margin)
-            self.status.update('sorted!')
-        elif response == ':sort!':
-            if self.file.selection.start:
-                self.file.sort_selection(self.margin, reverse=True)
-            else:
-                self.file.sort(self.margin, reverse=True)
-            self.status.update('sorted!')
-        elif response.startswith((':tabstop ', ':tabsize ')):
-            _, _, tab_size = response.partition(' ')
-            try:
-                parsed_tab_size = int(tab_size)
-            except ValueError:
-                self.status.update(f'invalid size: {tab_size}')
-            else:
-                if parsed_tab_size <= 0:
-                    self.status.update(f'invalid size: {parsed_tab_size}')
-                else:
-                    for file in self.files:
-                        file.buf.set_tab_size(parsed_tab_size)
-                    self.status.update('updated!')
-        elif response == ':expandtabs':
-            for file in self.files:
-                file.buf.expandtabs = True
-            self.status.update('updated!')
-        elif response == ':noexpandtabs':
-            for file in self.files:
-                file.buf.expandtabs = False
-            self.status.update('updated!')
-        elif response == ':comment' or response.startswith(':comment '):
-            _, _, comment = response.partition(' ')
-            comment = (comment or '#').strip()
-            if self.file.selection.start:
-                self.file.toggle_comment_selection(comment)
-            else:
-                self.file.toggle_comment(comment)
-        else:
+            return None
+
+        cmd, *args = response.split()
+        if cmd not in self.COMMANDS:
             self.status.update(f'invalid command: {response}')
-        return None
+            return None
+
+        command = self.COMMANDS[cmd]
+        if isinstance(command.nargs, int):
+            if len(args) != command.nargs:
+                self.status.update(
+                    f'`{cmd}`: expected {command.nargs} args '
+                    f'but got {len(args)}',
+                )
+                return None
+        elif command.nargs == '?':
+            if len(args) not in {0, 1}:
+                self.status.update(
+                    f'`{cmd}`: expected 0 or 1 args but got {len(args)}',
+                )
+                return None
+        else:
+            raise NotImplementedError(command)
+
+        return command.callback(self, args)
 
     def save(self) -> PromptResult | None:
         self.file.finalize_previous_action()
