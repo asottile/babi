@@ -45,3 +45,10 @@ def test_indent_with_expandtabs(run, tmpdir):
         h.press('Tab')
         h.press('^S')
     assert f.read() == '\ta\n\tb\n\tc\n'
+
+
+def test_expandtabs_incorrect_number_of_arguments(run):
+    with run() as h, and_exit(h):
+        trigger_command_mode(h)
+        h.press_and_enter(':expandtabs 1')
+        h.await_text('`:expandtabs`: expected 0 args but got 1')
