@@ -465,6 +465,45 @@ class File:
             self.buf.y = self.buf.file_y = pos
         self.buf.x = 0
 
+    @action
+    def alt_up(self, margin: Margin) -> None:
+        if self.buf.y > 0:
+            offset = 1
+            while self.buf[self.buf.y - offset] == '':
+                offset += 1
+            if offset >= 2:
+                self.buf.y -= offset
+                self.buf.scroll_screen_if_needed(margin)
+                self.buf.x = 0
+                return
+            while (
+                self.buf[self.buf.y - offset - 1] != '' and
+                self.buf.y - offset - 1 >= 0
+            ):
+                offset += 1
+            self.buf.y -= offset
+            self.buf.scroll_screen_if_needed(margin)
+            self.buf.x = 0
+
+    @action
+    def alt_down(self, margin: Margin) -> None:
+        if self.buf.y < len(self.buf) - 1:
+            offset = 0
+            while self.buf[self.buf.y + offset] != '':
+                offset += 1
+            if offset > 1:
+                self.buf.y += offset - 1
+                self.buf.scroll_screen_if_needed(margin)
+                self.buf.x = 0
+                return
+            while self.buf[self.buf.y + offset] == '':
+                if self.buf.y + offset >= len(self.buf) - 1:
+                    break
+                offset += 1
+            self.buf.y += offset
+            self.buf.scroll_screen_if_needed(margin)
+            self.buf.x = 0
+
     # editing
 
     @edit_action('backspace text', final=False)
@@ -757,6 +796,8 @@ class File:
         b'kLFT5': ctrl_left,
         b'kHOM5': ctrl_home,
         b'kEND5': ctrl_end,
+        b'kUP3': alt_up,
+        b'kDN3': alt_down,
         # editing
         b'KEY_BACKSPACE': backspace,
         b'KEY_DC': delete,
@@ -776,6 +817,8 @@ class File:
         b'kLFT6': keep_selection(ctrl_left),
         b'kHOM6': keep_selection(ctrl_home),
         b'kEND6': keep_selection(ctrl_end),
+        b'kUP4': keep_selection(alt_up),
+        b'kDN4': keep_selection(alt_down),
     }
 
     @edit_action('text', final=False)
