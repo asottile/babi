@@ -584,14 +584,7 @@ class Screen:
         num_lines = len(self.file.buf) - 1
         lines = 'lines' if num_lines != 1 else 'line'
         self.status.update(f'saved! ({num_lines} {lines} written)')
-
-        # fix up modified state in undo / redo stacks
-        for stack in (self.file.undo_stack, self.file.redo_stack):
-            first = True
-            for action in reversed(stack):
-                action.end_modified = not first
-                action.start_modified = True
-                first = False
+        self.file.reset_modified_state()
         return None
 
     def save_filename(self) -> PromptResult | None:

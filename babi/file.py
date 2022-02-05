@@ -270,6 +270,14 @@ class File:
     def __repr__(self) -> str:
         return f'<{type(self).__name__} {self.filename!r}>'
 
+    def reset_modified_state(self) -> None:
+        for stack in (self.undo_stack, self.redo_stack):
+            first = True
+            for action in reversed(stack):
+                action.end_modified = not first
+                action.start_modified = True
+                first = False
+
     # movement
 
     @action
