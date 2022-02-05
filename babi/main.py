@@ -13,6 +13,7 @@ from babi.file import File
 from babi.perf import Perf
 from babi.perf import perf_log
 from babi.screen import EditResult
+from babi.screen import FileInfo
 from babi.screen import make_stdscr
 from babi.screen import Screen
 
@@ -44,12 +45,11 @@ def _edit(screen: Screen, stdin: str) -> EditResult:
 
 def c_main(
         stdscr: curses._CursesWindow,
-        filenames: list[str | None],
-        positions: list[int],
+        file_infos: list[FileInfo],
         stdin: str,
         perf: Perf,
 ) -> int:
-    screen = Screen(stdscr, filenames, positions, perf)
+    screen = Screen(stdscr, file_infos, perf)
 
     def _exit_current() -> None:
         del screen.files[screen.i]
@@ -86,7 +86,8 @@ def c_main(
 
 
 def _key_debug(stdscr: curses._CursesWindow, perf: Perf) -> int:
-    screen = Screen(stdscr, ['<<key debug>>'], [0], perf)
+    info = FileInfo(filename='<<key debug>>', initial_line=0, is_stdin=False)
+    screen = Screen(stdscr, [info], perf)
     screen.file.buf = Buf([''])
 
     while True:
@@ -103,12 +104,25 @@ def _key_debug(stdscr: curses._CursesWindow, perf: Perf) -> int:
             return 0
 
 
-def _filenames(filenames: list[str]) -> tuple[list[str | None], list[int]]:
+def _files(filenames: list[str]) -> list[FileInfo]:
     if not filenames:
-        return [None], [0]
+        return [FileInfo(filename=None, initial_line=0, is_stdin=False)]
 
-    ret_filenames: list[str | None] = []
-    ret_positions = []
+    ret = []
+
+    def _to_info(filename: str, initial_line: int) -> FileInfo:
+        if filename == '-':
+            return FileInfo(
+                filename=None,
+                initial_line=initial_line,
+                is_stdin=True,
+            )
+        else:
+            return FileInfo(
+                filename=filename,
+                initial_line=initial_line,
+                is_stdin=False,
+            )
 
     filenames_iter = iter(filenames)
     for filename in filenames_iter:
@@ -125,13 +139,11 @@ def _filenames(filenames: list[str]) -> tuple[list[str | None], list[int]]:
                 filename = next(filenames_iter)
             except StopIteration:
                 position_s = '+0'
-            ret_positions.append(int(position_s[1:]))
-            ret_filenames.append(filename)
+            ret.append(_to_info(filename, int(position_s[1:])))
         else:
-            ret_positions.append(0)
-            ret_filenames.append(filename)
+            ret.append(_to_info(filename, 0))
 
-    return ret_filenames, ret_positions
+    return ret
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -160,8 +172,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         if args.key_debug:
             return _key_debug(stdscr, perf)
         else:
-            filenames, positions = _filenames(args.filenames)
-            return c_main(stdscr, filenames, positions, stdin, perf)
+            file_infos = _files(args.filenames)
+            return c_main(stdscr, file_infos, stdin, perf)
 
 
 if __name__ == '__main__':

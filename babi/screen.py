@@ -119,20 +119,31 @@ class Key(NamedTuple):
     keyname: bytes
 
 
+class FileInfo(NamedTuple):
+    filename: str | None
+    initial_line: int
+    is_stdin: bool
+
+
 class Screen:
     def __init__(
             self,
             stdscr: curses._CursesWindow,
-            filenames: list[str | None],
-            initial_lines: list[int],
+            file_infos: list[FileInfo],
             perf: Perf,
     ) -> None:
         self.stdscr = stdscr
         self.color_manager = ColorManager.make()
         self.hl_factories = (Syntax.from_screen(stdscr, self.color_manager),)
         self.files = [
-            File(filename, line, self.color_manager, self.hl_factories)
-            for filename, line in zip(filenames, initial_lines)
+            File(
+                info.filename,
+                info.initial_line,
+                self.color_manager,
+                self.hl_factories,
+                is_stdin=info.is_stdin,
+            )
+            for info in file_infos
         ]
         self.i = 0
         self.history = History()
@@ -598,7 +609,13 @@ class Screen:
     def open_file(self) -> EditResult | None:
         response = self.prompt('enter filename', history='open')
         if response is not PromptResult.CANCELLED:
-            opened = File(response, 0, self.color_manager, self.hl_factories)
+            opened = File(
+                response,
+                0,
+                self.color_manager,
+                self.hl_factories,
+                is_stdin=False,
+            )
             self.files.append(opened)
             return EditResult.OPEN
         else:
