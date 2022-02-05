@@ -10,7 +10,7 @@ from babi.file import get_lines
 
 
 def test_position_repr():
-    ret = repr(File('f.txt', 0, ColorManager.make(), ()))
+    ret = repr(File('f.txt', 0, ColorManager.make(), (), is_stdin=False))
     assert ret == "<File 'f.txt'>"
 
 

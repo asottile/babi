@@ -202,9 +202,12 @@ class File:
             initial_line: int,
             color_manager: ColorManager,
             hl_factories: tuple[HLFactory, ...],
+            *,
+            is_stdin: bool,
     ) -> None:
         self.filename = filename
         self.initial_line = initial_line
+        self.is_stdin = is_stdin
         self.modified = False
         self.buf = Buf([])
         self.nl = '\n'
@@ -227,8 +230,9 @@ class File:
         if self.buf:
             return
 
-        if self.filename == '-':
+        if self.is_stdin:
             status.update('(from stdin)')
+            self.is_stdin = False
             self.filename = None
             self.modified = True
             sio = io.StringIO(stdin)
