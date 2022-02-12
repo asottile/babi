@@ -565,6 +565,16 @@ class Screen:
             else:
                 self.file.filename = filename
 
+        if os.path.exists(self.file.filename):
+            with open(self.file.filename) as f:
+                x = f.readline()[:-1]
+            refresh_syntax = (
+                x != self.file.buf[0] and
+                self.file.buf[0].startswith('#!/') or x.startswith('#!/')
+            )
+        else:
+            refresh_syntax = True
+
         if not os.path.isfile(self.file.filename):
             sha256: str | None = None
         else:
@@ -596,6 +606,10 @@ class Screen:
         lines = 'lines' if num_lines != 1 else 'line'
         self.status.update(f'saved! ({num_lines} {lines} written)')
         self.file.reset_modified_state()
+
+        if refresh_syntax:
+            self.file.refresh_syntax()
+
         return None
 
     def save_filename(self) -> PromptResult | None:
