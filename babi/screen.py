@@ -169,7 +169,7 @@ class Screen:
             files = ''
             version_width = len(VERSION_STR) + 2
         centered = filename.center(self.margin.cols)[version_width:]
-        s = f' {VERSION_STR} {files}{centered}{files}'
+        s = f' {VERSION_STR} {files}{centered}'
         self.stdscr.insstr(0, 0, s, curses.A_REVERSE)
 
     def _get_sequence_home_end(self, wch: str) -> str:
