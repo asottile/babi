@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import bisect
 import contextlib
+import re
 from typing import Callable
 from typing import Generator
 from typing import Iterator
@@ -59,7 +60,7 @@ class Buf:
     def __init__(self, lines: list[str], tab_size: int = 4) -> None:
         self._lines = lines
         self.expandtabs = True
-        self.tab_size = tab_size
+        self.tab_size = self.get_tab_size(tab_size)
         self.file_y = self.y = self._x = self._x_hint = 0
 
         self._set_callbacks: list[SetCallback] = [self._set_cb]
@@ -136,6 +137,16 @@ class Buf:
         """
         if self[-1] != '':
             self.append('')
+
+    def get_tab_size(self, tab_size: int) -> int:
+        for line in self._lines:
+            file_tab_size = re.search(r'(?=.*\S)^\s+', line)
+            if file_tab_size is not None:
+                # if hard tabs are detected use default
+                if not file_tab_size.group(0).startswith('\t'):
+                    tab_size = len(file_tab_size.group(0))
+                break
+        return tab_size
 
     def set_tab_size(self, tab_size: int) -> None:
         self.tab_size = tab_size

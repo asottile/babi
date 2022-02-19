@@ -82,12 +82,12 @@ def test_dedent_exactly_one_indent(run):
 
 def test_dedent_selection(run, tmpdir):
     f = tmpdir.join('f')
-    f.write('1\n  2\n        3\n')
+    f.write('1\n    2\n        3\n  4\n')
     with run(str(f)) as h, and_exit(h):
         for _ in range(3):
             h.press('S-Down')
         h.press('BTab')
-        h.await_text('\n1\n2\n    3\n')
+        h.await_text('\n1\n2\n    3\n4\n')
 
 
 def test_dedent_selection_with_noexpandtabs(run, tmpdir):
