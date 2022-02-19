@@ -238,8 +238,13 @@ class File:
             sio = io.StringIO(stdin)
             lines, self.nl, mixed, self.sha256 = get_lines(sio)
         elif self.filename is not None and os.path.isfile(self.filename):
-            with open(self.filename, encoding='UTF-8', newline='') as f:
-                lines, self.nl, mixed, self.sha256 = get_lines(f)
+            try:
+                with open(self.filename, encoding='UTF-8', newline='') as f:
+                    lines, self.nl, mixed, self.sha256 = get_lines(f)
+            except UnicodeDecodeError:
+                status.update(f'{self.filename!r} is non-utf-8')
+                self.filename = None
+                lines, self.nl, mixed, self.sha256 = get_lines(io.StringIO(''))
         else:
             if self.filename is not None:
                 if os.path.lexists(self.filename):
