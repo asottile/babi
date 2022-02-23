@@ -507,6 +507,20 @@ class Screen:
         else:
             self.file.toggle_comment(comment)
 
+    def _command_reload(self, args: list[str]) -> None:
+        if self.file.filename is None:
+            self.status.update('file has not been saved yet!')
+            return
+
+        if self.file.modified:
+            response = self.quick_prompt(
+                'reload will discard changes - continue', ('yes', 'no'),
+            )
+            if response != 'y':
+                return
+
+        self.file.reload(self.status, self.margin)
+
     COMMANDS = {
         ':qall': Command(lambda self, args: EditResult.EXIT_ALL),
         ':qall!': Command(lambda self, args: EditResult.EXIT_ALL_FORCE),
@@ -521,6 +535,7 @@ class Screen:
         ':expandtabs': Command(_command_expandtabs),
         ':noexpandtabs': Command(_command_noexpandtabs),
         ':comment': Command(_command_comment, nargs='?'),
+        ':reload': Command(_command_reload),
     }
 
     def command(self) -> EditResult | None:

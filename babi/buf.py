@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import bisect
 import contextlib
+import difflib
 from typing import Callable
 from typing import Generator
 from typing import Iterator
@@ -130,6 +131,23 @@ class Buf:
         del self[idx]
         return victim
 
+    def replace_lines(self, lines: list[str]) -> None:
+        matcher = difflib.SequenceMatcher(a=self._lines, b=lines)
+        for op, i1, i2, j1, j2 in reversed(matcher.get_opcodes()):
+            if op == 'replace':
+                for i, j in zip(range(i1, i2), range(j1, j2)):
+                    self[i] = lines[j]
+            elif op == 'delete':
+                for i in reversed(range(i1, i2)):
+                    del self[i]
+            elif op == 'insert':
+                for j in reversed(range(j1, j2)):
+                    self.insert(i1, lines[j])
+            elif op == 'equal':
+                pass
+            else:
+                raise AssertionError(f'{op} {self._lines} {lines} ???')
+
     def restore_eof_invariant(self) -> None:
         """the file lines will always contain a blank empty string at the end'
         to simplify rendering.  call this whenever the last line may change
@@ -239,6 +257,11 @@ class Buf:
         y = self.y - self.file_y + margin.header
         x = self._cursor_x - self.line_x(margin)
         return y, x
+
+    def fixup_position(self, margin: Margin) -> None:
+        self.y = min(self.y, len(self._lines) - 1)
+        self.scroll_screen_if_needed(margin)
+        self.x = min(self.x, len(self._lines[self.y]))
 
     # rendered lines
 

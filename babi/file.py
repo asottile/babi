@@ -60,6 +60,21 @@ def get_lines(sio: IO[str]) -> tuple[list[str], str, bool, str]:
     return lines, nl, mixed, sha256.hexdigest()
 
 
+class OpenError(RuntimeError):
+    pass
+
+
+def _load_file(filename: str) -> tuple[list[str], str, bool, str]:
+    try:
+        with open(filename, encoding='UTF-8', newline='') as f:
+            return get_lines(f)
+    except UnicodeDecodeError:
+        raise OpenError(f'error! not utf-8: {filename!r}')
+    except OSError:
+        # XXX: not quite correct, but maybe fix another day
+        raise OpenError(f'error! not a file: {filename!r}')
+
+
 class Action:
     def __init__(
             self, *, name: str, modifications: list[Modification],
@@ -237,21 +252,16 @@ class File:
             self.modified = True
             sio = io.StringIO(stdin)
             lines, self.nl, mixed, self.sha256 = get_lines(sio)
-        elif self.filename is not None and os.path.isfile(self.filename):
+        elif self.filename is not None and os.path.lexists(self.filename):
             try:
-                with open(self.filename, encoding='UTF-8', newline='') as f:
-                    lines, self.nl, mixed, self.sha256 = get_lines(f)
-            except UnicodeDecodeError:
-                status.update(f'{self.filename!r} is non-utf-8')
+                lines, self.nl, mixed, self.sha256 = _load_file(self.filename)
+            except OpenError as e:
+                status.update(str(e))
                 self.filename = None
                 lines, self.nl, mixed, self.sha256 = get_lines(io.StringIO(''))
         else:
             if self.filename is not None:
-                if os.path.lexists(self.filename):
-                    status.update(f'{self.filename!r} is not a file')
-                    self.filename = None
-                else:
-                    status.update('(new file)')
+                status.update('(new file)')
             lines, self.nl, mixed, self.sha256 = get_lines(io.StringIO(''))
 
         self.buf = Buf(lines, self.buf.tab_size)
@@ -792,6 +802,30 @@ class File:
                 self._comment_remove(lineno, prefix)
             else:
                 self._comment_add(lineno, prefix, minimum_indent)
+
+    def reload(self, status: Status, margin: Margin) -> None:
+        assert self.filename is not None
+        try:
+            lines, nl, mixed, sha256 = _load_file(self.filename)
+        except OpenError as e:
+            status.update(f'reload: {e}')
+            return
+
+        self.selection.clear()
+        self.nl, self.sha256 = nl, sha256
+        with self.edit_action_context('reload', final=True):
+            self.buf.replace_lines(lines)
+
+        self.buf.fixup_position(margin)
+
+        if mixed:
+            status.update(
+                f'reloaded! (mixed newlines will be converted to {self.nl!r})',
+            )
+        else:
+            self.modified = False
+            self.reset_modified_state()
+            status.update('reloaded!')
 
     DISPATCH = {
         # movement
