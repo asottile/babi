@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+from unittest import mock
+
 import pytest
 
+import babi.buf
 from babi.buf import Buf
+
+
+def test_buf_truthiness():
+    assert bool(Buf([])) is False
+    assert bool(Buf(['a', 'b'])) is True
 
 
 def test_buf_repr():
@@ -178,3 +186,37 @@ def test_buf_pop_idx():
     buf.apply(modifications)
 
     assert lst == ['a', 'b', 'c']
+
+
+def test_restore_eof_invariant():
+    lst = ['a', 'b', 'c']
+    buf = Buf(lst)
+    buf.restore_eof_invariant()
+    assert lst == ['a', 'b', 'c', '']
+
+    buf.restore_eof_invariant()
+    assert lst == ['a', 'b', 'c', '']
+
+
+@pytest.fixture
+def fake_wcwidth():
+    chars = {'a': 1, 'b': 1, 'c': 1, '🔵': 2}
+    with mock.patch.object(babi.buf, 'wcwidth', chars.__getitem__):
+        yield
+
+
+@pytest.mark.usefixtures('fake_wcwidth')
+def test_line_positions():
+    buf = Buf(['a', '🔵b', 'c'])
+    assert buf.line_positions(0) == (0, 1)
+    assert buf.line_positions(1) == (0, 2, 3)
+    assert buf.line_positions(2) == (0, 1)
+
+
+@pytest.mark.usefixtures('fake_wcwidth')
+def test_set_tab_size():
+    buf = Buf(['\ta'])
+    assert buf.line_positions(0) == (0, 4, 5)
+
+    buf.set_tab_size(8)
+    assert buf.line_positions(0) == (0, 8, 9)
