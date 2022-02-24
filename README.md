@@ -68,6 +68,7 @@ these are all of the current key bindings in babi
     - <kbd>:wq</kbd>: write the file and quit
     - <kbd>:qall</kbd>: quit every open file
     - <kbd>:comment</kbd>: comment on the current line / selection
+    - <kbd>:reload</kbd>: reload the file contents
     - <kbd>:sort</kbd>: sort the file (or selection)
 
 in prompts (search, search replace, command):

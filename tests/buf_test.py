@@ -188,6 +188,29 @@ def test_buf_pop_idx():
     assert lst == ['a', 'b', 'c']
 
 
+@pytest.mark.parametrize(
+    'new_lines',
+    (
+        pytest.param(['d', 'b', 'c'], id='replace op'),
+        pytest.param(['c'], id='delete op'),
+        pytest.param(['a', 'q', 'q', 'q', 'b', 'c'], id='insert op'),
+    ),
+)
+def test_replace_lines(new_lines):
+    lst = ['a', 'b', 'c']
+
+    buf = Buf(lst)
+
+    with buf.record() as modifications:
+        buf.replace_lines(new_lines)
+
+    assert lst == new_lines
+
+    buf.apply(modifications)
+
+    assert lst == ['a', 'b', 'c']
+
+
 def test_restore_eof_invariant():
     lst = ['a', 'b', 'c']
     buf = Buf(lst)

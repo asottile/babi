@@ -50,7 +50,7 @@ def test_not_a_file(run, tmpdir):
     d = tmpdir.join('d').ensure_dir()
     with run(str(d)) as h, and_exit(h):
         h.await_text('<<new file>>')
-        h.await_text("d' is not a file")
+        h.await_text('error! not a file: ')
 
 
 def test_non_utf8_file(run, tmpdir):
@@ -58,7 +58,7 @@ def test_non_utf8_file(run, tmpdir):
     f.write_binary(b'\x98\xef\xa0\x12')
 
     with run(str(f)) as h, and_exit(h):
-        h.await_text("f' is non-utf-8")
+        h.await_text('error! not utf-8:')
 
 
 def test_save_no_filename_specified(run, tmpdir):
