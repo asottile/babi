@@ -270,6 +270,11 @@ class File:
             status.update(f'mixed newlines will be converted to {self.nl!r}')
             self.modified = True
 
+        self._initialize_highlighters()
+
+        self.go_to_line(self.initial_line, margin)
+
+    def _initialize_highlighters(self) -> None:
         file_hls = []
         for factory in self._hl_factories:
             if self.filename is not None:
@@ -284,7 +289,16 @@ class File:
         for file_hl in self._file_hls:
             file_hl.register_callbacks(self.buf)
 
-        self.go_to_line(self.initial_line, margin)
+    def reload_theme(
+            self,
+            hl_factories: tuple[HLFactory, ...],
+            color_manager: ColorManager,
+    ) -> None:
+        self._hl_factories = hl_factories
+        # only re-initialize the highlighters if we've loaded once
+        if self._file_hls:
+            self._trailing_whitespace = TrailingWhitespace(color_manager)
+            self._initialize_highlighters()
 
     def __repr__(self) -> str:
         return f'<{type(self).__name__} {self.filename!r}>'

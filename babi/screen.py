@@ -9,6 +9,7 @@ import re
 import signal
 import sre_parse
 import sys
+from types import FrameType
 from typing import Callable
 from typing import Generator
 from typing import NamedTuple
@@ -100,6 +101,14 @@ KEYNAME_REWRITE = {
 }
 
 
+def _get_wch_with_retry(stdscr: curses._CursesWindow) -> str | int:
+    while True:
+        try:
+            return stdscr.get_wch()
+        except curses.error:  # pragma: no cover (error during signals?)
+            pass
+
+
 class EditResult(enum.Enum):
     EXIT = enum.auto()
     EXIT_ALL = enum.auto()
@@ -153,6 +162,7 @@ class Screen:
         self.cut_buffer: tuple[str, ...] = ()
         self.cut_selection = False
         self._buffered_input: int | str | None = None
+        self._retheme = False
 
     @property
     def file(self) -> File:
@@ -253,11 +263,11 @@ class Screen:
     def _get_char(self) -> Key:
         if self._buffered_input is not None:
             wch, self._buffered_input = self._buffered_input, None
+        elif self._retheme:
+            self._retheme = False
+            return Key(-1, b'RETHEME')
         else:
-            try:
-                wch = self.stdscr.get_wch()
-            except curses.error:  # pragma: no cover (macos bug?)
-                wch = self.stdscr.get_wch()
+            wch = _get_wch_with_retry(self.stdscr)
         if isinstance(wch, str) and wch == '\x1b':
             wch = self._get_sequence(wch)
             if len(wch) == 2:
@@ -521,6 +531,14 @@ class Screen:
 
         self.file.reload(self.status, self.margin)
 
+    def _command_retheme(self, args: list[str]) -> None:
+        self.color_manager = ColorManager.make()
+        self.hl_factories = (
+            Syntax.from_screen(self.stdscr, self.color_manager),
+        )
+        for file in self.files:
+            file.reload_theme(self.hl_factories, self.color_manager)
+
     COMMANDS = {
         ':qall': Command(lambda self, args: EditResult.EXIT_ALL),
         ':qall!': Command(lambda self, args: EditResult.EXIT_ALL_FORCE),
@@ -536,6 +554,7 @@ class Screen:
         ':noexpandtabs': Command(_command_noexpandtabs),
         ':comment': Command(_command_comment, nargs='?'),
         ':reload': Command(_command_reload),
+        ':retheme': Command(_command_retheme),
     }
 
     def command(self) -> EditResult | None:
@@ -662,7 +681,11 @@ class Screen:
             self.stdscr = _init_screen()
             self.resize()
 
+    def retheme(self) -> None:
+        self._command_retheme([])
+
     DISPATCH = {
+        b'RETHEME': retheme,
         b'KEY_RESIZE': resize,
         b'^_': go_to_line,
         b'^C': current_position,
@@ -682,6 +705,21 @@ class Screen:
         b'kRIT3': lambda screen: EditResult.NEXT,
         b'^Z': background,
     }
+
+    @contextlib.contextmanager
+    def reload_handler(self) -> Generator[None, None, None]:
+        if sys.platform == 'win32':  # pragma: win32 cover
+            yield  # no signal handling on windows!
+        else:
+            def sigusr1_handler(signum: int, frame: FrameType | None) -> None:
+                self._retheme = True
+                os.kill(os.getpid(), signal.SIGWINCH)
+
+            orig = signal.signal(signal.SIGUSR1, sigusr1_handler)
+            try:
+                yield
+            finally:
+                signal.signal(signal.SIGUSR1, orig)
 
 
 def _init_screen() -> curses._CursesWindow:

@@ -3,7 +3,9 @@ from __future__ import annotations
 import contextlib
 import curses
 import enum
+import os
 import re
+import signal
 
 from hecate import Runner
 
@@ -130,6 +132,13 @@ class PrintsErrorRunner(Runner):
     def assert_full_contents(self, s):
         contents = self.screenshot()
         assert contents == s
+
+    def kill_usr1(self):
+        cmd = ('display', '-t0', '-p', '#{pane_pid}')
+        pid_s = self.tmux.execute_command(*cmd).strip()
+        with open(f'/proc/{pid_s}/task/{pid_s}/children') as f:
+            child_pid = f.read().strip()
+        os.kill(int(child_pid), signal.SIGUSR1)
 
     def get_pane_size(self):
         cmd = ('display', '-t0', '-p', '#{pane_width}\t#{pane_height}')
