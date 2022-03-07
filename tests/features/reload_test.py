@@ -127,17 +127,14 @@ def test_reload_mixed_newlines(run, tmpdir):
         h.await_text(r"reloaded! (mixed newlines will be converted to '\n'")
 
 
-def test_reload_error(run_only_tmux, tmpdir):
-    # this test only runs using tmux because the fake runner is entirely
-    # deferred and doesn't provide a way to delete files in the middle of
-    # execution
+def test_reload_error(run, tmpdir):
     f = tmpdir.join('f')
     f.write('1\n2\n')
 
-    with run_only_tmux(str(f)) as h, and_exit(h):
+    with run(str(f)) as h, and_exit(h):
         h.await_text('1\n2\n')
 
-        f.remove()
+        h.run(lambda: f.remove())
 
         trigger_command_mode(h)
         h.press_and_enter(':reload')
