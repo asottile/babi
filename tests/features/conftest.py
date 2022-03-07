@@ -3,6 +3,7 @@ from __future__ import annotations
 import contextlib
 import curses
 import os
+import signal
 import sys
 from typing import NamedTuple
 from unittest import mock
@@ -345,6 +346,9 @@ class DeferredRunner:
 
     def assert_full_contents(self, contents):
         self._ops.append(AssertFullContents(contents))
+
+    def kill_usr1(self):
+        self._ops.append(lambda screen: os.kill(os.getpid(), signal.SIGUSR1))
 
     def run(self, callback):
         self._ops.append(lambda screen: callback())
