@@ -477,8 +477,3 @@ def run(request):
 @pytest.fixture(scope='session', params=[run_fake], ids=['fake'])
 def run_only_fake(request):
     return request.param
-
-
-@pytest.fixture(scope='session', params=[run_tmux], ids=['tmux'])
-def run_only_tmux(request):
-    return request.param
