@@ -2,7 +2,14 @@ from __future__ import annotations
 
 import curses
 
+import pytest
+
 from testing.runner import and_exit
+
+
+@pytest.fixture(autouse=True)
+def blank_theme(xdg_config_home):
+    xdg_config_home.join('babi/theme.json').ensure().write('{}')
 
 
 def test_trailing_whitespace_highlighting(run, tmpdir):

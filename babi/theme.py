@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import functools
+import importlib.resources
 import json
 import os.path
 from typing import Any
@@ -138,13 +139,13 @@ class Theme(NamedTuple):
         return cls(Style(**default), TrieNode.from_dct(root))
 
     @classmethod
-    def blank(cls) -> Theme:
-        return cls(Style.blank(), TrieNode.from_dct({'children': {}}))
-
-    @classmethod
     def from_filename(cls, filename: str) -> Theme:
         if not os.path.exists(filename):
-            return cls.blank()
+            default_theme = importlib.resources.read_text(
+                'babi.resources',
+                'default-theme.json',
+            )
+            return cls.from_dct(json.loads(default_theme))
         else:
             with open(filename, encoding='UTF-8') as f:
                 return cls.from_dct(json.load(f))
