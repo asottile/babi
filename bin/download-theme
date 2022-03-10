@@ -12,17 +12,19 @@ from typing import Any
 
 import cson  # pip install cson
 
-TOKEN = re.compile(br'(\\\\|\\"|"|//|\n)')
+COMMENT_TOKEN = re.compile(br'(\\\\|\\"|"|//|\n)')
+COMMA_TOKEN = re.compile(br'(\\\\|\\"|"|\]|\})')
+TRAILING_COMMA = re.compile(br',(\s*)$')
 
 
-def json_with_comments(s: bytes) -> Any:
+def _remove_comments(s: bytes) -> io.BytesIO:
     bio = io.BytesIO()
 
     idx = 0
     in_string = False
     in_comment = False
 
-    match = TOKEN.search(s, idx)
+    match = COMMENT_TOKEN.search(s, idx)
     while match:
         if not in_comment:
             bio.write(s[idx:match.start()])
@@ -39,7 +41,45 @@ def json_with_comments(s: bytes) -> Any:
             bio.write(tok)
 
         idx = match.end()
-        match = TOKEN.search(s, idx)
+        match = COMMENT_TOKEN.search(s, idx)
+    bio.write(s[idx:])
+
+    return bio
+
+
+def _remove_trailing_commas(s: bytes) -> io.BytesIO:
+    bio = io.BytesIO()
+
+    idx = 0
+    in_string = False
+
+    match = COMMA_TOKEN.search(s, idx)
+    while match:
+        tok = match[0]
+        if tok == b'"':
+            in_string = not in_string
+            bio.write(s[idx:match.start()])
+            bio.write(tok)
+        elif in_string:
+            bio.write(s[idx:match.start()])
+            bio.write(tok)
+        elif tok in b']}':
+            bio.write(TRAILING_COMMA.sub(br'\1', s[idx:match.start()]))
+            bio.write(tok)
+        else:
+            bio.write(s[idx:match.start()])
+            bio.write(tok)
+
+        idx = match.end()
+        match = COMMA_TOKEN.search(s, idx)
+    bio.write(s[idx:])
+
+    return bio
+
+
+def json_with_comments(s: bytes) -> Any:
+    bio = _remove_comments(s)
+    bio = _remove_trailing_commas(bio.getvalue())
 
     bio.seek(0)
     return json.load(bio)
