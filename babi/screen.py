@@ -16,12 +16,12 @@ from typing import NamedTuple
 from typing import Pattern
 
 from babi.color_manager import ColorManager
+from babi.dim import Dim
 from babi.file import Action
 from babi.file import File
 from babi.file import get_lines
 from babi.history import History
 from babi.hl.syntax import Syntax
-from babi.margin import Margin
 from babi.perf import Perf
 from babi.prompt import Prompt
 from babi.prompt import PromptResult
@@ -134,6 +134,12 @@ class FileInfo(NamedTuple):
     is_stdin: bool
 
 
+class Layout(NamedTuple):
+    header: Dim
+    file: Dim
+    status: Dim
+
+
 class Screen:
     def __init__(
             self,
@@ -157,8 +163,8 @@ class Screen:
         self.i = 0
         self.history = History()
         self.perf = perf
+        self.layout = self._layout_from_current_screen()
         self.status = Status()
-        self.margin = Margin.from_current_screen()
         self.cut_buffer: tuple[str, ...] = ()
         self.cut_selection = False
         self._buffered_input: int | str | None = None
@@ -168,7 +174,7 @@ class Screen:
     def file(self) -> File:
         return self.files[self.i]
 
-    def _draw_header(self) -> None:
+    def _draw_header(self, dim: Dim) -> None:
         filename = self.file.filename or '<<new file>>'
         if self.file.modified:
             filename += ' *'
@@ -178,7 +184,7 @@ class Screen:
         else:
             files = ''
             version_width = len(VERSION_STR) + 2
-        centered = filename.center(self.margin.cols)[version_width:]
+        centered = filename.center(dim.width)[version_width:]
         s = f' {VERSION_STR} {files}{centered}'
         self.stdscr.insstr(0, 0, s, curses.A_REVERSE)
 
@@ -291,15 +297,30 @@ class Screen:
         return ret
 
     def draw(self) -> None:
-        if self.margin.header:
-            self._draw_header()
-        self.file.draw(self.stdscr, self.margin)
-        self.status.draw(self.stdscr, self.margin)
+        self._draw_header(self.layout.header)
+        self.file.draw(self.stdscr, self.layout.file)
+        self.status.draw(self.stdscr, self.layout.status)
+
+    def _layout_from_current_screen(self) -> Layout:
+        file_y = 0
+        file_height = curses.LINES
+
+        if curses.LINES > 2:
+            file_y += 1
+            file_height -= 2
+        elif curses.LINES > 1:
+            file_height -= 1
+
+        return Layout(
+            header=Dim(x=0, y=0, width=curses.COLS, height=1),
+            file=Dim(x=0, y=file_y, width=curses.COLS, height=file_height),
+            status=Dim(x=0, y=curses.LINES - 1, width=curses.COLS, height=1),
+        )
 
     def resize(self) -> None:
         curses.update_lines_cols()
-        self.margin = Margin.from_current_screen()
-        self.file.buf.scroll_screen_if_needed(self.margin)
+        self.layout = self._layout_from_current_screen()
+        self.file.buf.scroll_screen_if_needed(self.layout.file)
         self.draw()
 
     def quick_prompt(
@@ -310,12 +331,12 @@ class Screen:
         opts = {opt[0] for opt in opt_strs}
         while True:
             x = 0
-            prompt_line = self.margin.lines - 1
+            prompt_line = self.layout.status.y
 
             def _write(s: str, *, attr: int = curses.A_REVERSE) -> None:
                 nonlocal x
 
-                if x >= self.margin.cols:
+                if x >= self.layout.status.width:
                     return
                 self.stdscr.insstr(prompt_line, x, s, attr)
                 x += len(s)
@@ -329,12 +350,12 @@ class Screen:
                     _write(', ')
             _write(']?')
 
-            if x < self.margin.cols - 1:
-                s = ' ' * (self.margin.cols - x)
+            if x < self.layout.status.width - 1:
+                s = ' ' * (self.layout.status.width - x)
                 self.stdscr.insstr(prompt_line, x, s, curses.A_REVERSE)
                 x += 1
             else:
-                x = self.margin.cols - 1
+                x = self.layout.status.width - 1
                 self.stdscr.insstr(prompt_line, x, '…', curses.A_REVERSE)
 
             self.stdscr.move(prompt_line, x)
@@ -389,7 +410,7 @@ class Screen:
             except ValueError:
                 self.status.update(f'not an integer: {response!r}')
             else:
-                self.file.go_to_line(lineno, self.margin)
+                self.file.go_to_line(lineno, self.layout.file)
 
     def current_position(self) -> None:
         line = f'line {self.file.buf.y + 1}'
@@ -400,7 +421,7 @@ class Screen:
 
     def cut(self) -> None:
         if self.file.selection.start:
-            self.cut_buffer = self.file.cut_selection(self.margin)
+            self.cut_buffer = self.file.cut_selection(self.layout.file)
             self.cut_selection = True
         else:
             self.cut_buffer = self.file.cut(self.cut_buffer)
@@ -408,9 +429,9 @@ class Screen:
 
     def uncut(self) -> None:
         if self.cut_selection:
-            self.file.uncut_selection(self.cut_buffer, self.margin)
+            self.file.uncut_selection(self.cut_buffer, self.layout.file)
         else:
-            self.file.uncut(self.cut_buffer, self.margin)
+            self.file.uncut(self.cut_buffer, self.layout.file)
 
     def _get_search_re(self, prompt: str) -> Pattern[str] | PromptResult:
         response = self.prompt(prompt, history='search', default_prev=True)
@@ -433,7 +454,7 @@ class Screen:
         else:
             action = from_stack.pop()
             to_stack.append(action.apply(self.file))
-            self.file.buf.scroll_screen_if_needed(self.margin)
+            self.file.buf.scroll_screen_if_needed(self.layout.file)
             self.status.update(f'{op}: {action.name}')
             self.file.selection.clear()
 
@@ -446,7 +467,7 @@ class Screen:
     def search(self) -> None:
         response = self._get_search_re('search')
         if response is not PromptResult.CANCELLED:
-            self.file.search(response, self.status, self.margin)
+            self.file.search(response, self.status, self.layout.file)
 
     def replace(self) -> None:
         search_response = self._get_search_re('search (to replace)')
@@ -471,16 +492,16 @@ class Screen:
 
     def _command_sort(self, args: list[str]) -> None:
         if self.file.selection.start:
-            self.file.sort_selection(self.margin)
+            self.file.sort_selection(self.layout.file)
         else:
-            self.file.sort(self.margin)
+            self.file.sort(self.layout.file)
         self.status.update('sorted!')
 
     def _command_sort_bang(self, args: list[str]) -> None:
         if self.file.selection.start:
-            self.file.sort_selection(self.margin, reverse=True)
+            self.file.sort_selection(self.layout.file, reverse=True)
         else:
-            self.file.sort(self.margin, reverse=True)
+            self.file.sort(self.layout.file, reverse=True)
         self.status.update('sorted!')
 
     def _command_tabsize(self, args: list[str]) -> None:
@@ -529,7 +550,7 @@ class Screen:
             if response != 'y':
                 return
 
-        self.file.reload(self.status, self.margin)
+        self.file.reload(self.status, self.layout.file)
 
     def _command_retheme(self, args: list[str]) -> None:
         self.color_manager = ColorManager.make()

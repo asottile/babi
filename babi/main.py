@@ -22,23 +22,23 @@ POSITION_RE = re.compile(r'^\+-?\d+$')
 
 
 def _edit(screen: Screen, stdin: str) -> EditResult:
-    screen.file.ensure_loaded(screen.status, screen.margin, stdin)
+    screen.file.ensure_loaded(screen.status, screen.layout.file, stdin)
 
     while True:
-        screen.status.tick(screen.margin)
+        screen.status.tick(screen.layout.file)
         screen.draw()
-        screen.file.move_cursor(screen.stdscr, screen.margin)
+        screen.file.move_cursor(screen.stdscr, screen.layout.file)
 
         key = screen.get_char()
         if key.keyname in File.DISPATCH:
-            File.DISPATCH[key.keyname](screen.file, screen.margin)
+            File.DISPATCH[key.keyname](screen.file, screen.layout.file)
         elif key.keyname in Screen.DISPATCH:
             ret = Screen.DISPATCH[key.keyname](screen)
             if isinstance(ret, EditResult):
                 return ret
         elif key.keyname == b'STRING':
             assert isinstance(key.wch, str), key.wch
-            screen.file.c(key.wch, screen.margin)
+            screen.file.c(key.wch, screen.layout.file)
         else:
             screen.status.update(f'unknown key: {key}')
 
@@ -93,11 +93,11 @@ def _key_debug(stdscr: curses._CursesWindow, perf: Perf) -> int:
     while True:
         screen.status.update('press q to quit')
         screen.draw()
-        screen.file.move_cursor(screen.stdscr, screen.margin)
+        screen.file.move_cursor(screen.stdscr, screen.layout.file)
 
         key = screen.get_char()
         screen.file.buf.insert(-1, f'{key.wch!r} {key.keyname.decode()!r}')
-        screen.file.down(screen.margin)
+        screen.file.down(screen.layout.file)
         if key.wch == curses.KEY_RESIZE:
             screen.resize()
         if key.wch == 'q':
