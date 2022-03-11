@@ -57,7 +57,7 @@ def c_main(
         screen.i = min(screen.i, len(screen.files) - 1)
         screen.status.clear()
 
-    with screen.reload_handler(), screen.history.save():
+    with screen.retheme_handler(), screen.history.save():
         while screen.files:
             screen.i = screen.i % len(screen.files)
             res = _edit(screen, stdin)
