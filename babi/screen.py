@@ -707,7 +707,7 @@ class Screen:
     }
 
     @contextlib.contextmanager
-    def reload_handler(self) -> Generator[None, None, None]:
+    def retheme_handler(self) -> Generator[None, None, None]:
         if sys.platform == 'win32':  # pragma: win32 cover
             yield  # no signal handling on windows!
         else:
