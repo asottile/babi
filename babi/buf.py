@@ -9,10 +9,10 @@ from typing import Iterator
 from typing import NamedTuple
 
 from babi._types import Protocol
+from babi.dim import Dim
 from babi.horizontal_scrolling import line_x
 from babi.horizontal_scrolling import scrolled_line
 from babi.horizontal_scrolling import wcwidth
-from babi.margin import Margin
 
 SetCallback = Callable[['Buf', int, str], None]
 DelCallback = Callable[['Buf', int, str], None]
@@ -246,21 +246,21 @@ class Buf:
             self._positions[idx] = value
         return value
 
-    def line_x(self, margin: Margin) -> int:
-        return line_x(self._cursor_x, margin.cols)
+    def line_x(self, dim: Dim) -> int:
+        return line_x(self._cursor_x, dim.width)
 
     @property
     def _cursor_x(self) -> int:
         return self.line_positions(self.y)[self.x]
 
-    def cursor_position(self, margin: Margin) -> tuple[int, int]:
-        y = self.y - self.file_y + margin.header
-        x = self._cursor_x - self.line_x(margin)
+    def cursor_position(self, dim: Dim) -> tuple[int, int]:
+        y = self.y - self.file_y + dim.y
+        x = self._cursor_x - self.line_x(dim)
         return y, x
 
-    def fixup_position(self, margin: Margin) -> None:
+    def fixup_position(self, dim: Dim) -> None:
         self.y = min(self.y, len(self._lines) - 1)
-        self.scroll_screen_if_needed(margin)
+        self.scroll_screen_if_needed(dim)
         self.x = min(self.x, len(self._lines[self.y]))
 
     # rendered lines
@@ -272,17 +272,17 @@ class Buf:
         else:
             return '\t'
 
-    def rendered_line(self, idx: int, margin: Margin) -> str:
+    def rendered_line(self, idx: int, dim: Dim) -> str:
         x = self._cursor_x if idx == self.y else 0
         expanded = self._lines[idx].expandtabs(self.tab_size)
-        return scrolled_line(expanded, x, margin.cols)
+        return scrolled_line(expanded, x, dim.width)
 
     # movement
 
-    def scroll_screen_if_needed(self, margin: Margin) -> None:
+    def scroll_screen_if_needed(self, dim: Dim) -> None:
         # if the `y` is not on screen, make it so
-        if not (self.file_y <= self.y < self.file_y + margin.body_lines):
-            self.file_y = max(self.y - margin.body_lines // 2, 0)
+        if not (self.file_y <= self.y < self.file_y + dim.height):
+            self.file_y = max(self.y - dim.height // 2, 0)
 
     def _set_x_after_vertical_movement(self) -> None:
         positions = self.line_positions(self.y)
@@ -292,46 +292,50 @@ class Buf:
             x -= 1
         self._x = x
 
-    def up(self, margin: Margin) -> None:
+    def _scroll_amount(self, dim: Dim) -> int:
+        # integer round up without banker's rounding (so 1/2 => 1 instead of 0)
+        return int((dim.height + dim.y) / 2 + .5)
+
+    def up(self, dim: Dim) -> None:
         if self.y > 0:
             self.y -= 1
             if self.y < self.file_y:
-                self.file_y = max(self.file_y - margin.scroll_amount, 0)
+                self.file_y = max(self.file_y - self._scroll_amount(dim), 0)
             self._set_x_after_vertical_movement()
 
-    def down(self, margin: Margin) -> None:
+    def down(self, dim: Dim) -> None:
         if self.y < len(self._lines) - 1:
             self.y += 1
-            if self.y >= self.file_y + margin.body_lines:
-                self.file_y += margin.scroll_amount
+            if self.y >= self.file_y + dim.height:
+                self.file_y += self._scroll_amount(dim)
             self._set_x_after_vertical_movement()
 
-    def right(self, margin: Margin) -> None:
+    def right(self, dim: Dim) -> None:
         if self.x >= len(self._lines[self.y]):
             if self.y < len(self._lines) - 1:
-                self.down(margin)
+                self.down(dim)
                 self.x = 0
         else:
             self.x += 1
 
-    def left(self, margin: Margin) -> None:
+    def left(self, dim: Dim) -> None:
         if self.x == 0:
             if self.y > 0:
-                self.up(margin)
+                self.up(dim)
                 self.x = len(self._lines[self.y])
         else:
             self.x -= 1
 
     # screen movement
 
-    def file_up(self, margin: Margin) -> None:
+    def file_up(self, dim: Dim) -> None:
         if self.file_y > 0:
             self.file_y -= 1
-            if self.y > self.file_y + margin.body_lines - 1:
-                self.up(margin)
+            if self.y > self.file_y + dim.height - 1:
+                self.up(dim)
 
-    def file_down(self, margin: Margin) -> None:
+    def file_down(self, dim: Dim) -> None:
         if self.file_y < len(self._lines) - 1:
             self.file_y += 1
             if self.y < self.file_y:
-                self.down(margin)
+                self.down(dim)

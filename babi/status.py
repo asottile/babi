@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import curses
 
-from babi.margin import Margin
+from babi.dim import Dim
 from babi.prompt import PromptResult
 
 
@@ -18,20 +18,20 @@ class Status:
     def clear(self) -> None:
         self._status = ''
 
-    def draw(self, stdscr: curses._CursesWindow, margin: Margin) -> None:
-        if margin.footer or self._status:
-            stdscr.insstr(margin.lines - 1, 0, ' ' * margin.cols)
+    def draw(self, stdscr: curses._CursesWindow, dim: Dim) -> None:
+        if dim.y > 0 or self._status:
+            stdscr.insstr(dim.y, 0, ' ' * dim.width)
             if self._status:
                 status = f' {self._status} '
-                x = (margin.cols - len(status)) // 2
+                x = (dim.width - len(status)) // 2
                 if x < 0:
                     x = 0
                     status = status.strip()
-                stdscr.insstr(margin.lines - 1, x, status, curses.A_REVERSE)
+                stdscr.insstr(dim.y, x, status, curses.A_REVERSE)
 
-    def tick(self, margin: Margin) -> None:
+    def tick(self, dim: Dim) -> None:
         # when the window is only 1-tall, hide the status quicker
-        if margin.footer:
+        if dim.y > 0:
             self._action_counter -= 1
         else:
             self._action_counter -= 24
