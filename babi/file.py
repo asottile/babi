@@ -286,6 +286,7 @@ class File:
             *file_hls,
             self._trailing_whitespace, self._replace_hl, self.selection,
         )
+        self.buf.clear_callbacks()
         for file_hl in self._file_hls:
             file_hl.register_callbacks(self.buf)
 
@@ -294,10 +295,10 @@ class File:
             hl_factories: tuple[HLFactory, ...],
             color_manager: ColorManager,
     ) -> None:
+        self._trailing_whitespace = TrailingWhitespace(color_manager)
         self._hl_factories = hl_factories
         # only re-initialize the highlighters if we've loaded once
         if self._file_hls:
-            self._trailing_whitespace = TrailingWhitespace(color_manager)
             self._initialize_highlighters()
 
     def __repr__(self) -> str:
