@@ -179,6 +179,11 @@ class Buf:
     def remove_ins_callback(self, cb: InsCallback) -> None:
         self._ins_callbacks.remove(cb)
 
+    def clear_callbacks(self) -> None:
+        self._set_callbacks[:] = [self._set_cb]
+        self._ins_callbacks[:] = [self._ins_cb]
+        self._del_callbacks[:] = [self._del_cb]
+
     @contextlib.contextmanager
     def record(self) -> Generator[list[Modification], None, None]:
         modifications: list[Modification] = []
