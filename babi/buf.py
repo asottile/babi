@@ -63,9 +63,9 @@ class Buf:
         self.tab_size = tab_size
         self.file_y = self.y = self._x = self._x_hint = 0
 
-        self._set_callbacks: list[SetCallback] = [self._set_cb]
-        self._del_callbacks: list[DelCallback] = [self._del_cb]
-        self._ins_callbacks: list[InsCallback] = [self._ins_cb]
+        self._set_callbacks: list[SetCallback] = []
+        self._del_callbacks: list[DelCallback] = []
+        self._ins_callbacks: list[InsCallback] = []
 
         self._positions: list[tuple[int, ...] | None] = []
 
@@ -99,6 +99,7 @@ class Buf:
 
         self._lines[idx] = val
 
+        self._set_cb(self, idx, victim)
         for set_callback in self._set_callbacks:
             set_callback(self, idx, victim)
 
@@ -109,6 +110,7 @@ class Buf:
 
         del self._lines[idx]
 
+        self._del_cb(self, idx, victim)
         for del_callback in self._del_callbacks:
             del_callback(self, idx, victim)
 
@@ -118,6 +120,7 @@ class Buf:
 
         self._lines.insert(idx, val)
 
+        self._ins_cb(self, idx)
         for ins_callback in self._ins_callbacks:
             ins_callback(self, idx)
 
@@ -180,9 +183,9 @@ class Buf:
         self._ins_callbacks.remove(cb)
 
     def clear_callbacks(self) -> None:
-        self._set_callbacks[:] = [self._set_cb]
-        self._ins_callbacks[:] = [self._ins_cb]
-        self._del_callbacks[:] = [self._del_cb]
+        self._set_callbacks.clear()
+        self._ins_callbacks.clear()
+        self._del_callbacks.clear()
 
     @contextlib.contextmanager
     def record(self) -> Generator[list[Modification], None, None]:
