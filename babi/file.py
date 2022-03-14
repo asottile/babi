@@ -454,6 +454,9 @@ class File:
                     screen.draw()
                     res = screen.quick_prompt('replace', ('yes', 'no', 'all'))
             if res in {'y', 'a'}:
+                if match.start() == match.end():
+                    screen.status.update('invalid regex: zero-length match')
+                    return
                 count += 1
                 with self.edit_action_context('replace', final=True):
                     replaced = match.expand(replace)
