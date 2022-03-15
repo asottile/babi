@@ -22,12 +22,11 @@ from typing import TypeVar
 
 from babi.buf import Buf
 from babi.buf import Modification
-from babi.color_manager import ColorManager
 from babi.dim import Dim
 from babi.hl.interface import FileHL
-from babi.hl.interface import HLFactory
 from babi.hl.replace import Replace
 from babi.hl.selection import Selection
+from babi.hl.syntax import Syntax
 from babi.hl.trailing_whitespace import TrailingWhitespace
 from babi.prompt import PromptResult
 from babi.status import Status
@@ -215,8 +214,7 @@ class File:
             self,
             filename: str | None,
             initial_line: int,
-            color_manager: ColorManager,
-            hl_factories: tuple[HLFactory, ...],
+            syntax: Syntax,
             *,
             is_stdin: bool,
     ) -> None:
@@ -230,8 +228,8 @@ class File:
         self._in_edit_action = False
         self.undo_stack: list[Action] = []
         self.redo_stack: list[Action] = []
-        self._hl_factories = hl_factories
-        self._trailing_whitespace = TrailingWhitespace(color_manager)
+        self._syntax = syntax
+        self._trailing_whitespace = TrailingWhitespace(syntax.color_manager)
         self._replace_hl = Replace()
         self.selection = Selection()
         self._file_hls: tuple[FileHL, ...] = ()
@@ -276,12 +274,11 @@ class File:
 
     def _initialize_highlighters(self) -> None:
         file_hls = []
-        for factory in self._hl_factories:
-            if self.filename is not None:
-                hl = factory.file_highlighter(self.filename, self.buf[0])
-                file_hls.append(hl)
-            else:
-                file_hls.append(factory.blank_file_highlighter())
+        if self.filename is not None:
+            hl = self._syntax.file_highlighter(self.filename, self.buf[0])
+            file_hls.append(hl)
+        else:
+            file_hls.append(self._syntax.blank_file_highlighter())
         self._file_hls = (
             *file_hls,
             self._trailing_whitespace, self._replace_hl, self.selection,
@@ -290,13 +287,9 @@ class File:
         for file_hl in self._file_hls:
             file_hl.register_callbacks(self.buf)
 
-    def reload_theme(
-            self,
-            hl_factories: tuple[HLFactory, ...],
-            color_manager: ColorManager,
-    ) -> None:
-        self._trailing_whitespace = TrailingWhitespace(color_manager)
-        self._hl_factories = hl_factories
+    def reload_theme(self, syntax: Syntax) -> None:
+        self._syntax = syntax
+        self._trailing_whitespace = TrailingWhitespace(syntax.color_manager)
         # only re-initialize the highlighters if we've loaded once
         if self._file_hls:
             self._initialize_highlighters()

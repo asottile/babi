@@ -148,14 +148,12 @@ class Screen:
             perf: Perf,
     ) -> None:
         self.stdscr = stdscr
-        self.color_manager = ColorManager.make()
-        self.hl_factories = (Syntax.from_screen(stdscr, self.color_manager),)
+        self.syntax = Syntax.from_screen(stdscr, ColorManager.make())
         self.files = [
             File(
                 info.filename,
                 info.initial_line,
-                self.color_manager,
-                self.hl_factories,
+                self.syntax,
                 is_stdin=info.is_stdin,
             )
             for info in file_infos
@@ -553,12 +551,9 @@ class Screen:
         self.file.reload(self.status, self.layout.file)
 
     def _command_retheme(self, args: list[str]) -> None:
-        self.color_manager = ColorManager.make()
-        self.hl_factories = (
-            Syntax.from_screen(self.stdscr, self.color_manager),
-        )
+        self.syntax = Syntax.from_screen(self.stdscr, ColorManager.make())
         for file in self.files:
-            file.reload_theme(self.hl_factories, self.color_manager)
+            file.reload_theme(self.syntax)
 
     COMMANDS = {
         ':qall': Command(lambda self, args: EditResult.EXIT_ALL),
@@ -667,8 +662,7 @@ class Screen:
             opened = File(
                 response,
                 0,
-                self.color_manager,
-                self.hl_factories,
+                self.syntax,
                 is_stdin=False,
             )
             self.files.append(opened)
