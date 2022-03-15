@@ -7,10 +7,14 @@ import pytest
 from babi.color_manager import ColorManager
 from babi.file import File
 from babi.file import get_lines
+from babi.highlight import Grammars
+from babi.hl.syntax import Syntax
+from babi.theme import Theme
 
 
 def test_position_repr():
-    ret = repr(File('f.txt', 0, ColorManager.make(), (), is_stdin=False))
+    syntax = Syntax(Grammars(), Theme.from_dct({}), ColorManager.make())
+    ret = repr(File('f.txt', 0, syntax, is_stdin=False))
     assert ret == "<File 'f.txt'>"
 
 
