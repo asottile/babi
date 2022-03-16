@@ -548,6 +548,9 @@ class WhileRule(NamedTuple):
 
 class Compiler:
     def __init__(self, grammar: Grammar, grammars: Grammars) -> None:
+        self._include = functools.lru_cache(maxsize=None)(self._include_)
+        self._patterns = functools.lru_cache(maxsize=None)(self._patterns_)
+
         self._root_scope = grammar.scope_name
         self._grammars = grammars
         self._rule_to_grammar: dict[_Rule, Grammar] = {}
@@ -559,8 +562,7 @@ class Compiler:
         self._rule_to_grammar[rule] = grammar
         return rule
 
-    @functools.lru_cache(maxsize=None)
-    def _include(
+    def _include_(
             self,
             grammar: Grammar,
             repository: FChainMap[str, _Rule],
@@ -581,8 +583,7 @@ class Compiler:
             grammar = self._grammars.grammar_for_scope(scope)
             return self._include(grammar, grammar.repository, f'#{s}')
 
-    @functools.lru_cache(maxsize=None)
-    def _patterns(
+    def _patterns_(
             self,
             grammar: Grammar,
             rules: tuple[_Rule, ...],
