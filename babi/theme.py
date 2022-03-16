@@ -72,12 +72,13 @@ class TrieNode(NamedTuple):
         return cls(PartialStyle.from_dct(dct), children)
 
 
-class Theme(NamedTuple):
-    default: Style
-    rules: _TrieNode
+class Theme:
+    def __init__(self, default: Style, rules: _TrieNode) -> None:
+        self.default = default
+        self.rules = rules
+        self.select = functools.lru_cache(maxsize=None)(self._select)
 
-    @functools.lru_cache(maxsize=None)
-    def select(self, scope: tuple[str, ...]) -> Style:
+    def _select(self, scope: tuple[str, ...]) -> Style:
         if not scope:
             return self.default
         else:
