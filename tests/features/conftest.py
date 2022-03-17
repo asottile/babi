@@ -396,8 +396,8 @@ class DeferredRunner:
     def _curses__noop(self, *_, **__):
         pass
 
-    _curses_cbreak = _curses_endwin = _curses_noecho = _curses__noop
-    _curses_nonl = _curses_raw = _curses_use_default_colors = _curses__noop
+    _curses_endwin = _curses_noecho = _curses_nonl = _curses__noop
+    _curses_raw = _curses_use_default_colors = _curses__noop
     _curses_set_escdelay = _curses__noop
 
     _curses_error = curses.error  # so we don't mock the exception
