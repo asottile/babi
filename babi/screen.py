@@ -749,7 +749,6 @@ def _init_screen() -> curses._CursesWindow:
 
     stdscr = curses.initscr()
     curses.noecho()
-    curses.cbreak()
     # <enter> is not transformed into '\n' so it can be differentiated from ^J
     curses.nonl()
     # ^S / ^Q / ^Z / ^\ are passed through
