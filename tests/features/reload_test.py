@@ -140,3 +140,30 @@ def test_reload_error(run, tmpdir):
         h.press_and_enter(':reload')
 
         h.await_text('reload: error! not a file:')
+
+
+def test_reload_cursor_position_undo_redo(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('long words\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('long words\n')
+
+        h.press('End')
+        h.await_cursor_position(y=1, x=10)
+
+        h.run(lambda: f.write('short!\n'))
+
+        trigger_command_mode(h)
+        h.press_and_enter(':reload')
+
+        h.await_text('short!')
+        h.await_cursor_position(y=1, x=6)
+
+        h.press('M-u')
+        h.await_text('long words\n')
+        h.await_cursor_position(y=1, x=10)
+
+        h.press('M-U')
+        h.await_text('short!')
+        h.await_cursor_position(y=1, x=6)
