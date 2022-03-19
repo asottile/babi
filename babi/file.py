@@ -826,8 +826,7 @@ class File:
         self.nl, self.sha256 = nl, sha256
         with self.edit_action_context('reload', final=True):
             self.buf.replace_lines(lines)
-
-        self.buf.fixup_position(dim)
+            self.buf.fixup_position(dim)
 
         if mixed:
             status.update(
