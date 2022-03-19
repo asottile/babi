@@ -273,16 +273,23 @@ class File:
         self.go_to_line(self.initial_line, dim)
 
     def _initialize_highlighters(self) -> None:
-        file_hls = []
         if self.filename is not None:
-            hl = self._syntax.file_highlighter(self.filename, self.buf[0])
-            file_hls.append(hl)
+            file_syntax = self._syntax.file_highlighter(
+                self.filename,
+                self.buf[0],
+            )
         else:
-            file_hls.append(self._syntax.blank_file_highlighter())
-        self._file_hls = (
-            *file_hls,
-            self._trailing_whitespace, self._replace_hl, self.selection,
+            file_syntax = self._syntax.blank_file_highlighter()
+
+        # hack due to https://github.com/python/mypy/issues/12360
+        file_hls: tuple[FileHL, ...] = (
+            file_syntax,
+            self._trailing_whitespace,
+            self._replace_hl,
+            self.selection,
         )
+        self._file_hls = file_hls
+
         self.buf.clear_callbacks()
         for file_hl in self._file_hls:
             file_hl.register_callbacks(self.buf)
@@ -963,7 +970,6 @@ class File:
         to_display = min(self.buf.displayable_count, dim.height)
 
         for file_hl in self._file_hls:
-            # XXX: this will go away?
             file_hl.highlight_until(self.buf, self.buf.file_y + to_display)
 
         for i in range(to_display):
