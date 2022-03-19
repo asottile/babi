@@ -302,7 +302,7 @@ class Buf:
 
     def _scroll_amount(self, dim: Dim) -> int:
         # integer round up without banker's rounding (so 1/2 => 1 instead of 0)
-        return int((dim.height + dim.y) / 2 + .5)
+        return int((dim.height + 1) / 2 + .5)
 
     def up(self, dim: Dim) -> None:
         if self.y > 0:
