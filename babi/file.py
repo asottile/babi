@@ -512,42 +512,47 @@ class File:
 
     @action
     def alt_up(self, dim: Dim) -> None:
-        if self.buf.y > 0:
-            offset = 1
-            while self.buf[self.buf.y - offset] == '':
-                offset += 1
-            if offset >= 2:
-                self.buf.y -= offset
-                self.buf.scroll_screen_if_needed(dim)
-                self.buf.x = 0
-                return
-            while (
-                self.buf[self.buf.y - offset - 1] != '' and
-                self.buf.y - offset - 1 >= 0
-            ):
-                offset += 1
-            self.buf.y -= offset
-            self.buf.scroll_screen_if_needed(dim)
-            self.buf.x = 0
+        cur_pos = self.buf.y
+        if cur_pos < 1:
+            return
+
+        cur_pos -= 1
+        predicate = bool(self.buf[cur_pos])
+        while cur_pos:
+            if bool(self.buf[cur_pos - 1]) == predicate:
+                cur_pos -= 1
+            else:
+                if not predicate:
+                    cur_pos -= 1
+                break
+        self.buf.y = cur_pos
+        self.buf.scroll_screen_if_needed(dim)
+        self.buf.x = 0
 
     @action
     def alt_down(self, dim: Dim) -> None:
-        if self.buf.y < len(self.buf) - 1:
-            offset = 0
-            while self.buf[self.buf.y + offset] != '':
-                offset += 1
-            if offset > 1:
-                self.buf.y += offset - 1
-                self.buf.scroll_screen_if_needed(dim)
-                self.buf.x = 0
-                return
-            while self.buf[self.buf.y + offset] == '':
-                if self.buf.y + offset >= len(self.buf) - 1:
-                    break
-                offset += 1
-            self.buf.y += offset
+        cur_pos = self.buf.y
+        if cur_pos > len(self.buf) - 2:
+            return
+
+        predicate = bool(self.buf[cur_pos + 1])
+        if predicate and not bool(self.buf[cur_pos]):
+            self.buf.y = cur_pos + 1
             self.buf.scroll_screen_if_needed(dim)
             self.buf.x = 0
+            return
+
+        cur_pos += 1
+        while cur_pos < len(self.buf) - 1:
+            if bool(self.buf[cur_pos + 1]) == predicate:
+                cur_pos += 1
+            else:
+                if not predicate:
+                    cur_pos += 1
+                break
+        self.buf.y = cur_pos
+        self.buf.scroll_screen_if_needed(dim)
+        self.buf.x = 0
 
     # editing
 
