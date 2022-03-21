@@ -267,9 +267,12 @@ class Buf:
         return y, x
 
     def fixup_position(self, dim: Dim) -> None:
-        self.y = min(self.y, len(self._lines) - 1)
+        self.assign_position(dim, x=self.x, y=self.y)
+
+    def assign_position(self, dim: Dim, *, x: int, y: int) -> None:
+        self.y = min(y, len(self._lines) - 1)
         self.scroll_screen_if_needed(dim)
-        self.x = min(self.x, len(self._lines[self.y]))
+        self.x = min(x, len(self._lines[self.y]))
 
     # rendered lines
 
