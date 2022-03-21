@@ -444,6 +444,7 @@ def test_indentation_using_tabs(run, tmpdir):
 
 def test_goto_previous_paragraph(run, tmpdir):
     src = '''\
+
 class A:
     def __init__(self):
         self._test = 1
@@ -461,25 +462,28 @@ yet_another_test = None
 
     with run(str(f)) as h, and_exit(h):
         h.press('^End')
+        h.await_cursor_position(x=0, y=13)
+
+        h.press('M-Up')
         h.await_cursor_position(x=0, y=12)
 
         h.press('M-Up')
-        h.await_cursor_position(x=0, y=11)
-
-        h.press('M-Up')
-        h.await_cursor_position(x=0, y=9)
+        h.await_cursor_position(x=0, y=10)
 
         h.press('End')
-        h.await_cursor_position(x=23, y=9)
+        h.await_cursor_position(x=23, y=10)
+
+        h.press('M-Up')
+        h.await_cursor_position(x=0, y=8)
 
         h.press('M-Up')
         h.await_cursor_position(x=0, y=7)
 
         h.press('M-Up')
-        h.await_cursor_position(x=0, y=6)
+        h.await_cursor_position(x=0, y=4)
 
         h.press('M-Up')
-        h.await_cursor_position(x=0, y=3)
+        h.await_cursor_position(x=0, y=2)
 
         h.press('M-Up')
         h.await_cursor_position(x=0, y=1)
