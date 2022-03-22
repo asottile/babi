@@ -138,7 +138,7 @@ def test_lazily_instantiated_pairs(stdscr, syntax):
         assert len(fake_curses.pairs) == 1
 
         style = THEME.select(('string.python',))
-        attr = syntax.blank_file_highlighter().attr(style)
+        attr = style.attr(syntax.color_manager)
         assert attr == 2 << 8
 
         assert len(syntax.color_manager.raw_pairs) == 2
@@ -150,7 +150,7 @@ def test_style_attributes_applied(stdscr, syntax):
         syntax._init_screen(stdscr)
 
         style = THEME.select(('keyword.python',))
-        attr = syntax.blank_file_highlighter().attr(style)
+        attr = style.attr(syntax.color_manager)
         assert attr == 2 << 8 | curses.A_BOLD
 
 

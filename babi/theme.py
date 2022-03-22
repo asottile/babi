@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import curses
 import functools
 import importlib.resources
 import json
@@ -9,7 +10,10 @@ from typing import NamedTuple
 
 from babi._types import Protocol
 from babi.color import Color
+from babi.color_manager import ColorManager
 from babi.fdict import FDict
+
+A_ITALIC = getattr(curses, 'A_ITALIC', 0x80000000)  # not always present
 
 
 class Style(NamedTuple):
@@ -18,6 +22,15 @@ class Style(NamedTuple):
     b: bool
     i: bool
     u: bool
+
+    def attr(self, color_manager: ColorManager) -> int:
+        pair = color_manager.color_pair(self.fg, self.bg)
+        return (
+            curses.color_pair(pair) |
+            self.b * curses.A_BOLD |
+            self.i * A_ITALIC |
+            self.u * curses.A_UNDERLINE
+        )
 
     @classmethod
     def blank(cls) -> Style:
