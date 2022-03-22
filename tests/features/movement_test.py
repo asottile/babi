@@ -451,6 +451,7 @@ class A:
         self._test = 1
 
 
+
 def another_test():
     pass
 
@@ -463,25 +464,25 @@ yet_another_test = None
 
     with run(str(f)) as h, and_exit(h):
         h.press('^End')
+        h.await_cursor_position(x=0, y=15)
+
+        h.press('M-Up')
         h.await_cursor_position(x=0, y=14)
 
         h.press('M-Up')
-        h.await_cursor_position(x=0, y=13)
-
-        h.press('M-Up')
-        h.await_cursor_position(x=0, y=11)
+        h.await_cursor_position(x=0, y=12)
 
         h.press('End')
-        h.await_cursor_position(x=23, y=11)
+        h.await_cursor_position(x=23, y=12)
+
+        h.press('M-Up')
+        h.await_cursor_position(x=0, y=10)
 
         h.press('M-Up')
         h.await_cursor_position(x=0, y=9)
 
-        h.press('M-Up')
-        h.await_cursor_position(x=0, y=8)
-
         h.press('Up')
-        h.await_cursor_position(x=0, y=7)
+        h.await_cursor_position(x=0, y=8)
 
         h.press('M-Up')
         h.await_cursor_position(x=0, y=5)
@@ -508,6 +509,7 @@ class A:
         self._test = 1
 
 
+
 def another_test():
     pass
 
@@ -531,23 +533,26 @@ yet_another_test = None
         h.press('M-Down')
         h.await_cursor_position(x=0, y=5)
 
-        h.press('M-Down')
-        h.await_cursor_position(x=0, y=8)
-
-        h.press('End')
-        h.await_cursor_position(x=19, y=8)
+        h.press('Down')
+        h.await_cursor_position(x=0, y=6)
 
         h.press('M-Down')
         h.await_cursor_position(x=0, y=9)
 
-        h.press('M-Down')
-        h.await_cursor_position(x=0, y=11)
+        h.press('End')
+        h.await_cursor_position(x=19, y=9)
 
         h.press('M-Down')
-        h.await_cursor_position(x=0, y=13)
+        h.await_cursor_position(x=0, y=10)
+
+        h.press('M-Down')
+        h.await_cursor_position(x=0, y=12)
 
         h.press('M-Down')
         h.await_cursor_position(x=0, y=14)
 
         h.press('M-Down')
-        h.await_cursor_position(x=0, y=14)
+        h.await_cursor_position(x=0, y=15)
+
+        h.press('M-Down')
+        h.await_cursor_position(x=0, y=15)

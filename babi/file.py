@@ -536,7 +536,7 @@ class File:
             return
 
         predicate = bool(self.buf[cur_pos + 1])
-        if predicate and not bool(self.buf[cur_pos]):
+        if predicate and not self.buf[cur_pos]:
             self.buf.y = cur_pos + 1
             self.buf.scroll_screen_if_needed(dim)
             self.buf.x = 0
