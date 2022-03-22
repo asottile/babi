@@ -488,6 +488,22 @@ yet_another_test = None
         h.await_cursor_position(x=0, y=1)
 
 
+def test_previous_paragraph_out_of_bounds(run, tmpdir):
+    src = '''\
+
+# blank line above
+
+'''
+    f = tmpdir.join('f')
+    f.write(src)
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('M-Down')
+        h.await_cursor_position(x=0, y=2)
+        h.press('M-Up')
+        h.await_cursor_position(x=0, y=1)
+
+
 def test_goto_next_paragraph(run, tmpdir):
     src = '''\
 class A:

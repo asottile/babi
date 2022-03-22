@@ -514,7 +514,10 @@ class File:
     def alt_up(self, dim: Dim) -> None:
         if self.buf.y > 0:
             offset = 1
-            while self.buf[self.buf.y - offset] == '':
+            while (
+                self.buf[self.buf.y - offset] == '' and
+                self.buf.y - offset - 1 >= 0
+            ):
                 offset += 1
             if offset >= 2:
                 self.buf.y -= offset
