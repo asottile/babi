@@ -14,13 +14,10 @@ from babi.highlight import highlight_line
 from babi.highlight import State
 from babi.hl.interface import HL
 from babi.hl.interface import HLs
-from babi.theme import Style
 from babi.theme import Theme
 from babi.user_data import prefix_data
 from babi.user_data import xdg_config
 from babi.user_data import xdg_data
-
-A_ITALIC = getattr(curses, 'A_ITALIC', 0x80000000)  # not always present
 
 
 class FileSyntax:
@@ -44,15 +41,6 @@ class FileSyntax:
         self._hl: Callable[[State, str, bool], tuple[State, HLs]] | None
         self._hl = None
 
-    def attr(self, style: Style) -> int:
-        pair = self._color_manager.color_pair(style.fg, style.bg)
-        return (
-            curses.color_pair(pair) |
-            curses.A_BOLD * style.b |
-            A_ITALIC * style.i |
-            curses.A_UNDERLINE * style.u
-        )
-
     def _hl_uncached(
             self,
             state: State,
@@ -73,7 +61,7 @@ class FileSyntax:
             if style == self._theme.default:
                 continue
 
-            attr = self.attr(style)
+            attr = style.attr(self._color_manager)
             if (
                     regs and
                     regs[-1].attr == attr and
