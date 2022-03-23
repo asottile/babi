@@ -24,6 +24,7 @@ from babi.buf import Buf
 from babi.buf import Modification
 from babi.dim import Dim
 from babi.hl.interface import FileHL
+from babi.hl.lint_errors import LintErrors
 from babi.hl.replace import Replace
 from babi.hl.selection import Selection
 from babi.hl.syntax import Syntax
@@ -229,6 +230,8 @@ class File:
         self.undo_stack: list[Action] = []
         self.redo_stack: list[Action] = []
         self._syntax = syntax
+        self._file_syntax = syntax.blank_file_highlighter()
+        self.lint_errors = LintErrors(syntax.color_manager, syntax.theme)
         self._trailing_whitespace = TrailingWhitespace(syntax.color_manager)
         self._replace_hl = Replace()
         self.selection = Selection()
@@ -272,18 +275,23 @@ class File:
 
         self.go_to_line(self.initial_line, dim)
 
+    @property
+    def root_scope(self) -> str:
+        return self._file_syntax.root_scope
+
     def _initialize_highlighters(self) -> None:
         if self.filename is not None:
-            file_syntax = self._syntax.file_highlighter(
+            self._file_syntax = self._syntax.file_highlighter(
                 self.filename,
                 self.buf[0],
             )
         else:
-            file_syntax = self._syntax.blank_file_highlighter()
+            self._file_syntax = self._syntax.blank_file_highlighter()
 
         # hack due to https://github.com/python/mypy/issues/12360
         file_hls: tuple[FileHL, ...] = (
-            file_syntax,
+            self._file_syntax,
+            self.lint_errors,
             self._trailing_whitespace,
             self._replace_hl,
             self.selection,
@@ -296,6 +304,10 @@ class File:
 
     def reload_theme(self, syntax: Syntax) -> None:
         self._syntax = syntax
+        self.lint_errors = self.lint_errors.clone(
+            syntax.color_manager,
+            syntax.theme,
+        )
         self._trailing_whitespace = TrailingWhitespace(syntax.color_manager)
         # only re-initialize the highlighters if we've loaded once
         if self._file_hls:

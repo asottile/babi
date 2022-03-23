@@ -8,6 +8,7 @@ import os
 import re
 import signal
 import sre_parse
+import subprocess
 import sys
 from types import FrameType
 from typing import Callable
@@ -15,6 +16,7 @@ from typing import Generator
 from typing import NamedTuple
 from typing import Pattern
 
+from babi import linting
 from babi.color_manager import ColorManager
 from babi.dim import Dim
 from babi.file import Action
@@ -22,7 +24,10 @@ from babi.file import File
 from babi.file import get_lines
 from babi.history import History
 from babi.hl.syntax import Syntax
+from babi.linters.flake8 import Flake8
+from babi.linters.pre_commit import PreCommit
 from babi.perf import Perf
+from babi.proc import graceful_terminate
 from babi.prompt import Prompt
 from babi.prompt import PromptResult
 from babi.status import Status
@@ -100,6 +105,8 @@ KEYNAME_REWRITE = {
     b'PADENTER': b'^M',  # Enter on numpad
 }
 
+LINTER_TYPES: tuple[type[linting.Linter], ...] = (PreCommit, Flake8)
+
 
 def _get_wch_with_retry(stdscr: curses._CursesWindow) -> str | int:
     while True:
@@ -138,6 +145,7 @@ class Layout(NamedTuple):
     header: Dim
     file: Dim
     status: Dim
+    lint_errors: Dim
 
 
 class Screen:
@@ -167,6 +175,7 @@ class Screen:
         self.cut_selection = False
         self._buffered_input: int | str | None = None
         self._retheme = False
+        self._linters = tuple(tp() for tp in LINTER_TYPES)
 
     @property
     def file(self) -> File:
@@ -298,10 +307,16 @@ class Screen:
         self._draw_header(self.layout.header)
         self.file.draw(self.stdscr, self.layout.file)
         self.status.draw(self.stdscr, self.layout.status)
+        self.file.lint_errors.draw(self.stdscr, self.layout.lint_errors)
 
     def _layout_from_current_screen(self) -> Layout:
+        if curses.LINES >= 10:
+            lint_errors_height = min(len(self.file.lint_errors.errors), 3)
+        else:
+            lint_errors_height = 0
+
         file_y = 0
-        file_height = curses.LINES
+        file_height = curses.LINES - lint_errors_height
 
         if curses.LINES > 2:
             file_y += 1
@@ -309,10 +324,18 @@ class Screen:
         elif curses.LINES > 1:
             file_height -= 1
 
+        status_y = curses.LINES - lint_errors_height - 1
+
         return Layout(
             header=Dim(x=0, y=0, width=curses.COLS, height=1),
             file=Dim(x=0, y=file_y, width=curses.COLS, height=file_height),
-            status=Dim(x=0, y=curses.LINES - 1, width=curses.COLS, height=1),
+            status=Dim(x=0, y=status_y, width=curses.COLS, height=1),
+            lint_errors=Dim(
+                x=0,
+                y=curses.LINES - lint_errors_height,
+                width=curses.COLS,
+                height=lint_errors_height,
+            ),
         )
 
     def resize(self) -> None:
@@ -480,6 +503,89 @@ class Screen:
                     self.status.update('invalid replacement string')
                 else:
                     self.file.replace(self, search_response, response)
+
+    def lint(self) -> None:
+        if sys.platform == 'win32':  # pragma: win32 cover
+            self.status.update('this feature is not available on windows')
+            return
+
+        if self.file.filename is None:
+            self.status.update('file has not been saved yet!')
+            return
+
+        if self.file.modified:
+            response = self.quick_prompt(
+                'file must be saved before linting - save', ('yes', 'no'),
+            )
+            if response != 'y':
+                self.status.cancelled()
+                return
+            elif self.save() is PromptResult.CANCELLED:
+                return
+
+        self.status.update('linting...')
+        self.draw()
+        self.file.move_cursor(self.stdscr, self.layout.file)
+        self.stdscr.refresh()
+
+        for linter in self._linters:
+            cmd = linter.command(self.file.filename, self.file.root_scope)
+
+            # linter does not support this file / scope
+            if cmd is None:
+                continue
+
+            try:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.DEVNULL,
+                    text=True,
+                )
+            except OSError:  # command does not exist or isn't runnable
+                continue
+            else:
+                break
+        else:
+            self.status.update('no linters available!')
+            return
+
+        try:
+            curses.cbreak()
+            out, _ = proc.communicate()
+        except KeyboardInterrupt:
+            graceful_terminate(proc)
+            self.status.cancelled()
+            return
+        finally:
+            curses.raw()
+
+        errors = linter.parse(self.file.filename, out)
+        errors = tuple(sorted(errors))
+
+        # reload the file if it changed
+        before = self.file.sha256
+        self.file.reload(self.status, self.layout.file)
+        after = self.file.sha256
+
+        if after != before:
+            formatted = ' (and formatted)'
+        else:
+            formatted = ''
+
+        self.file.lint_errors.set_errors(errors)
+        if not errors:
+            self.status.update(f'linted!{formatted}')
+        else:
+            self.status.update(f'{len(errors)} error(s){formatted}')
+
+        self.layout = self._layout_from_current_screen()
+
+    def lint_focus(self) -> None:
+        if not self.file.lint_errors.errors:
+            return
+        else:
+            self.file.lint_errors.focus(self)
 
     def _command_w(self, args: list[str]) -> None:
         self.save()
@@ -711,6 +817,8 @@ class Screen:
         b'M-e': redo,
         b'^W': search,
         b'^\\': replace,
+        b'^T': lint,
+        b'M-t': lint_focus,
         b'^[': command,
         b'^S': save,
         b'^O': save_filename,

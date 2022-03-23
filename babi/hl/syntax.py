@@ -41,6 +41,10 @@ class FileSyntax:
         self._hl: Callable[[State, str, bool], tuple[State, HLs]] | None
         self._hl = None
 
+    @property
+    def root_scope(self) -> str:
+        return self._compiler.root_scope
+
     def _hl_uncached(
             self,
             state: State,

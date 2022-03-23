@@ -551,7 +551,7 @@ class Compiler:
         self._include = functools.lru_cache(maxsize=None)(self._include_)
         self._patterns = functools.lru_cache(maxsize=None)(self._patterns_)
 
-        self._root_scope = grammar.scope_name
+        self.root_scope = grammar.scope_name
         self._grammars = grammars
         self._rule_to_grammar: dict[_Rule, Grammar] = {}
         self._c_rules: dict[_Rule, CompiledRule] = {}
@@ -571,7 +571,7 @@ class Compiler:
         if s == '$self':
             return self._patterns(grammar, grammar.patterns)
         elif s == '$base':
-            grammar = self._grammars.grammar_for_scope(self._root_scope)
+            grammar = self._grammars.grammar_for_scope(self.root_scope)
             return self._include(grammar, grammar.repository, '$self')
         elif s.startswith('#'):
             return self._patterns(grammar, (repository[s[1:]],))

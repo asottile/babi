@@ -210,6 +210,9 @@ class CursesScreen:
     def nodelay(self, val):
         self._screen.nodelay = val
 
+    def refresh(self):
+        pass
+
     def addstr(self, y, x, s, attr=0):
         self._screen.addstr(y, x, s, self._to_attr(attr))
 
@@ -283,6 +286,7 @@ KEYS = [
     Key('^P', b'^P', '\x10'),
     Key('^R', b'^R', '\x12'),
     Key('^S', b'^S', '\x13'),
+    Key('^T', b'^T', '\x14'),
     Key('^U', b'^U', '\x15'),
     Key('^V', b'^V', '\x16'),
     Key('^W', b'^W', '\x17'),
@@ -396,8 +400,8 @@ class DeferredRunner:
     def _curses__noop(self, *_, **__):
         pass
 
-    _curses_endwin = _curses_noecho = _curses_nonl = _curses__noop
-    _curses_raw = _curses_use_default_colors = _curses__noop
+    _curses_cbreak = _curses_endwin = _curses_noecho = _curses__noop
+    _curses_nonl = _curses_raw = _curses_use_default_colors = _curses__noop
     _curses_set_escdelay = _curses__noop
 
     _curses_error = curses.error  # so we don't mock the exception

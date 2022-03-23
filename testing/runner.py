@@ -15,6 +15,7 @@ class Token(enum.Enum):
     BG_ESC = re.compile(r'\x1b\[48;5;(\d+)m')
     RESET = re.compile(r'\x1b\[0?m')
     ESC = re.compile(r'\x1b\[(\d+)m')
+    ESC2 = re.compile(r'\x1b\[(\d+);(\d+)m')
     NL = re.compile(r'\n')
     CHAR = re.compile('.')
 
@@ -50,12 +51,21 @@ def to_attrs(screen, width):
         elif tp is Token.ESC:
             if match[1] == '7':
                 attr |= curses.A_REVERSE
+            elif match[1] == '1':
+                attr |= curses.A_BOLD
+            elif match[1] == '2':
+                attr |= curses.A_DIM
             elif match[1] == '39':
                 fg = -1
             elif match[1] == '49':
                 bg = -1
             elif 40 <= int(match[1]) <= 47:
                 bg = int(match[1]) - 40
+            else:
+                raise AssertionError(f'unknown escape {match[1]}')
+        elif tp is Token.ESC2:
+            if match[1] == '2' and match[2] == '7':
+                attr |= curses.A_DIM | curses.A_REVERSE
             else:
                 raise AssertionError(f'unknown escape {match[1]}')
         elif tp is Token.NL:
@@ -203,7 +213,7 @@ class PrintsErrorRunner(Runner):
         self.press('Enter')
 
     def answer_no_if_modified(self):
-        if '*' in self._get_screen_line(0):
+        if 'file is mod' in self.screenshot():
             self.press('n')
 
     def run(self, callback):
