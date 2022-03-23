@@ -45,6 +45,7 @@ these are all of the current key bindings in babi
 - <kbd>^V</kbd> / <kbd>pagedown</kbd>: move down one page
 - <kbd>^-left</kbd> / <kbd>^-right</kbd>: jump by word
 - <kbd>^-home</kbd> / <kbd>^-end</kbd>: jump to beginning / end of file
+- <kbd>M-Up</kbd> / <kbd>M-Down</kbd>: jump to previous / next paragraph
 - <kbd>^_</kbd>: jump to line number
 - selection: <kbd>shift</kbd> + ...: extend the current selection
     - arrow keys
