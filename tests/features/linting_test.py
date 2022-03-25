@@ -292,6 +292,27 @@ def test_relint_reduces_number_of_errors(run, tmpdir, stubbed_flake8):
         h.press('M-t')
 
 
+def test_relint_eliminates_errors(run, tmpdir, stubbed_flake8):
+    stubbed_flake8.output.write('{filename}1:1: F401 error\n')
+
+    f = tmpdir.join('t.py')
+    f.write('import os\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('^T')
+
+        h.await_text('1 error(s)')
+
+        h.press('M-t')
+
+        # eliminate errors
+        h.run(lambda: stubbed_flake8.output.write(''))
+
+        h.press('^T')
+
+        h.await_text('linted!')
+
+
 def test_lint_panel_draw_bug_after_cancel(run, tmpdir, stubbed_flake8):
     stubbed_flake8.output.write(
         '{filename}:1:1: F401 error\n'
