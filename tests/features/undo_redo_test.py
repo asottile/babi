@@ -144,4 +144,4 @@ def test_undo_redo_clears_selection(run, ten_lines):
         h.await_cursor_position(x=4, y=2)
         h.press('M-u')
         h.await_cursor_position(x=0, y=2)
-        h.assert_screen_attr_equals(1, [(-1, -1, 0)] * 20)
+        h.assert_screen_attr_equal(1, [(-1, -1, 0)] * 20)

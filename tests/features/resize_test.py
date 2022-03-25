@@ -70,7 +70,7 @@ def test_resize_scrolls_up(run, ten_lines):
             h.await_text_missing('line_0')
             h.await_cursor_position(x=0, y=4)
             # make sure we're still on the same line
-            h.assert_cursor_line_equals('line_7')
+            h.assert_cursor_line_equal('line_7')
 
 
 def test_resize_scroll_does_not_go_negative(run, ten_lines):
@@ -86,7 +86,7 @@ def test_resize_scroll_does_not_go_negative(run, ten_lines):
         for _ in range(3):
             h.press('Up')
 
-        h.assert_screen_line_equals(1, 'line_0')
+        h.assert_screen_line_equal(1, 'line_0')
 
 
 def test_horizontal_scrolling(run, tmpdir):

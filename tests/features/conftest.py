@@ -339,13 +339,13 @@ class DeferredRunner:
     def await_cursor_position(self, *, x, y):
         self._ops.append(AwaitCursorPosition(x, y))
 
-    def assert_cursor_line_equals(self, line):
+    def assert_cursor_line_equal(self, line):
         self._ops.append(AssertCursorLineEquals(line))
 
-    def assert_screen_line_equals(self, n, line):
+    def assert_screen_line_equal(self, n, line):
         self._ops.append(AssertScreenLineEquals(n, line))
 
-    def assert_screen_attr_equals(self, n, attr):
+    def assert_screen_attr_equal(self, n, attr):
         self._ops.append(AssertScreenAttrEquals(n, attr))
 
     def assert_full_contents(self, contents):

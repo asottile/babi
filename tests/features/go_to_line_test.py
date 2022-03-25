@@ -38,15 +38,15 @@ def test_go_to_line_line(run, ten_lines):
         # should go to end of the file
         _jump_to_line(999)
         h.await_cursor_position(x=0, y=4)
-        h.assert_screen_line_equals(3, 'line_9')
+        h.assert_screen_line_equal(3, 'line_9')
         # should also go to the end of the file
         _jump_to_line(-1)
         h.await_cursor_position(x=0, y=4)
-        h.assert_screen_line_equals(3, 'line_9')
+        h.assert_screen_line_equal(3, 'line_9')
         # should go to beginning of file
         _jump_to_line(-999)
         h.await_cursor_position(x=0, y=1)
-        h.assert_cursor_line_equals('line_0')
+        h.assert_cursor_line_equal('line_0')
 
 
 @pytest.mark.parametrize('key', ('Enter', '^C'))

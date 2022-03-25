@@ -74,20 +74,20 @@ def test_page_up_and_page_down(run, ten_lines, page_up, page_down):
         h.press(page_down)
         h.await_text('line_8')
         h.await_cursor_position(x=0, y=1)
-        h.assert_cursor_line_equals('line_6')
+        h.assert_cursor_line_equal('line_6')
 
         h.press(page_up)
         h.await_text_missing('line_8')
         h.await_cursor_position(x=0, y=1)
-        h.assert_cursor_line_equals('line_0')
+        h.assert_cursor_line_equal('line_0')
 
         h.press(page_down)
         h.press(page_down)
         h.await_cursor_position(x=0, y=5)
-        h.assert_cursor_line_equals('')
+        h.assert_cursor_line_equal('')
         h.press('Up')
         h.await_cursor_position(x=0, y=4)
-        h.assert_cursor_line_equals('line_9')
+        h.assert_cursor_line_equal('line_9')
 
 
 def test_page_up_and_page_down_x_0(run, ten_lines):
@@ -95,12 +95,12 @@ def test_page_up_and_page_down_x_0(run, ten_lines):
         h.press('Right')
         h.press('PageDown')
         h.await_cursor_position(x=0, y=1)
-        h.assert_cursor_line_equals('line_6')
+        h.assert_cursor_line_equal('line_6')
 
         h.press('Right')
         h.press('PageUp')
         h.await_cursor_position(x=0, y=1)
-        h.assert_cursor_line_equals('line_0')
+        h.assert_cursor_line_equal('line_0')
 
 
 def test_page_up_page_down_size_small_window(run, ten_lines):
@@ -108,13 +108,13 @@ def test_page_up_page_down_size_small_window(run, ten_lines):
         h.press('PageDown')
         h.await_text('line_2')
         h.await_cursor_position(x=0, y=1)
-        h.assert_cursor_line_equals('line_1')
+        h.assert_cursor_line_equal('line_1')
 
         h.press('Down')
         h.press('PageUp')
         h.await_text_missing('line_2')
         h.await_cursor_position(x=0, y=1)
-        h.assert_cursor_line_equals('line_0')
+        h.assert_cursor_line_equal('line_0')
 
 
 def test_ctrl_home(run, ten_lines):
@@ -132,7 +132,7 @@ def test_ctrl_end(run, ten_lines):
     with run(str(ten_lines), height=6) as h, and_exit(h):
         h.press('^End')
         h.await_cursor_position(x=0, y=3)
-        h.assert_screen_line_equals(2, 'line_9')
+        h.assert_screen_line_equal(2, 'line_9')
 
 
 def test_ctrl_end_already_on_last_page(run, ten_lines):
@@ -143,7 +143,7 @@ def test_ctrl_end_already_on_last_page(run, ten_lines):
 
         h.press('^End')
         h.await_cursor_position(x=0, y=6)
-        h.assert_screen_line_equals(5, 'line_9')
+        h.assert_screen_line_equal(5, 'line_9')
 
 
 def test_scrolling_arrow_key_movement(run, ten_lines):
@@ -158,7 +158,7 @@ def test_scrolling_arrow_key_movement(run, ten_lines):
         h.press('Down')
         h.await_text('line_8')
         h.await_cursor_position(x=0, y=4)
-        h.assert_cursor_line_equals('line_8')
+        h.assert_cursor_line_equal('line_8')
         # we should not have scrolled after 3 up presses
         for _ in range(3):
             h.press('Up')
@@ -173,7 +173,7 @@ def test_ctrl_down_beginning_of_file(run, ten_lines):
         h.press('^Down')
         h.await_text('line_3')
         h.await_cursor_position(x=0, y=1)
-        h.assert_cursor_line_equals('line_1')
+        h.assert_cursor_line_equal('line_1')
 
 
 def test_ctrl_up_moves_screen_up_one_line(run, ten_lines):
@@ -213,7 +213,7 @@ def test_ctrl_down_at_end_of_file(run, ten_lines):
             h.press('^Down')
         h.press('Up')
         h.await_text('line_9')
-        h.assert_cursor_line_equals('line_9')
+        h.assert_cursor_line_equal('line_9')
 
 
 def test_ctrl_down_causing_cursor_movement_should_fix_x(run, tmpdir):
@@ -280,7 +280,7 @@ def test_page_up_does_not_go_negative(run, ten_lines):
         h.await_cursor_position(x=0, y=4)
         h.press('^Y')
         h.await_cursor_position(x=0, y=1)
-        h.assert_cursor_line_equals('line_0')
+        h.assert_cursor_line_equal('line_0')
 
 
 @pytest.fixture
@@ -349,7 +349,7 @@ def test_ctrl_right_triggering_scroll(run, jump_word_file):
         h.await_cursor_position(x=0, y=2)
         h.press('^Right')
         h.await_cursor_position(x=0, y=1)
-        h.assert_cursor_line_equals('hi')
+        h.assert_cursor_line_equal('hi')
 
 
 def test_ctrl_left_triggering_scroll(run, jump_word_file):
@@ -360,7 +360,7 @@ def test_ctrl_left_triggering_scroll(run, jump_word_file):
         h.await_cursor_position(x=0, y=1)
         h.press('^Left')
         h.await_cursor_position(x=11, y=1)
-        h.assert_cursor_line_equals('hello world')
+        h.assert_cursor_line_equal('hello world')
 
 
 def test_sequence_handling(run_only_fake):

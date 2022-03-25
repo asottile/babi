@@ -47,7 +47,7 @@ def test_retheme_signal(run, demo, xdg_config_home):
                 [(236, 40, curses.A_REVERSE)] * 40,         # header
                 [(160, 40, 0)] * 13 + [(236, 40, 0)] * 27,  # # hello world
         ]):
-            h.assert_screen_attr_equals(i, attr)
+            h.assert_screen_attr_equal(i, attr)
 
         h.run(hot_modify_theme)
 
@@ -62,7 +62,7 @@ def test_retheme_signal(run, demo, xdg_config_home):
                 [(236, 40, curses.A_REVERSE)] * 40,        # header
                 [(20, 40, 0)] * 13 + [(236, 40, 0)] * 27,  # # hello world
         ]):
-            h.assert_screen_attr_equals(i, attr)
+            h.assert_screen_attr_equal(i, attr)
 
 
 def test_retheme_command_multiple_files(run, xdg_config_home, tmpdir):
@@ -83,7 +83,7 @@ def test_retheme_command_multiple_files(run, xdg_config_home, tmpdir):
                     [(236, 40, curses.A_REVERSE)] * 40,         # header
                     [(160, 40, 0)] * 13 + [(236, 40, 0)] * 27,  # # hello world
             ]):
-                h.assert_screen_attr_equals(i, attr)
+                h.assert_screen_attr_equal(i, attr)
 
             h.run(hot_modify_theme)
 
@@ -95,7 +95,7 @@ def test_retheme_command_multiple_files(run, xdg_config_home, tmpdir):
                     [(236, 40, curses.A_REVERSE)] * 40,         # header
                     [(20, 40, 0)] * 13 + [(236, 40, 0)] * 27,   # # hello world
             ]):
-                h.assert_screen_attr_equals(i, attr)
+                h.assert_screen_attr_equal(i, attr)
 
             # make sure the second file got re-themed as well
             h.press('^X')
@@ -105,7 +105,7 @@ def test_retheme_command_multiple_files(run, xdg_config_home, tmpdir):
                     [(236, 40, curses.A_REVERSE)] * 40,         # header
                     [(20, 40, 0)] * 13 + [(236, 40, 0)] * 27,   # # hello world
             ]):
-                h.assert_screen_attr_equals(i, attr)
+                h.assert_screen_attr_equal(i, attr)
 
 
 def test_retheme_bug(run, xdg_config_home, tmpdir):
@@ -144,7 +144,7 @@ def test_retheme_bug(run, xdg_config_home, tmpdir):
                 c_comment * 7 + c_base * 73,   # # hello
                 c_base * 80,                   # - world
         ]):
-            h.assert_screen_attr_equals(i, attr)
+            h.assert_screen_attr_equal(i, attr)
 
         h.run(hot_modify_theme)
 
@@ -157,7 +157,7 @@ def test_retheme_bug(run, xdg_config_home, tmpdir):
                 c_comment * 7 + c_base * 73,   # # hello
                 c_minus * 7 + c_base * 73,     # - world
         ]):
-            h.assert_screen_attr_equals(i, attr)
+            h.assert_screen_attr_equal(i, attr)
 
         # trigger trailing whitespace
         h.press_and_enter('hi ')
@@ -169,4 +169,4 @@ def test_retheme_bug(run, xdg_config_home, tmpdir):
                 c_comment * 7 + c_base * 73,          # # hello
                 c_minus * 7 + c_base * 73,            # - world
         ]):
-            h.assert_screen_attr_equals(i, attr)
+            h.assert_screen_attr_equal(i, attr)
