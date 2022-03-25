@@ -127,15 +127,15 @@ class PrintsErrorRunner(Runner):
             f'Timeout while waiting for text {s!r} to disappear',
         )
 
-    def assert_cursor_line_equals(self, s):
+    def assert_cursor_line_equal(self, s):
         cursor_line = self._get_cursor_line()
         assert cursor_line == s, (cursor_line, s)
 
-    def assert_screen_line_equals(self, n, s):
+    def assert_screen_line_equal(self, n, s):
         screen_line = self._get_screen_line(n)
         assert screen_line == s, (screen_line, s)
 
-    def assert_screen_attr_equals(self, n, attr):
+    def assert_screen_attr_equal(self, n, attr):
         attr_line = self.get_attrs()[n]
         assert attr_line == attr, (n, attr_line, attr)
 

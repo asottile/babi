@@ -69,7 +69,7 @@ def test_syntax_highlighting(run, demo):
                 [(17, 40, 0)] * 10 + [(236, 40, 0)] * 10,  # still more
                 [(17, 40, 0)] * 3 + [(236, 40, 0)] * 17,   # """
         ]):
-            h.assert_screen_attr_equals(i, attr)
+            h.assert_screen_attr_equal(i, attr)
 
 
 def test_syntax_highlighting_does_not_highlight_arrows(run, tmpdir):
@@ -81,13 +81,13 @@ def test_syntax_highlighting_does_not_highlight_arrows(run, tmpdir):
 
     with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
         h.await_text('loooo')
-        h.assert_screen_attr_equals(2, [(243, 40, 0)] * 19 + [(236, 40, 0)])
+        h.assert_screen_attr_equal(2, [(243, 40, 0)] * 19 + [(236, 40, 0)])
 
         h.press('Down')
         h.press('^E')
         h.await_text_missing('loooo')
         expected = [(236, 40, 0)] + [(243, 40, 0)] * 15 + [(236, 40, 0)] * 4
-        h.assert_screen_attr_equals(2, expected)
+        h.assert_screen_attr_equal(2, expected)
 
 
 def test_syntax_highlighting_off_screen_does_not_crash(run, tmpdir):
@@ -96,11 +96,11 @@ def test_syntax_highlighting_off_screen_does_not_crash(run, tmpdir):
 
     with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
         h.await_text('"""a"""')
-        h.assert_screen_attr_equals(1, [(17, 40, 0)] * 7 + [(236, 40, 0)] * 13)
+        h.assert_screen_attr_equal(1, [(17, 40, 0)] * 7 + [(236, 40, 0)] * 13)
         h.press('^E')
         h.await_text('"""b"""')
         expected = [(236, 40, 0)] * 11 + [(17, 40, 0)] * 7 + [(236, 40, 0)] * 2
-        h.assert_screen_attr_equals(1, expected)
+        h.assert_screen_attr_equal(1, expected)
 
 
 def test_syntax_highlighting_one_off_left_of_screen(run, tmpdir):
@@ -110,11 +110,11 @@ def test_syntax_highlighting_one_off_left_of_screen(run, tmpdir):
     with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
         h.await_text('xxx?123')
         expected = [(236, 40, 0)] * 11 + [(52, 40, 0)] + [(236, 40, 0)] * 8
-        h.assert_screen_attr_equals(1, expected)
+        h.assert_screen_attr_equal(1, expected)
 
         h.press('End')
         h.await_text_missing('?')
-        h.assert_screen_attr_equals(1, [(236, 40, 0)] * 20)
+        h.assert_screen_attr_equal(1, [(236, 40, 0)] * 20)
 
 
 def test_syntax_highlighting_to_edge_of_screen(run, tmpdir):
@@ -123,7 +123,7 @@ def test_syntax_highlighting_to_edge_of_screen(run, tmpdir):
 
     with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
         h.await_text('# xxx')
-        h.assert_screen_attr_equals(1, [(243, 40, 0)] * 20)
+        h.assert_screen_attr_equal(1, [(243, 40, 0)] * 20)
 
 
 def test_syntax_highlighting_with_tabs(run, tmpdir):
@@ -133,7 +133,7 @@ def test_syntax_highlighting_with_tabs(run, tmpdir):
     with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
         h.await_text('1234567890')
         expected = 4 * [(236, 40, 0)] + 15 * [(243, 40, 0)] + [(236, 40, 0)]
-        h.assert_screen_attr_equals(1, expected)
+        h.assert_screen_attr_equal(1, expected)
 
 
 def test_syntax_highlighting_tabs_after_line_creation(run, tmpdir):

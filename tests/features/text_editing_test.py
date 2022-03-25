@@ -19,7 +19,7 @@ def test_backspace_at_beginning_of_file(run):
     with run() as h, and_exit(h):
         h.press('BSpace')
         h.await_text_missing('unknown key')
-        h.assert_cursor_line_equals('')
+        h.assert_cursor_line_equal('')
         h.await_text_missing('*')
 
 

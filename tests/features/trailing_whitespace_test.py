@@ -18,9 +18,9 @@ def test_trailing_whitespace_highlighting(run, tmpdir):
 
     with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
         h.await_text('123456789')
-        h.assert_screen_attr_equals(0, [(-1, -1, curses.A_REVERSE)] * 20)
+        h.assert_screen_attr_equal(0, [(-1, -1, curses.A_REVERSE)] * 20)
         attrs = [(-1, -1, 0)] * 10 + [(-1, 1, 0)] * 5 + [(-1, -1, 0)] * 5
-        h.assert_screen_attr_equals(1, attrs)
+        h.assert_screen_attr_equal(1, attrs)
 
 
 def test_trailing_whitespace_does_not_highlight_line_continuation(run, tmpdir):
@@ -29,4 +29,4 @@ def test_trailing_whitespace_does_not_highlight_line_continuation(run, tmpdir):
 
     with run(str(f), term='screen-256color', width=20) as h, and_exit(h):
         h.await_text('hello')
-        h.assert_screen_attr_equals(1, [(-1, 1, 0)] * 19 + [(-1, -1, 0)])
+        h.assert_screen_attr_equal(1, [(-1, 1, 0)] * 19 + [(-1, -1, 0)])

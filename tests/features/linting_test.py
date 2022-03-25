@@ -419,39 +419,39 @@ def test_lint_panel_focus_unfocus(run, tmpdir, stubbed_flake8, themed):
                 error_line,                        # 4:3: [flake8] E123 error 2
                 error_line,                        # 5:1: [flake8] E121 error 3
         ]):
-            h.assert_screen_attr_equals(i, attr)
+            h.assert_screen_attr_equal(i, attr)
 
         h.press('M-t')
 
         h.await_cursor_position(x=0, y=2)
         # should highlight the currently selected error
-        h.assert_screen_attr_equals(7, C_SELECTED * 40)
-        h.assert_screen_attr_equals(8, error_line)
-        h.assert_screen_attr_equals(9, error_line)
+        h.assert_screen_attr_equal(7, C_SELECTED * 40)
+        h.assert_screen_attr_equal(8, error_line)
+        h.assert_screen_attr_equal(9, error_line)
 
         h.press('Down')
         h.await_cursor_position(x=2, y=4)
         # should highlight the second error instead
-        h.assert_screen_attr_equals(7, error_line)
-        h.assert_screen_attr_equals(8, C_SELECTED * 40)
-        h.assert_screen_attr_equals(9, error_line)
+        h.assert_screen_attr_equal(7, error_line)
+        h.assert_screen_attr_equal(8, C_SELECTED * 40)
+        h.assert_screen_attr_equal(9, error_line)
 
         # scroll to the 4th error
         h.press('Down')
         h.press('Down')
         h.await_cursor_position(x=2, y=5)
         # scrolling of the error panel should have left a blank line
-        h.assert_screen_attr_equals(7, error_line)
-        h.assert_screen_attr_equals(8, C_SELECTED * 40)
-        h.assert_screen_attr_equals(9, C_NORM * 40)
+        h.assert_screen_attr_equal(7, error_line)
+        h.assert_screen_attr_equal(8, C_SELECTED * 40)
+        h.assert_screen_attr_equal(9, C_NORM * 40)
 
         # pressing up twice should scroll panel
         h.press('Up')
         h.press('Up')
         h.await_cursor_position(x=2, y=4)
-        h.assert_screen_attr_equals(7, error_line)
-        h.assert_screen_attr_equals(8, C_SELECTED * 40)
-        h.assert_screen_attr_equals(9, error_line)
+        h.assert_screen_attr_equal(7, error_line)
+        h.assert_screen_attr_equal(8, C_SELECTED * 40)
+        h.assert_screen_attr_equal(9, error_line)
 
         # exit the error panel
         h.press('M-t')
@@ -479,8 +479,8 @@ def test_lint_panel_disabled_error(run, tmpdir, stubbed_flake8, themed):
         )
 
         # should be highlighting the error
-        h.assert_screen_attr_equals(2, C_RED + C_NORM * 39)
-        h.assert_screen_attr_equals(8, error_line)
+        h.assert_screen_attr_equal(2, C_RED + C_NORM * 39)
+        h.assert_screen_attr_equal(8, error_line)
 
         h.press('Down')
         h.press('End')
@@ -490,8 +490,8 @@ def test_lint_panel_disabled_error(run, tmpdir, stubbed_flake8, themed):
         h.await_text('??:??: [flake8] F401 error')
 
         # does not have the red highlight any more
-        h.assert_screen_attr_equals(2, C_NORM * 40)
-        h.assert_screen_attr_equals(8, C_DIM * 40)
+        h.assert_screen_attr_equal(2, C_NORM * 40)
+        h.assert_screen_attr_equal(8, C_DIM * 40)
 
         h.press('M-t')
 
@@ -529,8 +529,8 @@ def test_lint_panel_resized(run, tmpdir, stubbed_flake8, themed):
             C_INVALID * 4 + 22 * C_NORM
         )
 
-        h.assert_screen_attr_equals(8, C_SELECTED * 40)
-        h.assert_screen_attr_equals(9, error_line)
+        h.assert_screen_attr_equal(8, C_SELECTED * 40)
+        h.assert_screen_attr_equal(9, error_line)
 
         with h.resize(width=8, height=10):
             h.await_text_missing('F401')
@@ -539,8 +539,8 @@ def test_lint_panel_resized(run, tmpdir, stubbed_flake8, themed):
                 C_NUM + C_NORM + C_NUM + C_NORM * 2 + C_NAME * 2 + C_NORM
             )
             # should not highlight the edge
-            h.assert_screen_attr_equals(8, C_SELECTED * 8)
-            h.assert_screen_attr_equals(9, edge_line)
+            h.assert_screen_attr_equal(8, C_SELECTED * 8)
+            h.assert_screen_attr_equal(9, edge_line)
 
         h.await_text('F401')
 
