@@ -189,6 +189,8 @@ class LintErrors:
                 return
             elif ch.keyname == b'^T':
                 screen.lint()
+                if not self.errors:
+                    return
             elif ch.keyname == b'KEY_UP':
                 self.y = max(self.y - 1, 0)
                 if self.y < self.top:
