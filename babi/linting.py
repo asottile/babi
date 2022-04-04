@@ -24,6 +24,10 @@ class Error(NamedTuple):
     def line_idx(self) -> int:
         return self.lineno - 1
 
+    @property
+    def pos(self) -> tuple[int, int]:
+        return self.lineno, self.col_offset
+
     def render(self) -> str:
         if self.disabled:
             return f'??:??: {self.msg}'

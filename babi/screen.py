@@ -63,6 +63,8 @@ SEQUENCE_KEYNAME = {
     '\x1b[1;5D': b'kLFT5',  # ^Left
     '\x1b[1;5H': b'kHOM5',  # ^Home
     '\x1b[1;5F': b'kEND5',  # ^End
+    '\x1b[1;6A': b'kUP6',  # Shift + ^Up
+    '\x1b[1;6B': b'kDN6',  # Shift + ^Down
     '\x1b[1;6C': b'kRIT6',  # Shift + ^Right
     '\x1b[1;6D': b'kLFT6',  # Shift + ^Left
     '\x1b[1;6H': b'kHOM6',  # Shift + ^Home
@@ -582,10 +584,13 @@ class Screen:
         self.layout = self._layout_from_current_screen()
 
     def lint_focus(self) -> None:
-        if not self.file.lint_errors.errors:
-            return
-        else:
-            self.file.lint_errors.focus(self)
+        self.file.lint_errors.focus(self)
+
+    def lint_previous_error(self) -> None:
+        self.file.lint_errors.previous_error(self)
+
+    def lint_next_error(self) -> None:
+        self.file.lint_errors.next_error(self)
 
     def _command_w(self, args: list[str]) -> None:
         self.save()
@@ -819,6 +824,8 @@ class Screen:
         b'^\\': replace,
         b'^T': lint,
         b'M-t': lint_focus,
+        b'kUP6': lint_previous_error,
+        b'kDN6': lint_next_error,
         b'^[': command,
         b'^S': save,
         b'^O': save_filename,

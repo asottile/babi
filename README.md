@@ -66,6 +66,7 @@ these are all of the current key bindings in babi
 - <kbd>^T</kbd>: run linter
     - by default, runs `pre-commit run --files <filename>`
     - outside of a git repo will run `flake8 <filename>` for python files
+    - <kbd>^-S-Up</kbd>, <kbd>^-S-Down</kbd>: navigate to previous / next error
     - <kbd>M-t</kbd> focus the linting panel
     - <kbd>^C</kbd>, <kbd>^X</kbd>: clear and close the linting panel
     - <kbd>Esc</kbd>, <kbd>M-t</kdb>: unfocus the linting panel
