@@ -63,6 +63,13 @@ these are all of the current key bindings in babi
 - <kbd>^-up</kbd> / <kbd>^-down</kbd>: scroll screen by a single line
 - <kbd>M-left</kbd> / <kbd>M-right</kbd>: go to previous / next file
 - <kbd>^Z</kbd>: background
+- <kbd>^T</kbd>: run linter
+    - by default, runs `pre-commit run --files <filename>`
+    - outside of a git repo will run `flake8 <filename>` for python files
+    - <kbd>M-t</kbd> focus the linting panel
+    - <kbd>^C</kbd>, <kbd>^X</kbd>: clear and close the linting panel
+    - <kbd>Esc</kbd>, <kbd>M-t</kdb>: unfocus the linting panel
+    - arrow keys: movement inside the linting panel
 - <kbd>esc</kbd>: open the command mode
     - <kbd>:q</kbd>: quit
     - <kbd>:w</kbd>: write the file
