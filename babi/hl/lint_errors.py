@@ -55,6 +55,7 @@ class LintErrors:
         self.top = 0
         self.y = 0
         self.errors: tuple[Error, ...] = ()
+        self._temporary_highlight = False
 
         self.regions: dict[int, HLs] = collections.defaultdict(tuple)
 
@@ -130,7 +131,7 @@ class LintErrors:
             rendered = scrolled_line(s, 0, dim.width)
             stdscr.insstr(draw_y, 0, rendered)
 
-            if focused and self.y == l_y:
+            if (self._temporary_highlight or focused) and self.y == l_y:
                 attr = curses.A_REVERSE | curses.A_DIM | curses.color_pair(1)
                 stdscr.chgat(draw_y, 0, dim.width, attr)
             elif self.errors[l_y].disabled:
@@ -164,15 +165,85 @@ class LintErrors:
             stdscr.move(i + dim.y, 0)
             stdscr.clrtoeol()
 
+        self._temporary_highlight = False
+
+    def _up(self) -> None:
+        self.y = max(self.y - 1, 0)
+        if self.y < self.top:
+            self.top -= 2
+
+    def _down(self, dim: Dim) -> None:
+        self.y = min(self.y + 1, len(self.errors) - 1)
+        if self.top + dim.height <= self.y:
+            self.top += 2
+
+    def _set_file_position(self, screen: Screen, error: Error) -> None:
+        screen.file.buf.assign_position(
+            screen.layout.file,
+            y=max(error.lineno - 1, 0),
+            x=max(error.col_offset - 1, 0),
+        )
+
+    def _move_to_y(self, y: int, dim: Dim) -> None:
+        while self.y > y:
+            self._up()
+        while self.y < y:
+            self._down(dim)
+
+    def previous_error(self, screen: Screen) -> None:
+        if not self.errors:
+            return
+
+        pos = (screen.file.buf.y + 1, screen.file.buf.x + 1)
+
+        y = -1
+        for i, error in enumerate(self.errors):
+            if error.disabled:
+                continue
+            elif error.pos >= pos:
+                break
+            else:
+                y = i
+
+        if y == -1:  # no previous errors
+            self._temporary_highlight = pos == (self.errors[self.y].pos)
+            return
+
+        self._move_to_y(y, screen.layout.lint_errors)
+        self._temporary_highlight = True
+        self._set_file_position(screen, self.errors[self.y])
+
+    def next_error(self, screen: Screen) -> None:
+        if not self.errors:
+            return
+
+        pos = (screen.file.buf.y + 1, screen.file.buf.x + 1)
+
+        y = -1
+        for i, error in enumerate(reversed(self.errors)):
+            if error.disabled:
+                continue
+            elif error.pos <= pos:
+                break
+            else:
+                y = len(self.errors) - 1 - i
+
+        if y == -1:  # no subsequent errors
+            self._temporary_highlight = pos == (self.errors[self.y].pos)
+            return
+
+        self._move_to_y(y, screen.layout.lint_errors)
+        self._temporary_highlight = True
+        self._set_file_position(screen, self.errors[self.y])
+
     def focus(self, screen: Screen) -> None:
+        if not self.errors:
+            return
+
         while True:
             error = self.errors[self.y]
             if not error.disabled:
-                screen.file.buf.assign_position(
-                    screen.layout.file,
-                    y=max(error.lineno - 1, 0),
-                    x=max(error.col_offset - 1, 0),
-                )
+                self._set_file_position(screen, error)
 
             screen.draw()
             self.draw(screen.stdscr, screen.layout.lint_errors, focused=True)
@@ -192,10 +263,6 @@ class LintErrors:
                 if not self.errors:
                     return
             elif ch.keyname == b'KEY_UP':
-                self.y = max(self.y - 1, 0)
-                if self.y < self.top:
-                    self.top -= 2
+                self._up()
             elif ch.keyname == b'KEY_DOWN':
-                self.y = min(self.y + 1, len(self.errors) - 1)
-                if self.top + screen.layout.lint_errors.height <= self.y:
-                    self.top += 2
+                self._down(screen.layout.lint_errors)

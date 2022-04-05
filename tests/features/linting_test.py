@@ -193,6 +193,14 @@ def test_focus_lint_panel_no_errors_present(run):
         h.press('M-t')
 
 
+def test_next_previous_lint_error_no_errors(run):
+    with run() as h, and_exit(h):
+        # should not crash
+        h.press('^S-Up')
+        h.press('^S-Down')
+        h.await_cursor_position(x=0, y=1)
+
+
 def test_unknown_character_in_lint_panel_ignored(run, tmpdir, stubbed_flake8):
     stubbed_flake8.output.write('{filename}:1:1: F401 error')
 
@@ -566,3 +574,138 @@ def test_lint_panel_resized(run, tmpdir, stubbed_flake8, themed):
         h.await_text('F401')
 
         h.press('M-t')
+
+
+def test_jump_to_next_lint_error(run, tmpdir, stubbed_flake8, themed):
+    stubbed_flake8.output.write(
+        '{filename}:2:1: F401 error\n'
+        '{filename}:4:3: E123 error 2\n',
+    )
+
+    f = tmpdir.join('t.py')
+    f.write('import os\nimport sys\n\na =1\n')
+
+    size = {'width': 40, 'height': 10}
+    with run(str(f), term='screen-256color', **size) as h, and_exit(h):
+        h.await_text('import sys')
+        h.press('^T')
+
+        h.await_text('2 error(s)')
+
+        h.await_cursor_position(x=0, y=1)
+
+        h.press('^S-Down')
+
+        h.await_cursor_position(x=0, y=2)
+
+        error_line = (
+            C_NUM + C_NORM + C_NUM + C_NORM * 2 + C_NAME * 8 + C_NORM +
+            C_INVALID * 4 + 22 * C_NORM
+        )
+
+        h.assert_screen_attr_equal(8, C_SELECTED * 40)
+        h.assert_screen_attr_equal(9, error_line)
+
+        h.press('^S-Down')
+
+        h.await_cursor_position(x=2, y=4)
+
+        h.assert_screen_attr_equal(8, error_line)
+        h.assert_screen_attr_equal(9, C_SELECTED * 40)
+
+        # should not go past end, but should still be highlighted
+        h.press('^S-Down')
+
+        h.await_cursor_position(x=2, y=4)
+
+        h.assert_screen_attr_equal(8, error_line)
+        h.assert_screen_attr_equal(9, C_SELECTED * 40)
+
+
+def test_jump_to_previous_lint_error(run, tmpdir, stubbed_flake8, themed):
+    stubbed_flake8.output.write(
+        '{filename}:2:1: F401 error\n'
+        '{filename}:4:3: E123 error 2\n',
+    )
+
+    f = tmpdir.join('t.py')
+    f.write('import os\nimport sys\n\na =1\n')
+
+    size = {'width': 40, 'height': 10}
+    with run(str(f), term='screen-256color', **size) as h, and_exit(h):
+        h.await_text('import sys')
+        h.press('^T')
+
+        h.await_text('2 error(s)')
+
+        h.press('^End')
+
+        h.await_cursor_position(x=0, y=5)
+
+        h.press('^S-Up')
+
+        h.await_cursor_position(x=2, y=4)
+
+        error_line = (
+            C_NUM + C_NORM + C_NUM + C_NORM * 2 + C_NAME * 8 + C_NORM +
+            C_INVALID * 4 + 22 * C_NORM
+        )
+
+        h.assert_screen_attr_equal(8, error_line)
+        h.assert_screen_attr_equal(9, C_SELECTED * 40)
+
+        h.press('^S-Up')
+
+        h.await_cursor_position(x=0, y=2)
+
+        h.assert_screen_attr_equal(8, C_SELECTED * 40)
+        h.assert_screen_attr_equal(9, error_line)
+
+        # should not go past beginning, but should still be highlighted
+        h.press('^S-Up')
+
+        h.await_cursor_position(x=0, y=2)
+
+        h.assert_screen_attr_equal(8, C_SELECTED * 40)
+        h.assert_screen_attr_equal(9, error_line)
+
+
+def test_jump_to_error_skips_disabled(run, tmpdir, stubbed_flake8):
+    stubbed_flake8.output.write(
+        '{filename}:1:1: F401 error\n'
+        '{filename}:2:1: F401 error\n'
+        '{filename}:4:3: E123 error 2\n',
+    )
+
+    f = tmpdir.join('t.py')
+    f.write('import os\nimport sys\n\na =1\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('import sys')
+        h.press('^T')
+
+        h.await_text('3 error(s)')
+
+        h.press('^_')
+        h.press_and_enter('2')
+
+        h.await_cursor_position(x=0, y=2)
+
+        h.press('#')
+
+        # should have disabled the lint error
+        h.await_text('??:??')
+
+        h.press('^S-Down')
+
+        h.await_cursor_position(x=2, y=4)
+
+        # middle error is skipped over here:
+        h.press('^S-Up')
+
+        h.await_cursor_position(x=0, y=1)
+
+        # middle error is also skipped over here:
+        h.press('^S-Down')
+
+        h.await_cursor_position(x=2, y=4)
