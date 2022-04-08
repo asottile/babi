@@ -192,6 +192,7 @@ def test_buf_pop_idx():
     'new_lines',
     (
         pytest.param(['d', 'b', 'c'], id='replace op'),
+        pytest.param(['a', 'q', 'q', 'c'], id='replace different size'),
         pytest.param(['c'], id='delete op'),
         pytest.param(['a', 'q', 'q', 'q', 'b', 'c'], id='insert op'),
     ),
