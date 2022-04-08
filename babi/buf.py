@@ -19,6 +19,22 @@ DelCallback = Callable[['Buf', int, str], None]
 InsCallback = Callable[['Buf', int], None]
 
 
+def _diff_codes(
+        a: list[str],
+        b: list[str],
+) -> Generator[tuple[str, int, int, int, int], None, None]:
+    matcher = difflib.SequenceMatcher(a=a, b=b)
+    for op, i1, i2, j1, j2 in reversed(matcher.get_opcodes()):
+        if op == 'replace':
+            if i2 - i1 == j2 - j1:
+                yield op, i1, i2, j1, j2
+            else:
+                yield 'delete', i1, i2, j1, j2
+                yield 'insert', i1, i1, j1, j2
+        elif op != 'equal':
+            yield op, i1, i2, j1, j2
+
+
 def _offsets(s: str, tab_size: int) -> tuple[int, ...]:
     ret = [0]
     for c in s:
@@ -135,8 +151,7 @@ class Buf:
         return victim
 
     def replace_lines(self, lines: list[str]) -> None:
-        matcher = difflib.SequenceMatcher(a=self._lines, b=lines)
-        for op, i1, i2, j1, j2 in reversed(matcher.get_opcodes()):
+        for op, i1, i2, j1, j2 in _diff_codes(self._lines, lines):
             if op == 'replace':
                 for i, j in zip(range(i1, i2), range(j1, j2)):
                     self[i] = lines[j]
@@ -146,8 +161,6 @@ class Buf:
             elif op == 'insert':
                 for j in reversed(range(j1, j2)):
                     self.insert(i1, lines[j])
-            elif op == 'equal':
-                pass
             else:
                 raise AssertionError(f'{op} {self._lines} {lines} ???')
 
