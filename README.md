@@ -13,6 +13,8 @@ a text editor, eventually...
 
 `pip install babi`
 
+babi works best in a virtualenv
+
 ### why is it called babi?
 
 I used to use the text editor `nano`, frequently I typo this.  on a qwerty
