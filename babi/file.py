@@ -219,7 +219,7 @@ class File:
             *,
             is_stdin: bool,
     ) -> None:
-        self.filename = filename
+        self._filename = filename
         self.initial_line = initial_line
         self.is_stdin = is_stdin
         self.modified = False
@@ -236,6 +236,15 @@ class File:
         self._replace_hl = Replace()
         self.selection = Selection()
         self._file_hls: tuple[FileHL, ...] = ()
+
+    @property
+    def filename(self) -> str | None:
+        return self._filename
+
+    @filename.setter
+    def filename(self, value: str) -> None:
+        self._filename = value
+        self._initialize_highlighters()
 
     def ensure_loaded(
             self,
