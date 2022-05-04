@@ -377,7 +377,15 @@ class File:
         else:
             self.buf.right(dim)
             tp = line[self.buf.x].isalnum()
-            while self.buf.x < len(line) and tp == line[self.buf.x].isalnum():
+            while (
+                self.buf.x < len(line) and
+                tp == line[self.buf.x].isalnum() and
+                not (
+                    self.buf.x == 1 and
+                    line[self.buf.x - 1].isspace() and
+                    not line[self.buf.x].isspace()
+                )
+            ):
                 self.buf.right(dim)
 
     @action
