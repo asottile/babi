@@ -21,6 +21,8 @@ THEME = json.dumps({
         {'scope': 'b', 'settings': {'fontStyle': 'bold'}},
         {'scope': 'i', 'settings': {'fontStyle': 'italic'}},
         {'scope': 'u', 'settings': {'fontStyle': 'underline'}},
+        {'scope': 'comment_change', 'settings': {'foreground': '#0e0000'}},
+
     ],
 })
 SYNTAX = json.dumps({
@@ -32,6 +34,14 @@ SYNTAX = json.dumps({
         {'match': r'^-.*$\n?', 'name': 'diffremove'},
         {'begin': '"""', 'end': '"""', 'name': 'tqs'},
         {'match': r'\?', 'name': 'qmark'},
+    ],
+})
+SYNTAX_1 = json.dumps({
+    'scopeName': 'source.demo1',
+    'fileTypes': ['demo1'],
+    'firstLineMatch': '^#!/usr/bin/(env demo1|demo1)$',
+    'patterns': [
+        {'match': r'#.*$\n?', 'name': 'comment_change'},
     ],
 })
 DEMO_S = '''\
@@ -48,6 +58,7 @@ still more
 def theme_and_grammar(xdg_data_home, xdg_config_home):
     xdg_config_home.join('babi/theme.json').ensure().write(THEME)
     xdg_data_home.join('babi/grammar_v1/demo.json').ensure().write(SYNTAX)
+    xdg_data_home.join('babi/grammar_v1/demo1.json').ensure().write(SYNTAX_1)
 
 
 @pytest.fixture
@@ -160,3 +171,30 @@ def test_syntax_highlighting_tabs_after_line_creation(run, tmpdir):
 def test_does_not_crash_with_no_color_support(run):
     with run(term='xterm-mono') as h, and_exit(h):
         pass
+
+
+def test_syntax_highlighting_enabled_after_save(run, tmpdir):
+    f = tmpdir.join('f.demo')
+    with run(term='screen-256color', width=25) as h, and_exit(h):
+        h.press_and_enter('\t# 123456789012345678')
+        h.press('^S')
+        h.await_text('enter filename:')
+        h.press_and_enter(str(f))
+        h.await_text('saved! (2 lines written)')
+        expected = 4 * [(236, 40, 0)] + 20 * [(243, 40, 0)] + [(236, 40, 0)]
+        h.assert_screen_attr_equal(1, expected)
+
+
+def test_syntax_highlighting_change_for_new_file_name(run, tmpdir):
+    f1 = tmpdir.join('f.demo')
+    f1.write('\t# 123456789012345678\n')
+    f2 = tmpdir.join('f.demo1')
+    with run(str(f1), term='screen-256color', width=25) as h, and_exit(h):
+        h.await_text('1234567890')
+        h.press('^O')
+        h.await_text('enter filename:')
+        h.press('\x08' * len(str(f1)))
+        h.press_and_enter(str(f2))
+        h.await_text('saved! (1 line written)')
+        expected = 4 * [(236, 40, 0)] + 20 * [(232, 40, 0)] + [(236, 40, 0)]
+        h.assert_screen_attr_equal(1, expected)
