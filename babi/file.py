@@ -305,7 +305,7 @@ class File:
     def _is_last_char_in_tab(self, line: str, pos: int) -> bool:
         current = 0
         cpos = 0
-        if line[pos - 1] != '\t':
+        if line[pos - 1] != '\t' or line[pos].isspace():
             return True
         while cpos < pos - 1:
             if line[cpos] == '\t':
@@ -314,17 +314,6 @@ class File:
                 current += 1
             cpos += 1
         return current % 4 == 3
-        # for i, x in enumerate(line):
-        #     if x == '\t' and i < tab_pos:
-        #         current = current + 4 - (current % 4)
-        #     elif x == '\t':
-        #         ret = current % 4 == 3
-        #         break
-        #     else:
-        #         current += 1
-        # if line[tab_pos] != '\t':
-        #     return True
-        # return ret
 
     def reload_theme(self, syntax: Syntax) -> None:
         self._syntax = syntax
@@ -404,10 +393,7 @@ class File:
             while (
                 self.buf.x < len(line) and
                 tp == line[self.buf.x].isalnum() and
-                (
-                    self._is_last_char_in_tab(line, self.buf.x) or
-                    line[self.buf.x].isspace()
-                )
+                self._is_last_char_in_tab(line, self.buf.x)
             ):
                 self.buf.right(dim)
 
