@@ -547,12 +547,13 @@ yet_another_test = None
         h.await_cursor_position(x=0, y=12)
 
 
-def test_ctrl_right_jump_by_word_with_tabs(run, tmpdir):
+def test_ctrl_right_jump_with_tabs(run, tmpdir):
     src = '''\
 \tHello\tWorld
 \t\tGoodday
 hi\t\tAnthonk
-
+as\tHello
+Helloa\tdsa\tasd
 \t\t\tthis(is_some_code)  # comment
 '''
     f = tmpdir.join('f')
@@ -581,7 +582,27 @@ hi\t\tAnthonk
         h.press('^Right')
         h.await_cursor_position(x=15, y=3)
         h.press('^Right')
-        h.await_cursor_position(x=12, y=5)
+        h.await_cursor_position(x=0, y=4)
+        h.press('^Right')
+        h.await_cursor_position(x=2, y=4)
+        h.press('Left')
+        h.await_cursor_position(x=1, y=4)
+        h.press('^Right')
+        h.await_cursor_position(x=4, y=4)
+        h.press('^Right')
+        h.await_cursor_position(x=9, y=4)
+        h.press('^Right')
+        h.await_cursor_position(x=0, y=5)
+        h.press('^Right')
+        h.await_cursor_position(x=6, y=5)
+        h.press('^Right')
+        h.await_cursor_position(x=8, y=5)
+        h.press('^Right')
+        h.await_cursor_position(x=11, y=5)
+        h.press('^Right')
+        h.await_cursor_position(x=15, y=5)
+        h.press('^Right')
+        h.await_cursor_position(x=12, y=6)
         h.press('Down')
         h.press('^Right')
-        h.await_cursor_position(x=0, y=6)
+        h.await_cursor_position(x=0, y=7)
