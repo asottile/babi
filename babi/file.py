@@ -376,7 +376,7 @@ class File:
         # if we're inside the line, jump to next position that's not our type
         else:
             self.buf.right(dim)
-            tp = line[self.buf.x].isalnum()
+            tp = line[self.buf.x].isalnum() and line[self.buf.x - 1] != '\t'
             while self.buf.x < len(line) and tp == line[self.buf.x].isalnum():
                 self.buf.right(dim)
 
