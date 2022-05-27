@@ -195,7 +195,7 @@ class _SearchIter:
                 if match:
                     return self._stop_if_past_original(line_y, match)
         else:
-            for line_y in range(y + 1, len(self.file.buf)):
+            for line_y in range(y + 1, len(self.file.buf) - 1):
                 match = self.reg.search(self.file.buf[line_y])
                 if match:
                     return self._stop_if_past_original(line_y, match)
