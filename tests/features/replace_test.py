@@ -313,3 +313,18 @@ def test_replace_with_multiple_newline_characters(run, ten_lines):
 
         h.await_text_missing('line_1')
         h.await_text('li\nne\n1\n\nline_2')
+
+
+def test_replace_end_of_file(run, ten_lines):
+    with run(str(ten_lines)) as h, and_exit(h):
+        h.press('^\\')
+        h.await_text('search (to replace):')
+        h.press_and_enter('^')
+        h.await_text('replace with:')
+        h.press_and_enter('prefix:')
+        h.await_text('replace [yes, no, all]?')
+        h.press('a')
+
+        h.await_text('replaced 10 occurrences')
+        h.await_text('prefix:line_9')
+        h.assert_screen_line_equal(11, '')
