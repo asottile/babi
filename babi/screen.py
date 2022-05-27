@@ -553,6 +553,7 @@ class Screen:
             return
 
         try:
+            sigquit_orig = signal.signal(signal.SIGQUIT, signal.SIG_IGN)
             curses.cbreak()
             out, _ = proc.communicate()
         except KeyboardInterrupt:
@@ -561,6 +562,7 @@ class Screen:
             return
         finally:
             curses.raw()
+            signal.signal(signal.SIGQUIT, sigquit_orig)
 
         errors = linter.parse(self.file.filename, out)
         errors = tuple(sorted(errors))
