@@ -26,6 +26,7 @@ from babi.dim import Dim
 from babi.hl.interface import FileHL
 from babi.hl.lint_errors import LintErrors
 from babi.hl.replace import Replace
+from babi.hl.secrets import Secrets
 from babi.hl.selection import Selection
 from babi.hl.syntax import Syntax
 from babi.hl.trailing_whitespace import TrailingWhitespace
@@ -233,6 +234,7 @@ class File:
         self._file_syntax = syntax.blank_file_highlighter()
         self.lint_errors = LintErrors(syntax.color_manager, syntax.theme)
         self._trailing_whitespace = TrailingWhitespace(syntax.color_manager)
+        self._secrets = Secrets(syntax.color_manager)
         self._replace_hl = Replace()
         self.selection = Selection()
         self._file_hls: tuple[FileHL, ...] = ()
@@ -295,6 +297,7 @@ class File:
             self._trailing_whitespace,
             self._replace_hl,
             self.selection,
+            self._secrets,
         )
         self._file_hls = file_hls
 
@@ -309,6 +312,7 @@ class File:
             syntax.theme,
         )
         self._trailing_whitespace = TrailingWhitespace(syntax.color_manager)
+        self._secrets = Secrets(syntax.color_manager)
         # only re-initialize the highlighters if we've loaded once
         if self._file_hls:
             self._initialize_highlighters()
