@@ -11,7 +11,9 @@ a text editor, eventually...
 
 ### installation
 
-`pip install babi`
+```bash
+pip install babi
+```
 
 babi works best in a virtualenv
 
