@@ -4,7 +4,6 @@ import functools
 import itertools
 from typing import NamedTuple
 
-from babi._types import Protocol
 from babi.color import Color
 
 
@@ -12,18 +11,7 @@ def _square_distance(c1: Color, c2: Color) -> int:
     return (c1.r - c2.r) ** 2 + (c1.g - c2.g) ** 2 + (c1.b - c2.b) ** 2
 
 
-class KD(Protocol):
-    @property
-    def color(self) -> Color: ...
-    @property
-    def n(self) -> int: ...
-    @property
-    def left(self) -> KD | None: ...
-    @property
-    def right(self) -> KD | None: ...
-
-
-class _KD(NamedTuple):
+class KD(NamedTuple):
     color: Color
     n: int
     left: KD | None
@@ -38,7 +26,7 @@ def _build(colors: list[tuple[Color, int]], depth: int = 0) -> KD | None:
     colors.sort(key=lambda kv: kv[0][axis])
     pivot = len(colors) // 2
 
-    return _KD(
+    return KD(
         *colors[pivot],
         _build(colors[:pivot], depth=depth + 1),
         _build(colors[pivot + 1:], depth=depth + 1),

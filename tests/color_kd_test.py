@@ -10,7 +10,7 @@ def test_build_trivial():
 
 def test_build_single_node():
     kd = color_kd._build([(Color(0, 0, 0), 255)])
-    assert kd == color_kd._KD(Color(0, 0, 0), 255, left=None, right=None)
+    assert kd == color_kd.KD(Color(0, 0, 0), 255, left=None, right=None)
 
 
 def test_build_many_colors():
@@ -25,18 +25,18 @@ def test_build_many_colors():
     ])
 
     # each level is sorted by the next dimension
-    assert kd == color_kd._KD(
+    assert kd == color_kd.KD(
         Color(3, 103, 203),
         252,
-        left=color_kd._KD(
+        left=color_kd.KD(
             Color(1, 105, 201), 254,
-            left=color_kd._KD(Color(2, 104, 202), 253, None, None),
-            right=color_kd._KD(Color(0, 106, 200), 255, None, None),
+            left=color_kd.KD(Color(2, 104, 202), 253, None, None),
+            right=color_kd.KD(Color(0, 106, 200), 255, None, None),
         ),
-        right=color_kd._KD(
+        right=color_kd.KD(
             Color(5, 101, 205), 250,
-            left=color_kd._KD(Color(6, 100, 206), 249, None, None),
-            right=color_kd._KD(Color(4, 102, 204), 251, None, None),
+            left=color_kd.KD(Color(6, 100, 206), 249, None, None),
+            right=color_kd.KD(Color(4, 102, 204), 251, None, None),
         ),
     )
 

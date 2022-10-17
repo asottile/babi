@@ -8,7 +8,6 @@ import os.path
 from typing import Any
 from typing import NamedTuple
 
-from babi._types import Protocol
 from babi.color import Color
 from babi.color_manager import ColorManager
 from babi.fdict import FDict
@@ -66,19 +65,12 @@ class PartialStyle(NamedTuple):
         return cls(**kv)
 
 
-class _TrieNode(Protocol):
-    @property
-    def style(self) -> PartialStyle: ...
-    @property
-    def children(self) -> FDict[str, _TrieNode]: ...
-
-
 class TrieNode(NamedTuple):
     style: PartialStyle
-    children: FDict[str, _TrieNode]
+    children: FDict[str, TrieNode]
 
     @classmethod
-    def from_dct(cls, dct: dict[str, Any]) -> _TrieNode:
+    def from_dct(cls, dct: dict[str, Any]) -> TrieNode:
         children = FDict({
             k: TrieNode.from_dct(v) for k, v in dct['children'].items()
         })
@@ -86,7 +78,7 @@ class TrieNode(NamedTuple):
 
 
 class Theme:
-    def __init__(self, default: Style, rules: _TrieNode) -> None:
+    def __init__(self, default: Style, rules: TrieNode) -> None:
         self.default = default
         self.rules = rules
         self.select = functools.lru_cache(maxsize=None)(self._select)

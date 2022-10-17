@@ -24,7 +24,7 @@ from babi.reg import make_regset
 T = TypeVar('T')
 Scope = Tuple[str, ...]
 Regions = Tuple['Region', ...]
-Captures = Tuple[Tuple[int, '_Rule'], ...]
+Captures = Tuple[Tuple[int, 'Rule'], ...]
 
 
 def uniquely_constructed(t: T) -> T:
@@ -40,36 +40,6 @@ def _split_name(s: str | None) -> tuple[str, ...]:
         return tuple(s.split())
 
 
-class _Rule(Protocol):
-    """hax for recursive types python/mypy#731"""
-    @property
-    def name(self) -> tuple[str, ...]: ...
-    @property
-    def match(self) -> str | None: ...
-    @property
-    def begin(self) -> str | None: ...
-    @property
-    def end(self) -> str | None: ...
-    @property
-    def while_(self) -> str | None: ...
-    @property
-    def content_name(self) -> tuple[str, ...]: ...
-    @property
-    def captures(self) -> Captures: ...
-    @property
-    def begin_captures(self) -> Captures: ...
-    @property
-    def end_captures(self) -> Captures: ...
-    @property
-    def while_captures(self) -> Captures: ...
-    @property
-    def include(self) -> str | None: ...
-    @property
-    def patterns(self) -> tuple[_Rule, ...]: ...
-    @property
-    def repository(self) -> FChainMap[str, _Rule]: ...
-
-
 @uniquely_constructed
 class Rule(NamedTuple):
     name: tuple[str, ...]
@@ -83,19 +53,19 @@ class Rule(NamedTuple):
     end_captures: Captures
     while_captures: Captures
     include: str | None
-    patterns: tuple[_Rule, ...]
-    repository: FChainMap[str, _Rule]
+    patterns: tuple[Rule, ...]
+    repository: FChainMap[str, Rule]
 
     @classmethod
     def make(
             cls,
             dct: dict[str, Any],
-            parent_repository: FChainMap[str, _Rule],
-    ) -> _Rule:
+            parent_repository: FChainMap[str, Rule],
+    ) -> Rule:
         if 'repository' in dct:
             # this looks odd, but it's so we can have a self-referential
             # immutable-after-construction chain map
-            repository_dct: dict[str, _Rule] = {}
+            repository_dct: dict[str, Rule] = {}
             repository = FChainMap(parent_repository, repository_dct)
             for k, sub_dct in dct['repository'].items():
                 repository_dct[k] = Rule.make(sub_dct, repository)
@@ -181,8 +151,8 @@ class Rule(NamedTuple):
 @uniquely_constructed
 class Grammar(NamedTuple):
     scope_name: str
-    repository: FChainMap[str, _Rule]
-    patterns: tuple[_Rule, ...]
+    repository: FChainMap[str, Rule]
+    patterns: tuple[Rule, ...]
 
     @classmethod
     def make(cls, data: dict[str, Any]) -> Grammar:
@@ -190,7 +160,7 @@ class Grammar(NamedTuple):
         if 'repository' in data:
             # this looks odd, but it's so we can have a self-referential
             # immutable-after-construction chain map
-            repository_dct: dict[str, _Rule] = {}
+            repository_dct: dict[str, Rule] = {}
             repository = FChainMap(repository_dct)
             for k, dct in data['repository'].items():
                 repository_dct[k] = Rule.make(dct, repository)
@@ -266,7 +236,7 @@ class CompiledRegsetRule(CompiledRule, Protocol):
     @property
     def regset(self) -> _RegSet: ...
     @property
-    def u_rules(self) -> tuple[_Rule, ...]: ...
+    def u_rules(self) -> tuple[Rule, ...]: ...
 
 
 class Entry(NamedTuple):
@@ -370,7 +340,7 @@ def _do_regset(
 class PatternRule(NamedTuple):
     name: tuple[str, ...]
     regset: _RegSet
-    u_rules: tuple[_Rule, ...]
+    u_rules: tuple[Rule, ...]
 
     def start(
             self,
@@ -427,7 +397,7 @@ class EndRule(NamedTuple):
     end_captures: Captures
     end: str
     regset: _RegSet
-    u_rules: tuple[_Rule, ...]
+    u_rules: tuple[Rule, ...]
 
     def start(
             self,
@@ -498,7 +468,7 @@ class WhileRule(NamedTuple):
     while_captures: Captures
     while_: str
     regset: _RegSet
-    u_rules: tuple[_Rule, ...]
+    u_rules: tuple[Rule, ...]
 
     def start(
             self,
@@ -553,21 +523,21 @@ class Compiler:
 
         self.root_scope = grammar.scope_name
         self._grammars = grammars
-        self._rule_to_grammar: dict[_Rule, Grammar] = {}
-        self._c_rules: dict[_Rule, CompiledRule] = {}
+        self._rule_to_grammar: dict[Rule, Grammar] = {}
+        self._c_rules: dict[Rule, CompiledRule] = {}
         root = self._compile_root(grammar)
         self.root_state = State.root(Entry(root.name, root, ('', 0)))
 
-    def _visit_rule(self, grammar: Grammar, rule: _Rule) -> _Rule:
+    def _visit_rule(self, grammar: Grammar, rule: Rule) -> Rule:
         self._rule_to_grammar[rule] = grammar
         return rule
 
     def _include_(
             self,
             grammar: Grammar,
-            repository: FChainMap[str, _Rule],
+            repository: FChainMap[str, Rule],
             s: str,
-    ) -> tuple[list[str], tuple[_Rule, ...]]:
+    ) -> tuple[list[str], tuple[Rule, ...]]:
         if s == '$self':
             return self._patterns(grammar, grammar.patterns)
         elif s == '$base':
@@ -586,10 +556,10 @@ class Compiler:
     def _patterns_(
             self,
             grammar: Grammar,
-            rules: tuple[_Rule, ...],
-    ) -> tuple[list[str], tuple[_Rule, ...]]:
+            rules: tuple[Rule, ...],
+    ) -> tuple[list[str], tuple[Rule, ...]]:
         ret_regs = []
-        ret_rules: list[_Rule] = []
+        ret_rules: list[Rule] = []
         for rule in rules:
             if rule.include is not None:
                 tmp_regs, tmp_rules = self._include(
@@ -622,7 +592,7 @@ class Compiler:
         regs, rules = self._patterns(grammar, grammar.patterns)
         return PatternRule((grammar.scope_name,), make_regset(*regs), rules)
 
-    def _compile_rule(self, grammar: Grammar, rule: _Rule) -> CompiledRule:
+    def _compile_rule(self, grammar: Grammar, rule: Rule) -> CompiledRule:
         assert rule.include is None, rule
         if rule.match is not None:
             captures_ref = self._captures_ref(grammar, rule.captures)
@@ -653,7 +623,7 @@ class Compiler:
             regs, rules = self._patterns(grammar, rule.patterns)
             return PatternRule(rule.name, make_regset(*regs), rules)
 
-    def compile_rule(self, rule: _Rule) -> CompiledRule:
+    def compile_rule(self, rule: Rule) -> CompiledRule:
         try:
             return self._c_rules[rule]
         except KeyError:
