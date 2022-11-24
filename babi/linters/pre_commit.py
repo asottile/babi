@@ -67,12 +67,12 @@ class PreCommit:
             return None
 
         return (
-            'pre-commit',
-            'run',
-            '--config=".pre-commit-config.yaml"',
-            '--color=never',
-            '--files', filename,
-        )
+                'pre-commit', 
+                'run', 
+                '--config=' + os.path.join(root, '.pre-commit-config.yaml'),
+                '--color=never', 
+                '--files', filename
+                )
 
     def parse(self, filename: str, output: str) -> tuple[linting.Error, ...]:
         root = self._root(filename)
