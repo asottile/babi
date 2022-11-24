@@ -66,7 +66,13 @@ class PreCommit:
         if not os.path.exists(os.path.join(root, '.pre-commit-config.yaml')):
             return None
 
-        return ('pre-commit', 'run', '--color=never', '--files', filename)
+        return (
+                'pre-commit', 
+                'run', 
+                '--config=".pre-commit-config.yaml"', 
+                '--color=never', 
+                '--files', filename
+                )
 
     def parse(self, filename: str, output: str) -> tuple[linting.Error, ...]:
         root = self._root(filename)

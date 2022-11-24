@@ -99,7 +99,12 @@ def test_command_returns_when_config_exists(tmpdir_git):
     tmpdir_git.join('.pre-commit-config.yaml').write('{}\n')
     path = str(tmpdir_git.join('t.py'))
     ret = PreCommit().command(path, 'source.python')
-    assert ret == ('pre-commit', 'run', '--color=never', '--files', path)
+    assert ret == (
+            'pre-commit', 'run',
+            '--config=".pre-commit-config.yaml"',
+            '--color=never',
+            '--files', path
+            )
 
 
 def test_filters_file_paths_to_actual_file(tmpdir_git):
