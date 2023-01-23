@@ -7,7 +7,6 @@ import hashlib
 import os
 import re
 import signal
-import sre_parse36
 import subprocess
 import sys
 from types import FrameType
@@ -15,6 +14,8 @@ from typing import Callable
 from typing import Generator
 from typing import NamedTuple
 from typing import Pattern
+
+import sre_parse36
 
 from babi import linting
 from babi.color_manager import ColorManager
