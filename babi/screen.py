@@ -7,7 +7,7 @@ import hashlib
 import os
 import re
 import signal
-import sre_parse
+import sre_parse36
 import subprocess
 import sys
 from types import FrameType
@@ -500,7 +500,7 @@ class Screen:
             )
             if response is not PromptResult.CANCELLED:
                 try:
-                    sre_parse.parse_template(response, search_response)
+                    sre_parse36.parse_template(response, search_response)
                 except re.error:
                     self.status.update('invalid replacement string')
                 else:
