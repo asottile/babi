@@ -3,9 +3,11 @@ from __future__ import annotations
 import curses
 import functools
 import math
-import babi_grammars
+from pathlib import Path
 from typing import Callable
 from typing import NamedTuple
+
+import babi_grammars
 
 from babi.buf import Buf
 from babi.color_manager import ColorManager
@@ -20,7 +22,6 @@ from babi.user_data import prefix_data
 from babi.user_data import xdg_config
 from babi.user_data import xdg_data
 
-from pathlib import Path
 
 class FileSyntax:
     include_edge = False
@@ -150,7 +151,7 @@ class Syntax(NamedTuple):
             stdscr: curses._CursesWindow,
             color_manager: ColorManager,
     ) -> Syntax:
-        grammars = Grammars(prefix_data('grammar_v1'), xdg_data('grammar_v1'), Path(babi_grammars.__spec__.origin).parent.joinpath("share/babi/grammar_v1"))
+        grammars = Grammars(prefix_data('grammar_v1'), xdg_data('grammar_v1'), Path(babi_grammars.__spec__.origin).parent.joinpath('share/babi/grammar_v1'))
         theme = Theme.from_filename(xdg_config('theme.json'))
         ret = cls(grammars, theme, color_manager)
         ret._init_screen(stdscr)
