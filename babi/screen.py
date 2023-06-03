@@ -105,6 +105,7 @@ KEYNAME_REWRITE = {
     b'^H': b'KEY_BACKSPACE',  # ^Backspace on my keyboard
     b'^D': b'KEY_DC',
     b'PADENTER': b'^M',  # Enter on numpad
+    b'KEY_ENTER': b'^M',  # Enter, but in `fn` mode
 }
 
 LINTER_TYPES: tuple[type[linting.Linter], ...] = (PreCommit, Flake8)
