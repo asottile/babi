@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import curses
 import functools
-import importlib.resources
 import json
 import os.path
 from typing import Any
@@ -11,6 +10,7 @@ from typing import NamedTuple
 from babi.color import Color
 from babi.color_manager import ColorManager
 from babi.fdict import FDict
+from babi.resources.default_theme import DEFAULT_THEME
 
 A_ITALIC = getattr(curses, 'A_ITALIC', 0x80000000)  # not always present
 
@@ -147,11 +147,7 @@ class Theme:
     @classmethod
     def from_filename(cls, filename: str) -> Theme:
         if not os.path.exists(filename):
-            default_theme = importlib.resources.read_text(
-                'babi.resources',
-                'default-theme.json',
-            )
-            return cls.from_dct(json.loads(default_theme))
+            return cls.from_dct(DEFAULT_THEME)
         else:
             with open(filename, encoding='UTF-8') as f:
                 return cls.from_dct(json.load(f))
