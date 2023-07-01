@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import curses
-
-from babi.cached_property import cached_property
+from functools import cached_property
 
 
 def line_x(x: int, width: int) -> int:

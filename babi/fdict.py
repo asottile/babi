@@ -3,9 +3,8 @@ from __future__ import annotations
 from typing import Generic
 from typing import Iterable
 from typing import Mapping
+from typing import Protocol
 from typing import TypeVar
-
-from babi._types import Protocol
 
 TKey = TypeVar('TKey', contravariant=True)
 TValue = TypeVar('TValue', covariant=True)

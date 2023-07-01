@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import re
 from typing import NamedTuple
-
-from babi._types import Protocol
+from typing import Protocol
 
 ERR_RE = re.compile(
     r'^(?P<filename>[^:]+):'

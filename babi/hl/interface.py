@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 from typing import NamedTuple
+from typing import Protocol
 from typing import Tuple
 
-from babi._types import Protocol
 from babi.buf import Buf
 
 

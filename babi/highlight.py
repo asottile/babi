@@ -6,13 +6,13 @@ import os.path
 from typing import Any
 from typing import Match
 from typing import NamedTuple
+from typing import Protocol
 from typing import Tuple
 from typing import TypeVar
 
 from identify.identify import tags_from_filename
 from identify.identify import tags_from_path
 
-from babi._types import Protocol
 from babi.fdict import FChainMap
 from babi.reg import _Reg
 from babi.reg import _RegSet
