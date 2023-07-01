@@ -4,6 +4,7 @@ import contextlib
 import curses
 import enum
 import hashlib
+import importlib.metadata
 import os
 import re
 import signal
@@ -32,12 +33,7 @@ from babi.prompt import Prompt
 from babi.prompt import PromptResult
 from babi.status import Status
 
-if sys.version_info >= (3, 8):  # pragma: >=3.8 cover
-    import importlib.metadata as importlib_metadata
-else:  # pragma: <3.8 cover
-    import importlib_metadata
-
-VERSION_STR = f'babi v{importlib_metadata.version("babi")}'
+VERSION_STR = f'babi v{importlib.metadata.version("babi")}'
 
 # TODO: find a place to populate these, surely there's a database somewhere
 SEQUENCE_KEYNAME = {

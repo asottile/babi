@@ -7,8 +7,8 @@ from typing import Callable
 from typing import Generator
 from typing import Iterator
 from typing import NamedTuple
+from typing import Protocol
 
-from babi._types import Protocol
 from babi.dim import Dim
 from babi.horizontal_scrolling import line_x
 from babi.horizontal_scrolling import scrolled_line

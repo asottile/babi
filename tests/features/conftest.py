@@ -6,11 +6,11 @@ import os
 import signal
 import sys
 from typing import NamedTuple
+from typing import Protocol
 from unittest import mock
 
 import pytest
 
-from babi._types import Protocol
 from babi.main import main
 from babi.screen import VERSION_STR
 from testing.runner import PrintsErrorRunner
