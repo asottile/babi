@@ -10,8 +10,7 @@ from testing.runner import PrintsErrorRunner
 def test_open_from_stdin():
     with PrintsErrorRunner('env', 'TERM=screen', 'bash', '--norc') as h:
         cmd = (sys.executable, '-mcoverage', 'run', '-m', 'babi', '-')
-        babi_cmd = ' '.join(shlex.quote(part) for part in cmd)
-        h.press_and_enter(fr"echo $'hello\nworld' | {babi_cmd}")
+        h.press_and_enter(fr"echo $'hello\nworld' | {shlex.join(cmd)}")
 
         h.await_text(VERSION_STR, timeout=2)
         h.await_text('<<new file>> *')
