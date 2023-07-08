@@ -40,11 +40,17 @@ TCallable = TypeVar('TCallable', bound=Callable[..., Any])
 WS_RE = re.compile(r'^\s*')
 
 
+class NullByteError(ValueError):
+    pass
+
+
 def get_lines(sio: IO[str]) -> tuple[list[str], str, bool, str]:
     sha256 = hashlib.sha256()
     lines = []
     newlines = collections.Counter({'\n': 0})  # default to `\n`
     for line in sio:
+        if '\0' in line:
+            raise NullByteError
         sha256.update(line.encode())
         for ending in ('\r\n', '\n'):
             if line.endswith(ending):
@@ -68,6 +74,8 @@ def _load_file(filename: str) -> tuple[list[str], str, bool, str]:
     try:
         with open(filename, encoding='UTF-8', newline='') as f:
             return get_lines(f)
+    except NullByteError:
+        raise OpenError(fr'error! file contains \0 bytes: {filename!r}')
     except UnicodeDecodeError:
         raise OpenError(f'error! not utf-8: {filename!r}')
     except OSError:
