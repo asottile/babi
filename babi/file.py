@@ -14,10 +14,12 @@ from typing import Callable
 from typing import cast
 from typing import Generator
 from typing import IO
+from typing import Literal
 from typing import Match
 from typing import NamedTuple
 from typing import Pattern
 from typing import TYPE_CHECKING
+from typing import TypedDict
 from typing import TypeVar
 
 from babi.buf import Buf
@@ -38,6 +40,14 @@ if TYPE_CHECKING:
 TCallable = TypeVar('TCallable', bound=Callable[..., Any])
 
 WS_RE = re.compile(r'^\s*')
+
+
+class OpenSettings(TypedDict):
+    encoding: Literal['UTF-8']
+    newline: Literal['']
+
+
+OPEN_SETTINGS = OpenSettings(encoding='UTF-8', newline='')
 
 
 class NullByteError(ValueError):

@@ -23,6 +23,7 @@ from babi.dim import Dim
 from babi.file import Action
 from babi.file import File
 from babi.file import get_lines
+from babi.file import OPEN_SETTINGS
 from babi.history import History
 from babi.hl.syntax import Syntax
 from babi.linters.flake8 import Flake8
@@ -728,8 +729,12 @@ class Screen:
         if not os.path.isfile(self.file.filename):
             sha256: str | None = None
         else:
-            with open(self.file.filename, encoding='UTF-8', newline='') as f:
-                *_, sha256 = get_lines(f)
+            try:
+                with open(self.file.filename, **OPEN_SETTINGS) as f:
+                    *_, sha256 = get_lines(f)
+            except UnicodeDecodeError:
+                # instead of crashing, show "changed on disk" error
+                sha256 = 'error'
 
         contents = self.file.nl.join(self.file.buf)
         sha256_to_save = hashlib.sha256(contents.encode()).hexdigest()
@@ -742,9 +747,7 @@ class Screen:
         try:
             dir_path = os.path.dirname(os.path.abspath(self.file.filename))
             os.makedirs(dir_path, exist_ok=True)
-            with open(
-                self.file.filename, 'w', encoding='UTF-8', newline='',
-            ) as f:
+            with open(self.file.filename, 'w', **OPEN_SETTINGS) as f:
                 f.write(contents)
         except OSError as e:
             self.status.update(f'cannot save file: {e}')

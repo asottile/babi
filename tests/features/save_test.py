@@ -103,6 +103,16 @@ def test_saving_file_on_disk_changes(run, tmpdir):
         h.await_text('file changed on disk, not implemented')
 
 
+def test_save_over_non_utf8_file(run, tmp_path):
+    f = tmp_path.joinpath('f')
+
+    with run(str(f)) as h, and_exit(h):
+        h.run(lambda: f.write_bytes(b'\x98\xef\xa0\x12'))
+
+        h.press('^S')
+        h.await_text('file changed on disk, not implemented')
+
+
 def test_allows_saving_same_contents_as_modified_contents(run, tmpdir):
     f = tmpdir.join('f')
 
