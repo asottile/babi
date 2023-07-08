@@ -61,6 +61,14 @@ def test_non_utf8_file(run, tmpdir):
         h.await_text('error! not utf-8:')
 
 
+def test_file_with_null_bytes(run, tmp_path):
+    f = tmp_path.joinpath('f')
+    f.write_bytes(b'hello\0world\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text(r'error! file contains \0 bytes:')
+
+
 def test_save_no_filename_specified(run, tmpdir):
     f = tmpdir.join('f')
 
