@@ -79,6 +79,60 @@ def test_backspace_deletes_text(run, tmpdir, key):
         h.await_cursor_position(x=2, y=1)
 
 
+def test_backword_at_beginning_of_file(run):
+    # same behavior as backspace
+    with run() as h, and_exit(h):
+        h.press('M-BSpace')
+        h.await_text_missing('unknown key')
+        h.assert_cursor_line_equal('')
+        h.await_text_missing('*')
+
+
+def test_backword_joins_lines(run, tmpdir):
+    # same behavior as backspace
+    f = tmpdir.join('f')
+    f.write('foo\nbar\nbaz\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('foo')
+        h.press('Down')
+        h.press('M-BSpace')
+        h.await_text('foobar')
+        h.await_text('f *')
+        h.await_cursor_position(x=3, y=1)
+        # pressing down should retain the X position
+        h.press('Down')
+        h.await_cursor_position(x=3, y=2)
+
+
+def test_backword_deletes_text(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('ohai there')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('ohai there')
+        for _ in range(3):
+            h.press('Right')
+        h.press('M-BSpace')
+        h.await_text('i')
+        h.await_text('f *')
+        h.await_cursor_position(x=0, y=1)
+
+
+def test_backword_deletes_text_with_space_after(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('ohai there   ')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('ohai there')
+        for _ in range(13):
+            h.press('Right')
+        h.press('M-BSpace')
+        h.await_text('ohai')
+        h.await_text('f *')
+        h.await_cursor_position(x=5, y=1)
+
+
 def test_delete_at_end_of_file(run, tmpdir):
     with run() as h, and_exit(h):
         h.press('DC')
