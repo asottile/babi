@@ -105,6 +105,31 @@ def test_backword_joins_lines(run, tmpdir):
         h.await_cursor_position(x=3, y=2)
 
 
+def test_backword_at_end_of_file_still_allows_scrolling_down(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('hello world')
+
+    with run(str(f)) as h, and_exit(h):
+        h.await_text('hello world')
+        h.press('Down')
+        h.press('M-BSpace')
+        h.press('Down')
+        h.await_cursor_position(x=0, y=2)
+        h.await_text_missing('*')
+
+
+def test_backword_deletes_newline_at_end_of_file(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('foo\n\n')
+
+    with run(str(f)) as h, and_exit(h):
+        h.press('^End')
+        h.press('M-BSpace')
+        h.press('^S')
+
+    assert f.read() == 'foo\n'
+
+
 def test_backword_deletes_text(run, tmpdir):
     f = tmpdir.join('f')
     f.write('ohai there')
