@@ -614,6 +614,13 @@ class File:
         line = self.buf[self.buf.y]
         if self.buf.x == 0 and self.buf.y == 0:
             pass
+        # backword at the end of the file does not change the contents
+        elif (
+                self.buf.y == len(self.buf) - 1 and
+                # still allow backword if there are 2+ blank lines
+                self.buf[self.buf.y - 1] != ''
+        ):
+            self.buf.left(dim)
         elif self.buf.x == 0:
             y, victim = self.buf.y, self.buf.pop(self.buf.y)
             self.buf.left(dim)
