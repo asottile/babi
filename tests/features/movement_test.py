@@ -412,7 +412,7 @@ def test_sequence_handling(run_only_fake):
         h.press('\x1b[1;')
         h.press(' test7')
         h.await_text('test1 test2 test3 test4 test5 test6 test7')
-        h.await_text(r'\x1b(263)')
+        h.await_text(r'\x1b[1;')
 
 
 def test_indentation_using_tabs(run, tmpdir):
