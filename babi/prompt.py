@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import curses
 import enum
+import glob
+import os
 from typing import TYPE_CHECKING
 
 from babi.horizontal_scrolling import line_x
@@ -14,12 +16,20 @@ PromptResult = enum.Enum('PromptResult', 'CANCELLED')
 
 
 class Prompt:
-    def __init__(self, screen: Screen, prompt: str, lst: list[str]) -> None:
+    def __init__(
+        self,
+        screen: Screen,
+        prompt: str, lst: list[str],
+        file_glob: bool = False,
+    ) -> None:
         self._screen = screen
         self._prompt = prompt
         self._lst = lst
         self._y = len(lst) - 1
         self._x = len(self._s)
+        self._dispatch = Prompt.DISPATCH.copy()
+        if file_glob:
+            self._dispatch[b'^I'] = Prompt._file_complete
 
     @property
     def _s(self) -> str:
@@ -94,6 +104,17 @@ class Prompt:
 
     def _cut_to_end(self) -> None:
         self._s = self._s[:self._x]
+
+    def _file_complete(self) -> None:
+        partial = self._s[:self._x]
+        completions = glob.glob(partial + '*')
+        if not completions:
+            return
+        common = os.path.commonprefix(completions)
+        if not common or common == partial:
+            return
+        self._s = common + self._s[self._x:]  # don't eat text behind cursor
+        self._x = len(common)
 
     def _resize(self) -> None:
         self._screen.resize()
@@ -180,8 +201,8 @@ class Prompt:
             self._render_prompt()
 
             key = self._screen.get_char()
-            if key.keyname in Prompt.DISPATCH:
-                ret = Prompt.DISPATCH[key.keyname](self)
+            if key.keyname in self._dispatch:
+                ret = self._dispatch[key.keyname](self)
                 if ret is not None:
                     return ret
             elif key.keyname == b'STRING':
