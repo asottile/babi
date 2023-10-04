@@ -35,6 +35,37 @@ def test_open(run, tmpdir):
 
         h.press('^X')
         h.await_text('hello world')
+        h.press('^X')
+        h.await_exit()
 
+
+def test_file_glob(run, tmpdir):
+    base = 'globtest'
+    prefix = base + 'ffff.txt'
+    f = tmpdir.join(prefix + 'f')
+    f.write('hello world')
+    g = tmpdir.join(base + 'fggg')
+    g.write('goodbye world')
+    nonexistant = str(tmpdir.join('NONEXISTANT'))
+
+    with run(str(g)) as h:
+        h.await_text('goodbye world')
+
+        h.press('^P')
+        h.press(nonexistant)
+        h.press('Tab')
+        h.await_text(f'«{nonexistant[-7:]}')
+        h.press('^C')
+        h.await_text('cancelled')
+        h.press('^P')
+        h.press(str(tmpdir.join(base + 'fff')))
+        h.press('Tab')
+        h.await_text(str(f)[-7:])
+        h.press('Tab')  # second tab shouldn't change anything
+        h.await_text(str(f)[-7:])
+        h.press('Enter')
+        h.await_text('[2/2]')
+        h.await_text('hello world')
+        h.press('^X')
         h.press('^X')
         h.await_exit()
