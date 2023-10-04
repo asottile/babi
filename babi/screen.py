@@ -397,6 +397,7 @@ class Screen:
             history: str | None = None,
             default_prev: bool = False,
             default: str | None = None,
+            file_glob: bool = False,
     ) -> str | PromptResult:
         default = default or ''
         self.status.clear()
@@ -407,7 +408,7 @@ class Screen:
         else:
             history_data = [default]
 
-        ret = Prompt(self, prompt, history_data).run()
+        ret = Prompt(self, prompt, history_data, file_glob=file_glob).run()
 
         if ret is not PromptResult.CANCELLED and history is not None:
             if ret:  # only put non-empty things in history
@@ -720,7 +721,9 @@ class Screen:
         # TODO: strip trailing whitespace?
         # TODO: save atomically?
         if self.file.filename is None:
-            filename = self.prompt('enter filename')
+            filename = self.prompt(
+                'enter filename', default=self.file.filename, file_glob=True,
+            )
             if filename is PromptResult.CANCELLED:
                 return PromptResult.CANCELLED
             else:
@@ -762,7 +765,9 @@ class Screen:
         return None
 
     def save_filename(self) -> PromptResult | None:
-        response = self.prompt('enter filename', default=self.file.filename)
+        response = self.prompt(
+            'enter filename', default=self.file.filename, file_glob=True,
+        )
         if response is PromptResult.CANCELLED:
             return PromptResult.CANCELLED
         else:
@@ -770,7 +775,9 @@ class Screen:
             return self.save()
 
     def open_file(self) -> EditResult | None:
-        response = self.prompt('enter filename', history='open')
+        response = self.prompt(
+            'enter filename', history='open', file_glob=True,
+        )
         if response is not PromptResult.CANCELLED:
             opened = File(
                 response,
