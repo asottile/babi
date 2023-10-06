@@ -109,8 +109,11 @@ class Prompt:
             self._complete_file()
 
     def _complete_file(self) -> None:
+        # only allow completion at the end of the prompt or before a separator
+        if self._x != len(self._s) and self._s[self._x] not in ('/', ' '):
+            return
         partial = self._s[:self._x]
-        completions = glob.glob(partial + '*')
+        completions = glob.glob(f'{partial}*')
         if not completions:
             return
         common = os.path.commonprefix(completions)
