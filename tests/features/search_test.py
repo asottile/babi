@@ -371,7 +371,7 @@ def test_search_fileglob_disabled(run, tmpdir):
     filename = 'aaaa.txt'
     query = str(tmpdir.join(filename[0]))
     f = tmpdir.join(filename)
-    f.write("")
+    f.write('')
     with run() as h, and_exit(h):
         h.press('^W')
         h.press(query)
