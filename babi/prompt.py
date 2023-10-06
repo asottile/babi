@@ -20,16 +20,15 @@ class Prompt:
         self,
         screen: Screen,
         prompt: str, lst: list[str],
-        file_glob: bool = False,
+        *,
+        file_glob: bool,
     ) -> None:
         self._screen = screen
         self._prompt = prompt
         self._lst = lst
         self._y = len(lst) - 1
         self._x = len(self._s)
-        self._dispatch = Prompt.DISPATCH.copy()
-        if file_glob:
-            self._dispatch[b'^I'] = Prompt._file_complete
+        self._enable_file_complete = file_glob
 
     @property
     def _s(self) -> str:
@@ -105,7 +104,11 @@ class Prompt:
     def _cut_to_end(self) -> None:
         self._s = self._s[:self._x]
 
-    def _file_complete(self) -> None:
+    def _tab(self) -> None:
+        if self._enable_file_complete:
+            self._complete_file()
+
+    def _complete_file(self) -> None:
         partial = self._s[:self._x]
         completions = glob.glob(partial + '*')
         if not completions:
@@ -186,6 +189,7 @@ class Prompt:
         b'KEY_DC': _delete,
         b'^K': _cut_to_end,
         # misc
+        b'^I': _tab,
         b'KEY_RESIZE': _resize,
         b'^R': _reverse_search,
         b'^M': _submit,
@@ -201,8 +205,8 @@ class Prompt:
             self._render_prompt()
 
             key = self._screen.get_char()
-            if key.keyname in self._dispatch:
-                ret = self._dispatch[key.keyname](self)
+            if key.keyname in Prompt.DISPATCH:
+                ret = Prompt.DISPATCH[key.keyname](self)
                 if ret is not None:
                     return ret
             elif key.keyname == b'STRING':
