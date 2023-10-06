@@ -393,11 +393,11 @@ class Screen:
             self,
             prompt: str,
             *,
+            file_glob: bool,
             allow_empty: bool = False,
             history: str | None = None,
             default_prev: bool = False,
             default: str | None = None,
-            file_glob: bool = False,
     ) -> str | PromptResult:
         default = default or ''
         self.status.clear()
@@ -425,7 +425,7 @@ class Screen:
             return ret
 
     def go_to_line(self) -> None:
-        response = self.prompt('enter line number')
+        response = self.prompt('enter line number', file_glob=False)
         if response is not PromptResult.CANCELLED:
             try:
                 lineno = int(response)
@@ -456,7 +456,9 @@ class Screen:
             self.file.uncut(self.cut_buffer, self.layout.file)
 
     def _get_search_re(self, prompt: str) -> Pattern[str] | PromptResult:
-        response = self.prompt(prompt, history='search', default_prev=True)
+        response = self.prompt(
+            prompt, history='search', default_prev=True, file_glob=False,
+        )
         if response is PromptResult.CANCELLED:
             return response
         try:
@@ -495,7 +497,10 @@ class Screen:
         search_response = self._get_search_re('search (to replace)')
         if search_response is not PromptResult.CANCELLED:
             response = self.prompt(
-                'replace with', history='replace', allow_empty=True,
+                'replace with',
+                history='replace',
+                allow_empty=True,
+                file_glob=False,
             )
             if response is not PromptResult.CANCELLED:
                 try:
@@ -686,7 +691,7 @@ class Screen:
     }
 
     def command(self) -> EditResult | None:
-        response = self.prompt('', history='command')
+        response = self.prompt('', history='command', file_glob=False)
         if response is PromptResult.CANCELLED:
             return None
 
