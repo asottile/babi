@@ -48,21 +48,39 @@ def test_file_glob(run, tmpdir):
     g.write('goodbye world')
     nonexistant = str(tmpdir.join('NONEXISTANT'))
 
+    incomplete = f'{tmpdir.join(base)}fff'
+
     with run(str(g)) as h:
         h.await_text('goodbye world')
 
         h.press('^P')
         h.press(nonexistant)
         h.press('Tab')
+        # no completion should be possible
         h.await_text(f'«{nonexistant[-7:]}')
         h.press('^C')
         h.await_text('cancelled')
+
         h.press('^P')
-        h.press(str(tmpdir.join(base + 'fff')))
+        h.press(incomplete)
+        h.await_text(incomplete[-7:])
+
+        # completion inside a word should be blocked
+        h.press('Left')
+        h.press('Tab')
+        h.await_text(incomplete[-7:])
+
+        # move to end of input again
+        h.press('Right')
+
+        # check successful completion
         h.press('Tab')
         h.await_text(str(f)[-7:])
-        h.press('Tab')  # second tab shouldn't change anything
+
+        # second tab press shouldn't change anything
+        h.press('Tab')
         h.await_text(str(f)[-7:])
+
         h.press('Enter')
         h.await_text('[2/2]')
         h.await_text('hello world')
