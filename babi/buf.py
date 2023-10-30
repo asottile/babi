@@ -298,7 +298,7 @@ class Buf:
 
     def rendered_line(self, idx: int, dim: Dim) -> str:
         x = self._cursor_x if idx == self.y else 0
-        expanded = self._lines[idx].expandtabs(self.tab_size)
+        expanded = self._lines[idx].expandtabs(self.tab_size).lstrip('\ufeff')
         return scrolled_line(expanded, x, dim.width)
 
     # movement
