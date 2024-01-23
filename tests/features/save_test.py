@@ -15,6 +15,17 @@ def test_mixed_newlines(run, tmpdir):
         h.await_text(r"mixed newlines will be converted to '\n'")
 
 
+def test_byte_order_marker(run, tmpdir):
+    src = b'\xef\xbb\xbfhello\n'
+    f = tmpdir.join('f')
+    f.write_binary(src)
+    with run(str(f)) as h, and_exit(h):
+        # renders ok without an extra space for BOM
+        h.await_text('\nhello\n')
+        h.press('^S')
+    assert f.read_binary() == src
+
+
 def test_modify_file_with_windows_newlines(run, tmpdir):
     f = tmpdir.join('f')
     f.write_binary(b'foo\r\nbar\r\n')
