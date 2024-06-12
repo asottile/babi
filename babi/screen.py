@@ -384,6 +384,9 @@ class Screen:
             key = self.get_char()
             if key.keyname == b'KEY_RESIZE':
                 self.resize()
+            elif key.keyname == b'RETHEME':
+                self.retheme()
+                self.draw()
             elif key.keyname == b'^C':
                 return self.status.cancelled()
             elif isinstance(key.wch, str) and key.wch.lower() in opts:
