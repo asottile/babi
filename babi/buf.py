@@ -22,7 +22,7 @@ InsCallback = Callable[['Buf', int], None]
 def _diff_codes(
         a: list[str],
         b: list[str],
-) -> Generator[tuple[str, int, int, int, int], None, None]:
+) -> Generator[tuple[str, int, int, int, int]]:
     matcher = difflib.SequenceMatcher(a=a, b=b)
     for op, i1, i2, j1, j2 in reversed(matcher.get_opcodes()):
         if op == 'replace':
@@ -201,7 +201,7 @@ class Buf:
         self._del_callbacks.clear()
 
     @contextlib.contextmanager
-    def record(self) -> Generator[list[Modification], None, None]:
+    def record(self) -> Generator[list[Modification]]:
         modifications: list[Modification] = []
 
         def set_cb(buf: Buf, idx: int, victim: str) -> None:

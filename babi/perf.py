@@ -42,7 +42,7 @@ class Perf:
 
 
 @contextlib.contextmanager
-def perf_log(filename: str | None) -> Generator[Perf, None, None]:
+def perf_log(filename: str | None) -> Generator[Perf]:
     perf = Perf()
     if filename is None:
         yield perf

@@ -23,7 +23,7 @@ class Replace:
         """our highlight regions are populated in other ways"""
 
     @contextlib.contextmanager
-    def region(self, y: int, x: int, end: int) -> Generator[None, None, None]:
+    def region(self, y: int, x: int, end: int) -> Generator[None]:
         # XXX: this assumes pair 1 is the background
         attr = curses.A_REVERSE | curses.A_DIM | curses.color_pair(1)
         self.regions[y] = (HL(x=x, end=end, attr=attr),)
