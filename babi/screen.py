@@ -839,7 +839,7 @@ class Screen:
     }
 
     @contextlib.contextmanager
-    def retheme_handler(self) -> Generator[None, None, None]:
+    def retheme_handler(self) -> Generator[None]:
         if sys.platform == 'win32':  # pragma: win32 cover
             yield  # no signal handling on windows!
         else:
@@ -879,7 +879,7 @@ def _init_screen() -> curses._CursesWindow:
 
 
 @contextlib.contextmanager
-def make_stdscr() -> Generator[curses._CursesWindow, None, None]:
+def make_stdscr() -> Generator[curses._CursesWindow]:
     """essentially `curses.wrapper` but split out to implement ^Z"""
     try:
         yield _init_screen()

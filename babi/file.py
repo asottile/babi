@@ -948,7 +948,7 @@ class File:
             self, name: str,
             *,
             final: bool,
-    ) -> Generator[None, None, None]:
+    ) -> Generator[None]:
         continue_last = self._continue_last_action(name)
         if not continue_last and self.undo_stack:
             self.undo_stack[-1].final = True
@@ -980,7 +980,7 @@ class File:
                 self.undo_stack.append(action)
 
     @contextlib.contextmanager
-    def select(self) -> Generator[None, None, None]:
+    def select(self) -> Generator[None]:
         if self.selection.start is None:
             start = (self.buf.y, self.buf.x)
         else:

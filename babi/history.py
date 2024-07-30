@@ -15,7 +15,7 @@ class History:
         self.prev: dict[str, str] = {}
 
     @contextlib.contextmanager
-    def save(self) -> Generator[None, None, None]:
+    def save(self) -> Generator[None]:
         history_dir = xdg_data('history')
         os.makedirs(history_dir, exist_ok=True)
         for filename in os.listdir(history_dir):
