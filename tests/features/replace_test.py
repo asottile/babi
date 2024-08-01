@@ -239,6 +239,19 @@ def test_replace_multiple_occurrences_in_line(run):
         h.await_text('bqbq')
 
 
+def test_replace_multiple_occurences_with_line_length_change(run):
+    with run() as h, and_exit(h):
+        h.press('a_a_')
+        h.press('^\\')
+        h.await_text('search (to replace):')
+        h.press_and_enter('a')
+        h.await_text('replace with:')
+        h.press_and_enter('XXX')
+        h.await_text('replace [yes, no, all]?')
+        h.press('a')
+        h.await_text('XXX_XXX_')
+
+
 def test_replace_after_wrapping(run, ten_lines):
     with run(str(ten_lines)) as h, and_exit(h):
         h.press('Down')

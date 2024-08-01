@@ -189,6 +189,11 @@ class _SearchIter:
     def __iter__(self) -> _SearchIter:
         return self
 
+    def replaced(self, y: int, match: Match[str], new: str) -> None:
+        if not self.wrapped or y != self._start_y:
+            return
+        self._start_x += len(new) - match.end() - match.start()
+
     def _stop_if_past_original(self, y: int, match: Match[str]) -> Found:
         if (
                 self.wrapped and (
@@ -487,6 +492,7 @@ class File:
                 count += 1
                 with self.edit_action_context('replace', final=True):
                     replaced = match.expand(replace)
+                    search.replaced(line_y, match, replaced)
                     line = screen.file.buf[line_y]
                     if '\n' in replaced:
                         replaced_lines = replaced.split('\n')
