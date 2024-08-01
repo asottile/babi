@@ -193,7 +193,7 @@ class _SearchIter:
     def calc_past_original_offset(self, y: int, match: Match[str], replacement: str) -> None:
         if not self.wrapped or y != self._start_y:
             return
-        self.original_line_change_diff += len(replacement) - (match.end()-match.start())
+        self.original_line_change_diff += len(replacement) - (match.end() - match.start())
 
     def _stop_if_past_original(self, y: int, match: Match[str]) -> Found:
         if (
