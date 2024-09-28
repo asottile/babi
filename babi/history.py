@@ -3,7 +3,7 @@ from __future__ import annotations
 import collections
 import contextlib
 import os.path
-from typing import Generator
+from collections.abc import Generator
 
 from babi.user_data import xdg_data
 

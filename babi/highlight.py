@@ -3,11 +3,10 @@ from __future__ import annotations
 import functools
 import json
 import os.path
+from re import Match
 from typing import Any
-from typing import Match
 from typing import NamedTuple
 from typing import Protocol
-from typing import Tuple
 from typing import TypeVar
 
 from identify.identify import tags_from_filename
@@ -22,9 +21,9 @@ from babi.reg import make_reg
 from babi.reg import make_regset
 
 T = TypeVar('T')
-Scope = Tuple[str, ...]
-Regions = Tuple['Region', ...]
-Captures = Tuple[Tuple[int, 'Rule'], ...]
+Scope = tuple[str, ...]
+Regions = tuple['Region', ...]
+Captures = tuple[tuple[int, 'Rule'], ...]
 
 
 def uniquely_constructed(t: T) -> T:
@@ -518,8 +517,8 @@ class WhileRule(NamedTuple):
 
 class Compiler:
     def __init__(self, grammar: Grammar, grammars: Grammars) -> None:
-        self._include = functools.lru_cache(maxsize=None)(self._include_)
-        self._patterns = functools.lru_cache(maxsize=None)(self._patterns_)
+        self._include = functools.cache(self._include_)
+        self._patterns = functools.cache(self._patterns_)
 
         self.root_scope = grammar.scope_name
         self._grammars = grammars

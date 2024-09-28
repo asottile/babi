@@ -3,7 +3,7 @@ from __future__ import annotations
 import curses
 import functools
 import math
-from typing import Callable
+from collections.abc import Callable
 from typing import NamedTuple
 
 from babi.buf import Buf

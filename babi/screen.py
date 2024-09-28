@@ -11,11 +11,11 @@ import signal
 import sre_parse
 import subprocess
 import sys
+from collections.abc import Callable
+from collections.abc import Generator
+from re import Pattern
 from types import FrameType
-from typing import Callable
-from typing import Generator
 from typing import NamedTuple
-from typing import Pattern
 
 from babi import linting
 from babi.color_manager import ColorManager
@@ -856,12 +856,9 @@ class Screen:
 
 def _init_screen() -> curses._CursesWindow:
     # set the escape delay so curses does not pause waiting for sequences
-    if (
-            sys.version_info >= (3, 9) and
-            hasattr(curses, 'set_escdelay')
-    ):  # pragma: >=3.9 cover
+    if hasattr(curses, 'set_escdelay'):
         curses.set_escdelay(25)
-    else:  # pragma: <3.9 cover
+    else:  # pragma: no cover  # specific ncurses versions
         os.environ.setdefault('ESCDELAY', '25')
 
     stdscr = curses.initscr()
