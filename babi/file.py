@@ -13,11 +13,11 @@ from collections.abc import Callable
 from collections.abc import Generator
 from re import Match
 from re import Pattern
-from typing import Any
-from typing import cast
+from typing import Concatenate
 from typing import IO
 from typing import Literal
 from typing import NamedTuple
+from typing import ParamSpec
 from typing import TYPE_CHECKING
 from typing import TypedDict
 from typing import TypeVar
@@ -37,7 +37,9 @@ from babi.status import Status
 if TYPE_CHECKING:
     from babi.main import Screen  # XXX: circular
 
-TCallable = TypeVar('TCallable', bound=Callable[..., Any])
+P = ParamSpec('P')
+R = TypeVar('R')
+FileMethod = Callable[Concatenate['File', P], R]
 
 WS_RE = re.compile(r'^\s*')
 
@@ -127,43 +129,55 @@ class Action:
         return action
 
 
-def action(func: TCallable) -> TCallable:
+def action(func: FileMethod[P, R]) -> FileMethod[P, R]:
     @functools.wraps(func)
-    def action_inner(self: File, *args: Any, **kwargs: Any) -> Any:
+    def action_inner(self: File, *args: P.args, **kwargs: P.kwargs) -> R:
         self.finalize_previous_action()
         return func(self, *args, **kwargs)
-    return cast(TCallable, action_inner)
+    return action_inner
 
 
 def edit_action(
         name: str,
         *,
         final: bool,
-) -> Callable[[TCallable], TCallable]:
-    def edit_action_decorator(func: TCallable) -> TCallable:
+) -> Callable[[FileMethod[P, R]], FileMethod[P, R]]:
+    def edit_action_decorator(func: FileMethod[P, R]) -> FileMethod[P, R]:
         @functools.wraps(func)
-        def edit_action_inner(self: File, *args: Any, **kwargs: Any) -> Any:
+        def edit_action_inner(
+                self: File,
+                *args: P.args,
+                **kwargs: P.kwargs,
+        ) -> R:
             with self.edit_action_context(name, final=final):
                 return func(self, *args, **kwargs)
-        return cast(TCallable, edit_action_inner)
+        return edit_action_inner
     return edit_action_decorator
 
 
-def keep_selection(func: TCallable) -> TCallable:
+def keep_selection(func: FileMethod[P, R]) -> FileMethod[P, R]:
     @functools.wraps(func)
-    def keep_selection_inner(self: File, *args: Any, **kwargs: Any) -> Any:
+    def keep_selection_inner(
+            self: File,
+            *args: P.args,
+            **kwargs: P.kwargs,
+    ) -> R:
         with self.select():
             return func(self, *args, **kwargs)
-    return cast(TCallable, keep_selection_inner)
+    return keep_selection_inner
 
 
-def clear_selection(func: TCallable) -> TCallable:
+def clear_selection(func: FileMethod[P, R]) -> FileMethod[P, R]:
     @functools.wraps(func)
-    def clear_selection_inner(self: File, *args: Any, **kwargs: Any) -> Any:
+    def clear_selection_inner(
+            self: File,
+            *args: P.args,
+            **kwargs: P.kwargs,
+    ) -> R:
         ret = func(self, *args, **kwargs)
         self.selection.clear()
         return ret
-    return cast(TCallable, clear_selection_inner)
+    return clear_selection_inner
 
 
 class Found(NamedTuple):
