@@ -3,7 +3,7 @@ from __future__ import annotations
 import collections
 import contextlib
 import curses
-from typing import Generator
+from collections.abc import Generator
 
 from babi.buf import Buf
 from babi.hl.interface import HL

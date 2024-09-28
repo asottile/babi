@@ -6,7 +6,7 @@ import os
 import re
 import signal
 import sys
-from typing import Sequence
+from collections.abc import Sequence
 
 from babi.buf import Buf
 from babi.file import File

@@ -4,11 +4,10 @@ import functools
 import os.path
 import re
 import subprocess
-from typing import Tuple
 
 from babi import linting
 
-ErrorsByHook = Tuple[Tuple[str, Tuple[linting.Error, ...]], ...]
+ErrorsByHook = tuple[tuple[str, tuple[linting.Error, ...]], ...]
 
 HOOK_ID_RE = re.compile('^- hook id: (.*)$')
 
@@ -44,7 +43,7 @@ def _parse_pre_commit(s: str) -> ErrorsByHook:
 
 class PreCommit:
     def __init__(self) -> None:
-        self._root = functools.lru_cache(maxsize=None)(self._root_uncached)
+        self._root = functools.cache(self._root_uncached)
 
     def _root_uncached(self, filename: str) -> str:
         return subprocess.check_output(

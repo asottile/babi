@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import NamedTuple
 from typing import Protocol
-from typing import Tuple
 
 from babi.buf import Buf
 
@@ -13,7 +12,7 @@ class HL(NamedTuple):
     attr: int
 
 
-HLs = Tuple[HL, ...]
+HLs = tuple[HL, ...]
 
 
 class RegionsMapping(Protocol):

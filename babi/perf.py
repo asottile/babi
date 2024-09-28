@@ -3,7 +3,7 @@ from __future__ import annotations
 import contextlib
 import cProfile
 import time
-from typing import Generator
+from collections.abc import Generator
 
 
 class Perf:

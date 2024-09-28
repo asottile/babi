@@ -81,7 +81,7 @@ class Theme:
     def __init__(self, default: Style, rules: TrieNode) -> None:
         self.default = default
         self.rules = rules
-        self.select = functools.lru_cache(maxsize=None)(self._select)
+        self.select = functools.cache(self._select)
 
     def _select(self, scope: tuple[str, ...]) -> Style:
         if not scope:

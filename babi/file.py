@@ -9,15 +9,15 @@ import io
 import itertools
 import os.path
 import re
+from collections.abc import Callable
+from collections.abc import Generator
+from re import Match
+from re import Pattern
 from typing import Any
-from typing import Callable
 from typing import cast
-from typing import Generator
 from typing import IO
 from typing import Literal
-from typing import Match
 from typing import NamedTuple
-from typing import Pattern
 from typing import TYPE_CHECKING
 from typing import TypedDict
 from typing import TypeVar

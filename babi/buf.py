@@ -3,9 +3,9 @@ from __future__ import annotations
 import bisect
 import contextlib
 import difflib
-from typing import Callable
-from typing import Generator
-from typing import Iterator
+from collections.abc import Callable
+from collections.abc import Generator
+from collections.abc import Iterator
 from typing import NamedTuple
 from typing import Protocol
 
