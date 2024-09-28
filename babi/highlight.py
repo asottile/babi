@@ -27,9 +27,9 @@ Regions = Tuple['Region', ...]
 Captures = Tuple[Tuple[int, 'Rule'], ...]
 
 
-def uniquely_constructed(t: T) -> T:
+def uniquely_constructed(t: type[T]) -> type[T]:
     """avoid tuple.__hash__ for "singleton" constructed objects"""
-    t.__hash__ = object.__hash__  # type: ignore
+    t.__hash__ = object.__hash__  # type: ignore[method-assign]
     return t
 
 
