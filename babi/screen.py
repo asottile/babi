@@ -67,6 +67,7 @@ SEQUENCE_KEYNAME = {
     '\x1b[1;6H': b'kHOM6',  # Shift + ^Home
     '\x1b[1;6F': b'kEND6',  # Shift + ^End
     '\x1b[~': b'KEY_BTAB',  # Shift + Tab
+    '\x1b(263)': b'KEY_BACKWORD',  # M-Backspace
 }
 KEYNAME_REWRITE = {
     # windows-curses: numeric pad arrow keys
