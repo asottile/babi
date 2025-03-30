@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import sys
 
 import pytest
 
@@ -17,3 +19,14 @@ def make_grammars(tmpdir):
             grammar_dir.join(filename).write(json.dumps(grammar))
         return Grammars(grammar_dir)
     return make_grammars
+
+
+@pytest.fixture(autouse=True, scope='session')
+def _pytest_readline_workaround():
+    # https://github.com/pytest-dev/pytest/issues/12888#issuecomment-2764756330
+
+    # is the workaround even needed?
+    assert 'readline' in sys.modules
+
+    os.environ['COLUMNS'] = os.environ['LINES'] = ''
+    del os.environ['COLUMNS'], os.environ['LINES']
