@@ -18,8 +18,6 @@ def _parse_pre_commit(s: str) -> ErrorsByHook:
     current_lines: list[str] = []
 
     def _push_current_hook_id() -> None:
-        nonlocal current_hookid
-
         if not current_hookid:
             return
 
