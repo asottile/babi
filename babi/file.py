@@ -628,6 +628,46 @@ class File:
             self.buf[self.buf.y] = s[:self.buf.x - 1] + s[self.buf.x:]
             self.buf.left(dim)
 
+    @edit_action('backword text', final=False)
+    @clear_selection
+    def backword(self, dim: Dim) -> None:
+        line = self.buf[self.buf.y]
+        if self.buf.x == 0 and self.buf.y == 0:
+            pass
+        # backword at the end of the file does not change the contents
+        elif (
+                self.buf.y == len(self.buf) - 1 and
+                # still allow backword if there are 2+ blank lines
+                self.buf[self.buf.y - 1] != ''
+        ):
+            self.buf.left(dim)
+        elif self.buf.x == 0:
+            y, victim = self.buf.y, self.buf.pop(self.buf.y)
+            self.buf.left(dim)
+            self.buf[y - 1] += victim
+        elif self.buf.x > 0 and line[:self.buf.x].isspace():
+            while self.buf.x > 0:
+                s = self.buf[self.buf.y]
+                self.buf[self.buf.y] = s[:self.buf.x - 1] + s[self.buf.x:]
+                self.buf.left(dim)
+        else:
+            tp = line[self.buf.x - 1].isalnum()
+            # we keep track of whether we're deleting spaces
+            are_spaces = line[self.buf.x - 1].isspace()
+            while self.buf.x > 0 and tp == line[self.buf.x - 1].isalnum():
+                s = self.buf[self.buf.y]
+                self.buf[self.buf.y] = s[:self.buf.x - 1] + s[self.buf.x:]
+                self.buf.left(dim)
+
+            # if we were deleting spaces, this means we haven't deleted the
+            # word yet
+            tp = line[self.buf.x - 1].isalnum()
+            if are_spaces:
+                while self.buf.x > 0 and line[self.buf.x - 1].isalnum():
+                    s = self.buf[self.buf.y]
+                    self.buf[self.buf.y] = s[:self.buf.x - 1] + s[self.buf.x:]
+                    self.buf.left(dim)
+
     @edit_action('delete text', final=False)
     @clear_selection
     def delete(self, dim: Dim) -> None:
@@ -921,6 +961,7 @@ class File:
         b'kDN3': alt_down,
         # editing
         b'KEY_BACKSPACE': backspace,
+        b'KEY_BACKWORD': backword,
         b'KEY_DC': delete,
         b'^M': enter,
         b'^I': tab,
