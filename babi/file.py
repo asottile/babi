@@ -750,6 +750,7 @@ class File:
         self.buf.y = s_y
         self.buf.x = s_x
         self.buf.scroll_screen_if_needed(dim)
+        self.buf.restore_eof_invariant()
         return tuple(ret)
 
     def cut(self, cut_buffer: tuple[str, ...]) -> tuple[str, ...]:

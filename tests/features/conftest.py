@@ -268,6 +268,7 @@ KEYS = [
     Key('^End', b'kEND5', 530),
     Key('^S-Up', b'kUP6', 567),
     Key('^S-Down', b'kDN6', 526),
+    Key('^S-End', b'kEND6', 540),
     Key('M-Up', b'kUP3', 564),
     Key('M-Down', b'kDN3', 523),
     Key('M-Right', b'kRIT3', 558),
