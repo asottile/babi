@@ -44,7 +44,7 @@ def _edit(screen: Screen, stdin: str) -> EditResult:
 
 
 def c_main(
-        stdscr: curses._CursesWindow,
+        stdscr: curses.window,
         file_infos: list[FileInfo],
         stdin: str,
         perf: Perf,
@@ -85,7 +85,7 @@ def c_main(
     return 0
 
 
-def _key_debug(stdscr: curses._CursesWindow, perf: Perf) -> int:
+def _key_debug(stdscr: curses.window, perf: Perf) -> int:
     info = FileInfo(filename='<<key debug>>', initial_line=0, is_stdin=False)
     screen = Screen(stdscr, [info], perf)
     screen.file.buf = Buf([''])

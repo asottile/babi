@@ -35,7 +35,7 @@ def scrolled_line(s: str, x: int, width: int) -> str:
 
 class _CalcWidth:
     @cached_property
-    def _window(self) -> curses._CursesWindow:
+    def _window(self) -> curses.window:
         return curses.newwin(1, 10)
 
     def wcwidth(self, c: str) -> int:

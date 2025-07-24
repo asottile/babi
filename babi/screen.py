@@ -108,7 +108,7 @@ KEYNAME_REWRITE = {
 LINTER_TYPES: tuple[type[linting.Linter], ...] = (PreCommit, Flake8)
 
 
-def _get_wch_with_retry(stdscr: curses._CursesWindow) -> str | int:
+def _get_wch_with_retry(stdscr: curses.window) -> str | int:
     while True:
         try:
             return stdscr.get_wch()
@@ -151,7 +151,7 @@ class Layout(NamedTuple):
 class Screen:
     def __init__(
             self,
-            stdscr: curses._CursesWindow,
+            stdscr: curses.window,
             file_infos: list[FileInfo],
             perf: Perf,
     ) -> None:
@@ -854,7 +854,7 @@ class Screen:
                 signal.signal(signal.SIGUSR1, orig)
 
 
-def _init_screen() -> curses._CursesWindow:
+def _init_screen() -> curses.window:
     # set the escape delay so curses does not pause waiting for sequences
     if hasattr(curses, 'set_escdelay'):
         curses.set_escdelay(25)
@@ -876,7 +876,7 @@ def _init_screen() -> curses._CursesWindow:
 
 
 @contextlib.contextmanager
-def make_stdscr() -> Generator[curses._CursesWindow]:
+def make_stdscr() -> Generator[curses.window]:
     """essentially `curses.wrapper` but split out to implement ^Z"""
     try:
         yield _init_screen()

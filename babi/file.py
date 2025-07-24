@@ -1015,12 +1015,12 @@ class File:
 
     def move_cursor(
             self,
-            stdscr: curses._CursesWindow,
+            stdscr: curses.window,
             dim: Dim,
     ) -> None:
         stdscr.move(*self.buf.cursor_position(dim))
 
-    def draw(self, stdscr: curses._CursesWindow, dim: Dim) -> None:
+    def draw(self, stdscr: curses.window, dim: Dim) -> None:
         to_display = min(self.buf.displayable_count, dim.height)
 
         for file_hl in self._file_hls:

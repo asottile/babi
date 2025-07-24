@@ -124,7 +124,7 @@ class Syntax(NamedTuple):
         compiler = self.grammars.blank_compiler()
         return FileSyntax(compiler, self.theme, self.color_manager)
 
-    def _init_screen(self, stdscr: curses._CursesWindow) -> None:
+    def _init_screen(self, stdscr: curses.window) -> None:
         default_fg, default_bg = self.theme.default.fg, self.theme.default.bg
         all_colors = {c for c in (default_fg, default_bg) if c is not None}
         todo = list(self.theme.rules.children.values())
@@ -145,7 +145,7 @@ class Syntax(NamedTuple):
     @classmethod
     def from_screen(
             cls,
-            stdscr: curses._CursesWindow,
+            stdscr: curses.window,
             color_manager: ColorManager,
     ) -> Syntax:
         grammars = Grammars(prefix_data('grammar_v1'), xdg_data('grammar_v1'))
