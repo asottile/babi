@@ -18,7 +18,7 @@ class Status:
     def clear(self) -> None:
         self._status = ''
 
-    def draw(self, stdscr: curses._CursesWindow, dim: Dim) -> None:
+    def draw(self, stdscr: curses.window, dim: Dim) -> None:
         if dim.y > 0 or self._status:
             stdscr.insstr(dim.y, 0, ' ' * dim.width)
             if self._status:
