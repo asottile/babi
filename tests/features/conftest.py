@@ -413,8 +413,8 @@ class DeferredRunner:
         return KEYS_CURSES.get(k, b'')
 
     def _curses_update_lines_cols(self):
-        curses.LINES = self.screen.height  # type: ignore[misc]
-        curses.COLS = self.screen.width  # type: ignore[misc]
+        curses.LINES = self.screen.height
+        curses.COLS = self.screen.width
 
     def _curses_start_color(self):
         curses.COLORS = self._n_colors  # type: ignore[misc]
