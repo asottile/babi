@@ -20,6 +20,9 @@ DEFAULT_THEME = {
         'menu.foreground': '#CCCCCC',
         'statusBarItem.remoteForeground': '#FFF',
         'statusBarItem.remoteBackground': '#16825D',
+        'editor.raindow.0': '#ffd700',
+        'editor.raindow.1': '#da70d6',
+        'editor.raindow.2': '#179fff',
     },
     'tokenColors': [
         {
