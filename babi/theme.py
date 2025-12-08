@@ -71,16 +71,20 @@ class TrieNode(NamedTuple):
 
     @classmethod
     def from_dct(cls, dct: dict[str, Any]) -> TrieNode:
-        children = FDict({
-            k: TrieNode.from_dct(v) for k, v in dct['children'].items()
-        })
+        children = FDict(
+            {k: TrieNode.from_dct(v) for k, v in dct['children'].items()},
+        )
         return cls(PartialStyle.from_dct(dct), children)
 
 
 class Theme:
-    def __init__(self, default: Style, rules: TrieNode) -> None:
+    def __init__(
+        self, default: Style, rules: TrieNode,
+        rainbow_colors: tuple[PartialStyle, ...],
+    ) -> None:
         self.default = default
         self.rules = rules
+        self.rainbow_colors = rainbow_colors
         self.select = functools.cache(self._select)
 
     def _select(self, scope: tuple[str, ...]) -> Style:
@@ -141,8 +145,24 @@ class Theme:
                     cur = cur['children'].setdefault(part, {'children': {}})
 
                 cur.update(rule['settings'])
+        rainbow_colors = []
+        for i in range(16):  # arbitrary limit but seems more than enough
+            for prefix in ('editor.', ''):
+                key = f"{prefix}rainbow.{i}"
+                if key in data.get('colors', {}):
+                    rainbow_colors.append(
+                        PartialStyle.from_dct(
+                            {'foreground': data['colors'][key]},
+                        ),
+                    )
+                    break
+            else:
+                break
 
-        return cls(Style(**default), TrieNode.from_dct(root))
+        return cls(
+            Style(**default), TrieNode.from_dct(root),
+            tuple(rainbow_colors),
+        )
 
     @classmethod
     def from_filename(cls, filename: str) -> Theme:
