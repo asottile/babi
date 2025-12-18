@@ -307,7 +307,7 @@ class Screen:
 
     def draw(self) -> None:
         self._draw_header(self.layout.header)
-        self.file.draw(self.stdscr, self.layout.file)
+        self.file.draw(self.stdscr, self.layout.file, self.show_line_numbers)
         self.status.draw(self.stdscr, self.layout.status)
         self.file.lint_errors.draw(self.stdscr, self.layout.lint_errors)
 
@@ -317,6 +317,10 @@ class Screen:
         else:
             lint_errors_height = 0
 
+        if self.show_line_numbers:
+            file_x = max(len(str(len(self.file.buf))), 2)
+        else:
+            file_x = 0
         file_y = 0
         file_height = curses.LINES - lint_errors_height
 
@@ -330,7 +334,12 @@ class Screen:
 
         return Layout(
             header=Dim(x=0, y=0, width=curses.COLS, height=1),
-            file=Dim(x=0, y=file_y, width=curses.COLS, height=file_height),
+            file=Dim(
+                x=file_x,
+                y=file_y,
+                width=curses.COLS - file_x,
+                height=file_height
+            ),
             status=Dim(x=0, y=status_y, width=curses.COLS, height=1),
             lint_errors=Dim(
                 x=0,
@@ -596,6 +605,8 @@ class Screen:
 
     def toggle_line_numbers(self) -> None:
         self.show_line_numbers = not self.show_line_numbers
+        self.layout = self._layout_from_current_screen()
+        self.draw()
 
     def _command_w(self, args: list[str]) -> None:
         self.save()

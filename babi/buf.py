@@ -276,7 +276,7 @@ class Buf:
 
     def cursor_position(self, dim: Dim) -> tuple[int, int]:
         y = self.y - self.file_y + dim.y
-        x = self._cursor_x - self.line_x(dim)
+        x = self._cursor_x - self.line_x(dim) + dim.x
         return y, x
 
     def fixup_position(self, dim: Dim) -> None:

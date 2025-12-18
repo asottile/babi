@@ -1020,7 +1020,12 @@ class File:
     ) -> None:
         stdscr.move(*self.buf.cursor_position(dim))
 
-    def draw(self, stdscr: curses.window, dim: Dim) -> None:
+    def draw(
+            self,
+            stdscr: curses.window,
+            dim: Dim,
+            show_line_numbers: bool = False,
+    ) -> None:
         to_display = min(self.buf.displayable_count, dim.height)
 
         for file_hl in self._file_hls:
@@ -1029,7 +1034,15 @@ class File:
         for i in range(to_display):
             draw_y = i + dim.y
             l_y = self.buf.file_y + i
-            stdscr.insstr(draw_y, 0, self.buf.rendered_line(l_y, dim))
+
+            # show line numbers
+            if show_line_numbers:
+                l_no = str(l_y+1).rjust(dim.x)
+                stdscr.insstr(draw_y, 0, l_no, curses.A_REVERSE)
+                draw_x = dim.x
+            else:
+                draw_x = 0
+            stdscr.insstr(draw_y, draw_x, self.buf.rendered_line(l_y, dim))
 
             l_x = self.buf.line_x(dim) if l_y == self.buf.y else 0
             l_x_max = l_x + dim.width
@@ -1065,7 +1078,8 @@ class File:
                     else:
                         h_e_x = r_end - l_x
 
-                    stdscr.chgat(draw_y, h_s_x, h_e_x - h_s_x, region.attr)
+                    stdscr.chgat(draw_y, draw_x + h_s_x,
+                                 h_e_x - h_s_x, region.attr)
 
         for i in range(to_display, dim.height):
             stdscr.move(i + dim.y, 0)
