@@ -60,6 +60,7 @@ these are all of the current key bindings in babi
   selection)
 - <kbd>^K</kbd> / <kbd>^U</kbd>: cut and uncut the current line (or selection)
 - <kbd>M-u</kbd> / <kbd>M-U</kbd> or <kbd>M-e</kbd>: undo / redo
+- <kbd>M-#</kbd>: show / hide line numbers in front of the text
 - <kbd>^W</kbd>: search
 - <kbd>^\\</kbd>: search and replace
 - <kbd>^C</kbd>: show the current position in the file
