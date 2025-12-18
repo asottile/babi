@@ -154,6 +154,7 @@ class Screen:
             stdscr: curses.window,
             file_infos: list[FileInfo],
             perf: Perf,
+            show_line_numbers: bool = False,
     ) -> None:
         self.stdscr = stdscr
         self.syntax = Syntax.from_screen(stdscr, ColorManager.make())
@@ -169,6 +170,7 @@ class Screen:
         self.i = 0
         self.history = History()
         self.perf = perf
+        self.show_line_numbers = show_line_numbers
         self.layout = self._layout_from_current_screen()
         self.status = Status()
         self.cut_buffer: tuple[str, ...] = ()
@@ -592,6 +594,9 @@ class Screen:
     def lint_next_error(self) -> None:
         self.file.lint_errors.next_error(self)
 
+    def toggle_line_numbers(self) -> None:
+        self.show_line_numbers = not self.show_line_numbers
+
     def _command_w(self, args: list[str]) -> None:
         self.save()
 
@@ -822,6 +827,7 @@ class Screen:
         b'M-u': undo,
         b'M-U': redo,
         b'M-e': redo,
+        b'M-#': toggle_line_numbers,
         b'^W': search,
         b'^\\': replace,
         b'^T': lint,

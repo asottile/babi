@@ -48,8 +48,9 @@ def c_main(
         file_infos: list[FileInfo],
         stdin: str,
         perf: Perf,
+        show_line_numbers: bool = False,
 ) -> int:
-    screen = Screen(stdscr, file_infos, perf)
+    screen = Screen(stdscr, file_infos, perf, show_line_numbers)
 
     def _exit_current() -> None:
         del screen.files[screen.i]
@@ -149,6 +150,11 @@ def _files(filenames: list[str]) -> list[FileInfo]:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument('filenames', metavar='filename', nargs='*')
+    # new argument for line number.
+    parser.add_argument(
+        '-l', '--linenumbers', action='store_true',
+        help='Show line numbers in front of the text',
+    )
     parser.add_argument('--perf-log')
     parser.add_argument(
         '--key-debug', action='store_true', help=argparse.SUPPRESS,
@@ -173,7 +179,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _key_debug(stdscr, perf)
         else:
             file_infos = _files(args.filenames)
-            return c_main(stdscr, file_infos, stdin, perf)
+            show_line_numbers = args.linenumbers
+            return c_main(stdscr, file_infos, stdin, perf, show_line_numbers)
 
 
 if __name__ == '__main__':
