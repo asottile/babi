@@ -26,6 +26,7 @@ def _edit(screen: Screen, stdin: str) -> EditResult:
 
     while True:
         screen.status.tick(screen.layout.file)
+        screen.update_layout()
         screen.draw()
         screen.file.move_cursor(screen.stdscr, screen.layout.file)
 

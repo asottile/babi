@@ -349,6 +349,9 @@ class Screen:
             ),
         )
 
+    def update_layout(self) -> None:
+        self.layout = self._layout_from_current_screen()
+
     def resize(self) -> None:
         curses.update_lines_cols()
         self.layout = self._layout_from_current_screen()
@@ -605,8 +608,6 @@ class Screen:
 
     def toggle_line_numbers(self) -> None:
         self.show_line_numbers = not self.show_line_numbers
-        self.layout = self._layout_from_current_screen()
-        self.draw()
 
     def _command_w(self, args: list[str]) -> None:
         self.save()
