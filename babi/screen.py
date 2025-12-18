@@ -338,7 +338,7 @@ class Screen:
                 x=file_x,
                 y=file_y,
                 width=curses.COLS - file_x,
-                height=file_height
+                height=file_height,
             ),
             status=Dim(x=0, y=status_y, width=curses.COLS, height=1),
             lint_errors=Dim(

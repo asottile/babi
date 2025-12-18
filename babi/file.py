@@ -1037,7 +1037,7 @@ class File:
 
             # show line numbers
             if show_line_numbers:
-                l_no = str(l_y+1).rjust(dim.x)
+                l_no = str(l_y + 1).rjust(dim.x)
                 stdscr.insstr(draw_y, 0, l_no, curses.A_REVERSE)
                 draw_x = dim.x
             else:
@@ -1078,8 +1078,10 @@ class File:
                     else:
                         h_e_x = r_end - l_x
 
-                    stdscr.chgat(draw_y, draw_x + h_s_x,
-                                 h_e_x - h_s_x, region.attr)
+                    stdscr.chgat(
+                        draw_y, draw_x + h_s_x,
+                        h_e_x - h_s_x, region.attr,
+                    )
 
         for i in range(to_display, dim.height):
             stdscr.move(i + dim.y, 0)
