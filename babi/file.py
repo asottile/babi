@@ -780,17 +780,31 @@ class File:
     def uncut(self, cut_buffer: tuple[str, ...], dim: Dim) -> None:
         self._uncut(cut_buffer, dim)
 
+    def _insert_selection(
+        self,
+        lines: tuple[str, ...], dim: Dim,
+    ) -> None:
+        self._uncut(lines, dim)
+        self.buf.up(dim)
+        self.buf.x = len(self.buf[self.buf.y])
+        self.buf[self.buf.y] += self.buf.pop(self.buf.y + 1)
+        self.buf.restore_eof_invariant()
+
     @edit_action('uncut selection', final=True)
     @clear_selection
     def uncut_selection(
             self,
             cut_buffer: tuple[str, ...], dim: Dim,
     ) -> None:
-        self._uncut(cut_buffer, dim)
-        self.buf.up(dim)
-        self.buf.x = len(self.buf[self.buf.y])
-        self.buf[self.buf.y] += self.buf.pop(self.buf.y + 1)
-        self.buf.restore_eof_invariant()
+        self._insert_selection(cut_buffer, dim)
+
+    @edit_action('macro', final=True)
+    @clear_selection
+    def macro(
+        self,
+        lines: tuple[str, ...], dim: Dim,
+    ) -> None:
+        self._insert_selection(lines, dim)
 
     def _sort(self, dim: Dim, s_y: int, e_y: int, reverse: bool) -> None:
         # self.buf intentionally does not support slicing so we use islice

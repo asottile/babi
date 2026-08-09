@@ -33,6 +33,7 @@ from babi.proc import graceful_terminate
 from babi.prompt import Prompt
 from babi.prompt import PromptResult
 from babi.status import Status
+from babi.user_data import xdg_config
 
 VERSION_STR = f'babi v{importlib.metadata.version("babi")}'
 
@@ -666,6 +667,21 @@ class Screen:
         for file in self.files:
             file.reload_theme(self.syntax)
 
+    def _command_macro(self, args: list[str]) -> None:
+        macro_name, = args
+        macros_dir = xdg_config('macros')
+        macro_path = os.path.join(macros_dir, macro_name)
+        try:
+            with open(macro_path) as f:
+                lines = tuple(f.read().splitlines())
+        except FileNotFoundError:
+            self.status.update(f'invalid macro: {macro_name}')
+        except UnicodeDecodeError:
+            self.status.update(f'invalid macro: {macro_name} (not utf-8)')
+        else:
+            self.file.macro(lines, self.layout.file)
+            self.status.update(f'macro {macro_name} inserted!')
+
     COMMANDS = {
         ':qall': Command(lambda self, args: EditResult.EXIT_ALL),
         ':qall!': Command(lambda self, args: EditResult.EXIT_ALL_FORCE),
@@ -682,6 +698,7 @@ class Screen:
         ':comment': Command(_command_comment, nargs='?'),
         ':reload': Command(_command_reload),
         ':retheme': Command(_command_retheme),
+        ':m': Command(_command_macro, nargs=1),
     }
 
     def command(self) -> EditResult | None:
