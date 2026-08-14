@@ -410,6 +410,11 @@ class File:
                     )
             ):
                 self.buf.right(dim)
+        # leading whitespace (including a single tab) lands on the first
+        # non-ws character, matching a space-indented line
+        elif line[:self.buf.x + 1].isspace():
+            while self.buf.x < len(line) and line[self.buf.x].isspace():
+                self.buf.right(dim)
         # if we're inside the line, jump to next position that's not our type
         else:
             self.buf.right(dim)

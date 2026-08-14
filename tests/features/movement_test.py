@@ -343,6 +343,18 @@ def test_ctrl_left_jump_by_word(run, jump_word_file):
         h.await_cursor_position(x=2, y=3)
 
 
+def test_ctrl_right_tab_indent_lands_on_word(run, tmpdir):
+    f = tmpdir.join('f')
+    f.write('\thello world\n    hello world\n')
+    with run(str(f)) as h, and_exit(h):
+        h.press('^Right')
+        h.await_cursor_position(x=4, y=1)
+        h.press('Down')
+        h.press('Home')
+        h.press('^Right')
+        h.await_cursor_position(x=4, y=2)
+
+
 def test_ctrl_right_triggering_scroll(run, jump_word_file):
     with run(str(jump_word_file), height=4) as h, and_exit(h):
         h.press('Down')
