@@ -83,6 +83,7 @@ these are all of the current key bindings in babi
     - <kbd>:reload</kbd>: reload the file contents
     - <kbd>:sort</kbd>: sort the file (or selection)
     - <kbd>:tabsize X</kbd>: set the tabsize
+    - <kbd>:m macroname</kbd>: inserts text from file `~/.config/babi/macros/macroname`
 
 in prompts (search, search replace, command):
 - <kbd>^C</kbd>: cancel
