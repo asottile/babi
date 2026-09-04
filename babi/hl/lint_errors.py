@@ -252,6 +252,9 @@ class LintErrors:
             ch = screen.get_char()
             if ch.keyname == b'KEY_RESIZE':
                 screen.resize()
+            elif ch.keyname == b'RETHEME':
+                screen.retheme()
+                screen.draw()
             elif ch.keyname in {b'^C', b'^X'}:
                 self.set_errors(())
                 screen.resize()

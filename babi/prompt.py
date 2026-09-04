@@ -98,6 +98,10 @@ class Prompt:
     def _resize(self) -> None:
         self._screen.resize()
 
+    def _retheme(self) -> None:
+        self._screen.retheme()
+        self._screen.draw()
+
     def _check_failed(self, idx: int, s: str) -> tuple[bool, int]:
         failed = False
         for search_idx in range(idx, -1, -1):
@@ -165,6 +169,7 @@ class Prompt:
         b'KEY_DC': _delete,
         b'^K': _cut_to_end,
         # misc
+        b'RETHEME': _retheme,
         b'KEY_RESIZE': _resize,
         b'^R': _reverse_search,
         b'^M': _submit,
