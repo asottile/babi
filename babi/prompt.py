@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import curses
 import enum
+import glob
+import os
 from typing import TYPE_CHECKING
 
 from babi.horizontal_scrolling import line_x
@@ -14,12 +16,19 @@ PromptResult = enum.Enum('PromptResult', 'CANCELLED')
 
 
 class Prompt:
-    def __init__(self, screen: Screen, prompt: str, lst: list[str]) -> None:
+    def __init__(
+        self,
+        screen: Screen,
+        prompt: str, lst: list[str],
+        *,
+        file_glob: bool,
+    ) -> None:
         self._screen = screen
         self._prompt = prompt
         self._lst = lst
         self._y = len(lst) - 1
         self._x = len(self._s)
+        self._enable_file_complete = file_glob
 
     @property
     def _s(self) -> str:
@@ -95,6 +104,24 @@ class Prompt:
     def _cut_to_end(self) -> None:
         self._s = self._s[:self._x]
 
+    def _tab(self) -> None:
+        if self._enable_file_complete:
+            self._complete_file()
+
+    def _complete_file(self) -> None:
+        # only allow completion at the end of the prompt or before a separator
+        if self._x != len(self._s) and self._s[self._x] not in ('/', ' '):
+            return
+        partial = self._s[:self._x]
+        completions = glob.glob(f'{partial}*')
+        if not completions:
+            return
+        common = os.path.commonprefix(completions)
+        if not common or common == partial:
+            return
+        self._s = common + self._s[self._x:]  # don't eat text behind cursor
+        self._x = len(common)
+
     def _resize(self) -> None:
         self._screen.resize()
 
@@ -165,6 +192,7 @@ class Prompt:
         b'KEY_DC': _delete,
         b'^K': _cut_to_end,
         # misc
+        b'^I': _tab,
         b'KEY_RESIZE': _resize,
         b'^R': _reverse_search,
         b'^M': _submit,
